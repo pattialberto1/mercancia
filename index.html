@@ -25,6 +25,7 @@
     --ok-soft: #e7f6ec;
     --bad: #b91c1c;
     --bad-soft: #fdeaea;
+    --accent-contrast: #ffffff;
     --shadow: 0 1px 3px rgba(41,37,36,.08);
   }
   @media (prefers-color-scheme: dark) {
@@ -40,6 +41,7 @@
       --ok-soft: #14301d;
       --bad: #f87171;
       --bad-soft: #3a1616;
+      --accent-contrast: #1c1207;
       --shadow: none;
     }
   }
@@ -71,10 +73,9 @@
   }
   .btn-primary {
     display: block; width: 100%; padding: 16px; border-radius: 14px;
-    background: var(--accent); color: #fff; font-size: 17px; font-weight: 700;
+    background: var(--accent); color: var(--accent-contrast); font-size: 17px; font-weight: 700;
     text-align: center;
   }
-  @media (prefers-color-scheme: dark) { .btn-primary { color: #1c1207; } }
   .btn-primary:active { opacity: .85; }
   .btn-secondary {
     display: block; width: 100%; padding: 14px; border-radius: 14px;
@@ -129,9 +130,8 @@
   .inputrow input:focus { border-color: var(--accent); }
   .inputrow button {
     flex: none; padding: 0 22px; border-radius: 12px; background: var(--accent);
-    color: #fff; font-size: 16px; font-weight: 700;
+    color: var(--accent-contrast); font-size: 16px; font-weight: 700;
   }
-  @media (prefers-color-scheme: dark) { .inputrow button { color: #1c1207; } }
   .hint { font-size: 13px; color: var(--muted); margin-top: 8px; text-align: center; }
 
   /* ---- totales ---- */
