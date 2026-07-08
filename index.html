@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mercancía">
+<meta name="theme-color" content="#1c1917" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fbf7f1" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Mercancía · Recepción</title>
+<style>
+  :root {
+    --bg: #fbf7f1;
+    --card: #ffffff;
+    --text: #292524;
+    --muted: #78716c;
+    --line: #e7e0d6;
+    --accent: #b45309;
+    --accent-soft: #fef3e2;
+    --ok: #15803d;
+    --ok-soft: #e7f6ec;
+    --bad: #b91c1c;
+    --bad-soft: #fdeaea;
+    --shadow: 0 1px 3px rgba(41,37,36,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917;
+      --card: #292524;
+      --text: #f5f0e8;
+      --muted: #a8a29e;
+      --line: #3f3a36;
+      --accent: #f59e0b;
+      --accent-soft: #3a2c14;
+      --ok: #4ade80;
+      --ok-soft: #14301d;
+      --bad: #f87171;
+      --bad-soft: #3a1616;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100%;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  main { max-width: 480px; margin: 0 auto; padding: 16px 16px 40px; }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  h2 { font-size: 17px; font-weight: 700; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; touch-action: manipulation; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 16px; gap: 8px; }
+  .iconbtn {
+    width: 40px; height: 40px; border-radius: 12px; background: var(--card);
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); padding: 16px; margin-bottom: 14px;
+  }
+  .btn-primary {
+    display: block; width: 100%; padding: 16px; border-radius: 14px;
+    background: var(--accent); color: #fff; font-size: 17px; font-weight: 700;
+    text-align: center;
+  }
+  @media (prefers-color-scheme: dark) { .btn-primary { color: #1c1207; } }
+  .btn-primary:active { opacity: .85; }
+  .btn-secondary {
+    display: block; width: 100%; padding: 14px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); font-size: 16px; font-weight: 600;
+    text-align: center;
+  }
+  .btn-danger { color: var(--bad); }
+
+  /* ---- lista de recepciones ---- */
+  .rec-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; text-align: left; padding: 14px 16px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); margin-bottom: 10px;
+  }
+  .rec-item:active { background: var(--accent-soft); }
+  .rec-item .kg { font-size: 18px; font-weight: 800; white-space: nowrap; }
+  .rec-item .chev { color: var(--muted); font-size: 18px; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 99px; background: var(--ok-soft); color: var(--ok); margin-left: 6px;
+    vertical-align: 2px;
+  }
+  .badge.open { background: var(--accent-soft); color: var(--accent); }
+  .empty { text-align: center; color: var(--muted); padding: 36px 16px; font-size: 15px; }
+  .empty .big { font-size: 40px; display: block; margin-bottom: 10px; }
+
+  /* ---- pantalla de recepción ---- */
+  .seg {
+    display: flex; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; padding: 3px; margin-bottom: 12px;
+  }
+  .seg button {
+    flex: 1; padding: 10px; border-radius: 9px; font-size: 15px; font-weight: 600; color: var(--muted);
+  }
+  .seg button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); border: 1px solid var(--line); }
+
+  .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .quick button {
+    padding: 16px 4px; border-radius: 12px; background: var(--accent-soft); color: var(--accent);
+    font-size: 19px; font-weight: 800; border: 1px solid transparent;
+  }
+  .quick button:active { border-color: var(--accent); }
+  .quick .unit { display: block; font-size: 11px; font-weight: 600; opacity: .75; }
+
+  .inputrow { display: flex; gap: 8px; }
+  .inputrow input {
+    flex: 1; min-width: 0; font: inherit; font-size: 22px; font-weight: 700; text-align: center;
+    padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); outline: none;
+  }
+  .inputrow input:focus { border-color: var(--accent); }
+  .inputrow button {
+    flex: none; padding: 0 22px; border-radius: 12px; background: var(--accent);
+    color: #fff; font-size: 16px; font-weight: 700;
+  }
+  @media (prefers-color-scheme: dark) { .inputrow button { color: #1c1207; } }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 8px; text-align: center; }
+
+  /* ---- totales ---- */
+  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tot { padding: 4px 0; }
+  .tot .lbl { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .tot .val { font-size: 20px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .net {
+    grid-column: 1 / -1; margin-top: 4px; padding: 12px 14px; border-radius: 12px;
+    background: var(--ok-soft); display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .net .lbl { font-size: 14px; font-weight: 700; color: var(--ok); }
+  .net .val { font-size: 26px; font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }
+
+  /* ---- resumen agrupado y lista ---- */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-size: 14px; font-weight: 700; padding: 6px 12px; border-radius: 99px;
+    background: var(--bg); border: 1px solid var(--line); font-variant-numeric: tabular-nums;
+  }
+  .chip.warn { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+  .entry {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 11px 2px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums;
+  }
+  .entry:last-child { border-bottom: none; }
+  .entry .w { font-size: 17px; font-weight: 700; }
+  .entry .meta { font-size: 13px; color: var(--muted); }
+  .entry .flag { color: var(--bad); font-size: 12px; font-weight: 700; }
+  .entry .del { color: var(--bad); font-size: 14px; font-weight: 600; padding: 6px 10px; }
+  .listhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .listhead .toggle { font-size: 14px; color: var(--accent); font-weight: 600; padding: 4px; }
+
+  /* ---- formularios / ajustes ---- */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; font: inherit; font-size: 17px; padding: 12px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); outline: none;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ---- modal ---- */
+  .modal-back {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none;
+    align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .modal-back.show { display: flex; }
+  .modal {
+    background: var(--card); width: 100%; max-width: 480px;
+    border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  .modal h2 { margin-bottom: 16px; }
+  .modal .actions { display: flex; gap: 10px; margin-top: 8px; }
+  .modal .actions button { flex: 1; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(30px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600;
+    padding: 10px 18px; border-radius: 99px; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; z-index: 60; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <!-- ================= INICIO ================= -->
+  <section id="view-home">
+    <div class="topbar">
+      <div>
+        <h1>🐔 Recepción de pollo</h1>
+        <div class="sub">Mercancía · mi negocio</div>
+      </div>
+      <button class="iconbtn" id="btn-settings" aria-label="Ajustes">⚙️</button>
+    </div>
+    <button class="btn-primary" id="btn-new" style="margin-bottom:18px">+ Nueva recepción</button>
+    <div id="home-list"></div>
+  </section>
+
+  <!-- ================= RECEPCIÓN ================= -->
+  <section id="view-rec" class="hidden">
+    <div class="topbar">
+      <button class="iconbtn" id="btn-back" aria-label="Volver">←</button>
+      <div style="flex:1">
+        <h1 id="rec-title">Recepción</h1>
+        <div class="sub" id="rec-sub"></div>
+      </div>
+      <button class="iconbtn btn-danger" id="btn-del-rec" aria-label="Eliminar">🗑️</button>
+    </div>
+
+    <div class="card" id="entry-card">
+      <div class="seg" id="seg-mode">
+        <button data-mode="2" class="on">2 cestas</button>
+        <button data-mode="1">1 cesta suelta</button>
+      </div>
+      <div class="quick" id="quick-btns"></div>
+      <div class="inputrow">
+        <input id="weight-input" type="text" inputmode="decimal" placeholder="Peso en kg" autocomplete="off">
+        <button id="btn-add">Añadir</button>
+      </div>
+      <div class="hint" id="range-hint"></div>
+    </div>
+
+    <div class="card">
+      <div class="totals">
+        <div class="tot"><div class="lbl">Pesadas</div><div class="val" id="t-pesadas">0</div></div>
+        <div class="tot"><div class="lbl">Cestas</div><div class="val" id="t-cestas">0</div></div>
+        <div class="tot"><div class="lbl">Peso bruto</div><div class="val" id="t-bruto">0 kg</div></div>
+        <div class="tot"><div class="lbl">Tara cestas</div><div class="val" id="t-tara">−0 kg</div></div>
+        <div class="net"><span class="lbl">POLLO NETO</span><span class="val" id="t-neto">0 kg</span></div>
+      </div>
+    </div>
+
+    <div class="card" id="summary-card">
+      <div class="listhead"><h2>Resumen</h2></div>
+      <div class="chips" id="summary-chips"></div>
+    </div>
+
+    <div class="card" id="entries-card">
+      <div class="listhead">
+        <h2>Pesadas</h2>
+        <button class="toggle" id="btn-toggle-list">Ver todas</button>
+      </div>
+      <div id="entries-list"></div>
+    </div>
+
+    <button class="btn-primary" id="btn-share" style="margin-bottom:10px">📋 Copiar resumen</button>
+    <button class="btn-secondary" id="btn-close-rec">Terminar recepción</button>
+  </section>
+</main>
+
+<!-- ================= MODAL AJUSTES ================= -->
+<div class="modal-back" id="modal-settings">
+  <div class="modal">
+    <h2>Ajustes</h2>
+    <div class="field">
+      <label>Peso de cada cesta vacía (tara, kg)</label>
+      <input id="set-tara" type="text" inputmode="decimal">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Mínimo por pesada (2 cestas)</label>
+        <input id="set-min" type="text" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Máximo por pesada (2 cestas)</label>
+        <input id="set-max" type="text" inputmode="decimal">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn-secondary" id="set-cancel">Cancelar</button>
+      <button class="btn-primary" id="set-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL CONFIRMAR ================= -->
+<div class="modal-back" id="modal-confirm">
+  <div class="modal">
+    <h2 id="confirm-title">¿Seguro?</h2>
+    <p class="sub" id="confirm-msg" style="margin-bottom:16px"></p>
+    <div class="actions">
+      <button class="btn-secondary" id="confirm-no">Cancelar</button>
+      <button class="btn-primary" id="confirm-yes">Sí, continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ============ almacenamiento ============ */
+const STORE_KEY = 'mercancia.v1';
+const defaults = { settings: { tara: 2.3, min: 68, max: 71 }, recepciones: [] };
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return structuredClone(defaults);
+    const d = JSON.parse(raw);
+    d.settings = Object.assign({}, defaults.settings, d.settings);
+    d.recepciones = d.recepciones || [];
+    return d;
+  } catch { return structuredClone(defaults); }
+}
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(db)); }
+
+let db = load();
+let current = null;        // recepción abierta en pantalla
+let mode = 2;              // 2 cestas o 1 cesta
+let showAllEntries = false;
+
+/* ============ utilidades ============ */
+const $ = id => document.getElementById(id);
+function parseNum(s) {
+  if (typeof s !== 'string') return NaN;
+  s = s.trim().replace(',', '.');
+  if (!s || !/^\d+(\.\d+)?$/.test(s)) return NaN;
+  return parseFloat(s);
+}
+function fmt(n, dec) {
+  const d = dec !== undefined ? dec : (Math.abs(n % 1) > 1e-9 ? 1 : 0);
+  return n.toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: Math.max(d, 2) });
+}
+function fmtKg(n) { return fmt(round1(n)) + ' kg'; }
+function round1(n) { return Math.round(n * 10) / 10; }
+function fmtDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+function todayISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(() => t.classList.remove('show'), 1800);
+}
+let confirmCb = null;
+function askConfirm(title, msg, cb) {
+  $('confirm-title').textContent = title;
+  $('confirm-msg').textContent = msg;
+  confirmCb = cb;
+  $('modal-confirm').classList.add('show');
+}
+$('confirm-no').onclick = () => { $('modal-confirm').classList.remove('show'); confirmCb = null; };
+$('confirm-yes').onclick = () => { $('modal-confirm').classList.remove('show'); const cb = confirmCb; confirmCb = null; if (cb) cb(); };
+
+/* ============ cálculos ============ */
+function totals(rec) {
+  let pesadas = rec.pesadas.length, cestas = 0, bruto = 0;
+  for (const p of rec.pesadas) { cestas += p.cestas; bruto += p.peso; }
+  const tara = cestas * rec.tara;
+  return { pesadas, cestas, bruto, tara, neto: bruto - tara };
+}
+function inRange(peso, cestas, rec) {
+  const min = cestas === 2 ? rec.min : rec.min / 2;
+  const max = cestas === 2 ? rec.max : rec.max / 2;
+  return peso >= min && peso <= max;
+}
+
+/* ============ vistas ============ */
+function show(view) {
+  $('view-home').classList.toggle('hidden', view !== 'home');
+  $('view-rec').classList.toggle('hidden', view !== 'rec');
+  window.scrollTo(0, 0);
+}
+
+function renderHome() {
+  const list = $('home-list');
+  if (!db.recepciones.length) {
+    list.innerHTML = '<div class="empty"><span class="big">🐔</span>Todavía no hay recepciones.<br>Pulsa «Nueva recepción» para empezar.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  const recs = [...db.recepciones].sort((a, b) => b.creada - a.creada);
+  for (const rec of recs) {
+    const t = totals(rec);
+    const btn = document.createElement('button');
+    btn.className = 'rec-item';
+    btn.innerHTML =
+      '<div><div style="font-weight:700">' + fmtDate(rec.fecha) +
+      (rec.cerrada ? '<span class="badge">terminada</span>' : '<span class="badge open">abierta</span>') +
+      '</div><div class="meta sub">' + t.pesadas + ' pesadas · ' + t.cestas + ' cestas</div></div>' +
+      '<div style="display:flex;align-items:center;gap:8px"><span class="kg">' + fmtKg(t.neto) + '</span><span class="chev">›</span></div>';
+    btn.onclick = () => openRec(rec.id);
+    list.appendChild(btn);
+  }
+}
+
+function openRec(id) {
+  current = db.recepciones.find(r => r.id === id);
+  if (!current) return;
+  mode = 2;
+  showAllEntries = false;
+  $('weight-input').value = '';
+  renderRec();
+  show('rec');
+}
+
+function renderRec() {
+  const rec = current;
+  const t = totals(rec);
+  $('rec-title').textContent = 'Pollo · ' + fmtDate(rec.fecha);
+  $('rec-sub').textContent = rec.cerrada
+    ? 'Recepción terminada'
+    : 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · rango ' + fmt(rec.min) + '–' + fmt(rec.max) + ' kg';
+
+  // modo entrada
+  $('entry-card').classList.toggle('hidden', rec.cerrada);
+  $('btn-close-rec').textContent = rec.cerrada ? 'Reabrir recepción' : 'Terminar recepción';
+  for (const b of $('seg-mode').querySelectorAll('button'))
+    b.classList.toggle('on', +b.dataset.mode === mode);
+
+  // botones rápidos (solo enteros del rango, modo 2 cestas)
+  const qb = $('quick-btns');
+  qb.innerHTML = '';
+  if (mode === 2) {
+    const lo = Math.ceil(rec.min), hi = Math.floor(rec.max);
+    const vals = [];
+    for (let v = lo; v <= hi && vals.length < 8; v++) vals.push(v);
+    qb.style.gridTemplateColumns = 'repeat(' + Math.max(vals.length, 1) + ', 1fr)';
+    for (const v of vals) {
+      const b = document.createElement('button');
+      b.innerHTML = fmt(v) + '<span class="unit">kg</span>';
+      b.onclick = () => addEntry(v, 2);
+      qb.appendChild(b);
+    }
+    qb.classList.remove('hidden');
+    $('range-hint').textContent = 'Cada pesada de 2 cestas debe pesar entre ' + fmt(rec.min) + ' y ' + fmt(rec.max) + ' kg.';
+  } else {
+    qb.classList.add('hidden');
+    $('range-hint').textContent = 'Cesta suelta: entre ' + fmt(rec.min / 2, 1) + ' y ' + fmt(rec.max / 2, 1) + ' kg.';
+  }
+
+  // totales
+  $('t-pesadas').textContent = t.pesadas;
+  $('t-cestas').textContent = t.cestas;
+  $('t-bruto').textContent = fmtKg(t.bruto);
+  $('t-tara').textContent = '−' + fmtKg(t.tara);
+  $('t-neto').textContent = fmtKg(t.neto);
+
+  // resumen agrupado
+  const groups = new Map();
+  for (const p of rec.pesadas) {
+    const key = p.peso + '|' + p.cestas;
+    groups.set(key, (groups.get(key) || 0) + 1);
+  }
+  const chips = $('summary-chips');
+  chips.innerHTML = '';
+  if (!groups.size) {
+    chips.innerHTML = '<span class="sub">Sin pesadas todavía.</span>';
+  } else {
+    const sorted = [...groups.entries()].sort((a, b) => b[1] - a[1]);
+    for (const [key, count] of sorted) {
+      const [peso, cestas] = key.split('|').map(Number);
+      const el = document.createElement('span');
+      el.className = 'chip' + (inRange(peso, cestas, rec) ? '' : ' warn');
+      el.textContent = count + ' × ' + fmt(peso) + ' kg' + (cestas === 1 ? ' (1 cesta)' : '');
+      chips.appendChild(el);
+    }
+  }
+
+  // lista de pesadas
+  const list = $('entries-list');
+  list.innerHTML = '';
+  const items = [...rec.pesadas].reverse();
+  const shown = showAllEntries ? items : items.slice(0, 5);
+  $('btn-toggle-list').classList.toggle('hidden', items.length <= 5);
+  $('btn-toggle-list').textContent = showAllEntries ? 'Ver menos' : 'Ver todas (' + items.length + ')';
+  if (!items.length) list.innerHTML = '<div class="sub" style="padding:6px 0">Aquí aparecerá cada pesada que registres.</div>';
+  for (const p of shown) {
+    const idx = rec.pesadas.indexOf(p);
+    const row = document.createElement('div');
+    row.className = 'entry';
+    row.innerHTML =
+      '<div><span class="w">' + fmt(p.peso) + ' kg</span> ' +
+      '<span class="meta">· ' + (p.cestas === 2 ? '2 cestas' : '1 cesta') + ' · #' + (idx + 1) + '</span>' +
+      (inRange(p.peso, p.cestas, rec) ? '' : ' <span class="flag">fuera de rango</span>') + '</div>' +
+      (rec.cerrada ? '' : '<button class="del">Borrar</button>');
+    const del = row.querySelector('.del');
+    if (del) del.onclick = () => {
+      rec.pesadas.splice(idx, 1);
+      save(); renderRec();
+      toast('Pesada eliminada');
+    };
+    list.appendChild(row);
+  }
+}
+
+/* ============ acciones ============ */
+$('btn-new').onclick = () => {
+  const rec = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    fecha: todayISO(),
+    creada: Date.now(),
+    cerrada: false,
+    tara: db.settings.tara,
+    min: db.settings.min,
+    max: db.settings.max,
+    pesadas: []
+  };
+  db.recepciones.push(rec);
+  save();
+  openRec(rec.id);
+};
+
+$('btn-back').onclick = () => { current = null; renderHome(); show('home'); };
+
+$('seg-mode').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mode = +b.dataset.mode;
+  renderRec();
+});
+
+function addEntry(peso, cestas) {
+  const rec = current;
+  if (!rec || rec.cerrada) return;
+  const doAdd = () => {
+    rec.pesadas.push({ peso, cestas, ts: Date.now() });
+    save();
+    $('weight-input').value = '';
+    renderRec();
+    toast('✓ ' + fmt(peso) + ' kg añadidos');
+    if (navigator.vibrate) navigator.vibrate(15);
+  };
+  if (!inRange(peso, cestas, rec)) {
+    const min = cestas === 2 ? rec.min : rec.min / 2;
+    const max = cestas === 2 ? rec.max : rec.max / 2;
+    askConfirm('Peso fuera de rango',
+      fmt(peso) + ' kg está fuera del rango permitido (' + fmt(min, 1) + '–' + fmt(max, 1) + ' kg' +
+      (cestas === 2 ? ' por 2 cestas' : ' por cesta') + '). ¿Registrarlo de todas formas?',
+      doAdd);
+    return;
+  }
+  doAdd();
+}
+
+$('btn-add').onclick = () => {
+  const v = parseNum($('weight-input').value);
+  if (isNaN(v) || v <= 0) { toast('Escribe un peso válido'); return; }
+  if (v > 500) { toast('Ese peso no parece correcto'); return; }
+  addEntry(v, mode);
+};
+$('weight-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-add').click(); });
+
+$('btn-toggle-list').onclick = () => { showAllEntries = !showAllEntries; renderRec(); };
+
+$('btn-close-rec').onclick = () => {
+  const rec = current;
+  if (rec.cerrada) {
+    rec.cerrada = false;
+    save(); renderRec();
+    toast('Recepción reabierta');
+  } else {
+    askConfirm('Terminar recepción',
+      'Se guardará con ' + fmtKg(totals(rec).neto) + ' de pollo neto. Podrás reabrirla si lo necesitas.',
+      () => { rec.cerrada = true; save(); renderRec(); toast('Recepción terminada'); });
+  }
+};
+
+$('btn-del-rec').onclick = () => {
+  askConfirm('Eliminar recepción',
+    'Se borrará esta recepción y todas sus pesadas. Esta acción no se puede deshacer.',
+    () => {
+      db.recepciones = db.recepciones.filter(r => r.id !== current.id);
+      save();
+      current = null;
+      renderHome(); show('home');
+      toast('Recepción eliminada');
+    });
+};
+
+$('btn-share').onclick = async () => {
+  const rec = current;
+  const t = totals(rec);
+  const groups = new Map();
+  for (const p of rec.pesadas) {
+    const key = fmt(p.peso) + ' kg' + (p.cestas === 1 ? ' (1 cesta)' : '');
+    groups.set(key, (groups.get(key) || 0) + 1);
+  }
+  let txt = '🐔 Recepción de pollo — ' + fmtDate(rec.fecha) + '\n';
+  for (const [k, c] of groups) txt += '• ' + c + ' × ' + k + '\n';
+  txt += 'Pesadas: ' + t.pesadas + ' · Cestas: ' + t.cestas + '\n';
+  txt += 'Bruto: ' + fmtKg(t.bruto) + '\n';
+  txt += 'Tara (' + t.cestas + ' × ' + fmt(rec.tara, 1) + ' kg): −' + fmtKg(t.tara) + '\n';
+  txt += 'POLLO NETO: ' + fmtKg(t.neto);
+  try {
+    if (navigator.share) { await navigator.share({ text: txt }); return; }
+    await navigator.clipboard.writeText(txt);
+    toast('Resumen copiado');
+  } catch (e) {
+    if (e.name !== 'AbortError') toast('No se pudo compartir');
+  }
+};
+
+/* ============ ajustes ============ */
+$('btn-settings').onclick = () => {
+  $('set-tara').value = fmt(db.settings.tara, 1);
+  $('set-min').value = fmt(db.settings.min);
+  $('set-max').value = fmt(db.settings.max);
+  $('modal-settings').classList.add('show');
+};
+$('set-cancel').onclick = () => $('modal-settings').classList.remove('show');
+$('set-save').onclick = () => {
+  const tara = parseNum($('set-tara').value);
+  const min = parseNum($('set-min').value);
+  const max = parseNum($('set-max').value);
+  if (isNaN(tara) || tara <= 0 || isNaN(min) || min <= 0 || isNaN(max) || max <= min) {
+    toast('Revisa los valores'); return;
+  }
+  db.settings = { tara, min, max };
+  save();
+  $('modal-settings').classList.remove('show');
+  toast('Ajustes guardados');
+  // los ajustes nuevos aplican a las próximas recepciones
+};
+
+for (const id of ['modal-settings', 'modal-confirm']) {
+  $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
+}
+
+/* ============ arranque ============ */
+renderHome();
+show('home');
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
