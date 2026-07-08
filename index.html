@@ -165,6 +165,28 @@
   .listhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .listhead .toggle { font-size: 14px; color: var(--accent); font-weight: 600; padding: 4px; }
 
+  /* ---- cestas vacías ---- */
+  .stepper { display: flex; gap: 8px; align-items: stretch; }
+  .stepper button {
+    flex: none; width: 64px; border-radius: 12px; background: var(--accent-soft);
+    color: var(--accent); font-size: 26px; font-weight: 800; border: 1px solid transparent;
+  }
+  .stepper button:active { border-color: var(--accent); }
+  .stepper button:disabled { opacity: .4; }
+  .stepper input {
+    flex: 1; min-width: 0; font: inherit; font-size: 24px; font-weight: 800; text-align: center;
+    padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); outline: none; font-variant-numeric: tabular-nums;
+  }
+  .stepper input:focus { border-color: var(--accent); }
+
+  .btn-wa {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 16px; border-radius: 14px;
+    background: #1da851; color: #fff; font-size: 17px; font-weight: 700;
+  }
+  .btn-wa:active { opacity: .85; }
+
   /* ---- formularios / ajustes ---- */
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
@@ -233,7 +255,7 @@
       </div>
       <div class="quick" id="quick-btns"></div>
       <div class="inputrow">
-        <input id="weight-input" type="text" inputmode="decimal" placeholder="Peso en kg" autocomplete="off">
+        <input id="weight-input" type="text" inputmode="numeric" placeholder="Peso en kg" autocomplete="off">
         <button id="btn-add">Añadir</button>
       </div>
       <div class="hint" id="range-hint"></div>
@@ -262,7 +284,18 @@
       <div id="entries-list"></div>
     </div>
 
-    <button class="btn-primary" id="btn-share" style="margin-bottom:10px">📋 Copiar resumen</button>
+    <div class="card">
+      <h2>🧺 Cestas vacías</h2>
+      <div class="sub" style="margin-bottom:12px">Cestas vacías que se lleva el proveedor</div>
+      <div class="stepper">
+        <button id="emp-minus" aria-label="Quitar una cesta">−</button>
+        <input id="emp-input" type="text" inputmode="numeric" autocomplete="off">
+        <button id="emp-plus" aria-label="Añadir una cesta">+</button>
+      </div>
+    </div>
+
+    <button class="btn-wa" id="btn-wa" style="margin-bottom:10px">📲 Enviar por WhatsApp</button>
+    <button class="btn-secondary" id="btn-share" style="margin-bottom:10px">📋 Copiar resumen</button>
     <button class="btn-secondary" id="btn-close-rec">Terminar recepción</button>
   </section>
 </main>
@@ -283,6 +316,16 @@
       <div class="field">
         <label>Máximo por pesada (2 cestas)</label>
         <input id="set-max" type="text" inputmode="decimal">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Mínimo cesta suelta</label>
+        <input id="set-min1" type="text" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Máximo cesta suelta</label>
+        <input id="set-max1" type="text" inputmode="decimal">
       </div>
     </div>
     <div class="actions">
@@ -310,7 +353,7 @@
 'use strict';
 /* ============ almacenamiento ============ */
 const STORE_KEY = 'mercancia.v1';
-const defaults = { settings: { tara: 2.3, min: 68, max: 71 }, recepciones: [] };
+const defaults = { settings: { tara: 2.3, min: 68, max: 71, min1: 32, max1: 37 }, recepciones: [] };
 
 function load() {
   try {
@@ -375,9 +418,11 @@ function totals(rec) {
   const tara = cestas * rec.tara;
   return { pesadas, cestas, bruto, tara, neto: bruto - tara };
 }
+function rango(cestas, rec) {
+  return cestas === 2 ? [rec.min, rec.max] : [rec.min1 ?? 32, rec.max1 ?? 37];
+}
 function inRange(peso, cestas, rec) {
-  const min = cestas === 2 ? rec.min : rec.min / 2;
-  const max = cestas === 2 ? rec.max : rec.max / 2;
+  const [min, max] = rango(cestas, rec);
   return peso >= min && peso <= max;
 }
 
@@ -452,7 +497,8 @@ function renderRec() {
     $('range-hint').textContent = 'Cada pesada de 2 cestas debe pesar entre ' + fmt(rec.min) + ' y ' + fmt(rec.max) + ' kg.';
   } else {
     qb.classList.add('hidden');
-    $('range-hint').textContent = 'Cesta suelta: entre ' + fmt(rec.min / 2, 1) + ' y ' + fmt(rec.max / 2, 1) + ' kg.';
+    const [lo1, hi1] = rango(1, rec);
+    $('range-hint').textContent = 'Cesta suelta: entre ' + fmt(lo1) + ' y ' + fmt(hi1) + ' kg.';
   }
 
   // totales
@@ -482,6 +528,12 @@ function renderRec() {
       chips.appendChild(el);
     }
   }
+
+  // cestas vacías que se lleva el proveedor
+  $('emp-input').value = rec.cestasVacias || 0;
+  $('emp-input').disabled = rec.cerrada;
+  $('emp-minus').disabled = rec.cerrada;
+  $('emp-plus').disabled = rec.cerrada;
 
   // lista de pesadas
   const list = $('entries-list');
@@ -520,6 +572,9 @@ $('btn-new').onclick = () => {
     tara: db.settings.tara,
     min: db.settings.min,
     max: db.settings.max,
+    min1: db.settings.min1,
+    max1: db.settings.max1,
+    cestasVacias: 0,
     pesadas: []
   };
   db.recepciones.push(rec);
@@ -548,10 +603,9 @@ function addEntry(peso, cestas) {
     if (navigator.vibrate) navigator.vibrate(15);
   };
   if (!inRange(peso, cestas, rec)) {
-    const min = cestas === 2 ? rec.min : rec.min / 2;
-    const max = cestas === 2 ? rec.max : rec.max / 2;
+    const [min, max] = rango(cestas, rec);
     askConfirm('Peso fuera de rango',
-      fmt(peso) + ' kg está fuera del rango permitido (' + fmt(min, 1) + '–' + fmt(max, 1) + ' kg' +
+      fmt(peso) + ' kg está fuera del rango permitido (' + fmt(min) + '–' + fmt(max) + ' kg' +
       (cestas === 2 ? ' por 2 cestas' : ' por cesta') + '). ¿Registrarlo de todas formas?',
       doAdd);
     return;
@@ -560,8 +614,10 @@ function addEntry(peso, cestas) {
 }
 
 $('btn-add').onclick = () => {
-  const v = parseNum($('weight-input').value);
-  if (isNaN(v) || v <= 0) { toast('Escribe un peso válido'); return; }
+  const s = $('weight-input').value.trim();
+  if (!/^\d+$/.test(s)) { toast('Solo números enteros, sin decimales'); return; }
+  const v = parseInt(s, 10);
+  if (v <= 0) { toast('Escribe un peso válido'); return; }
   if (v > 500) { toast('Ese peso no parece correcto'); return; }
   addEntry(v, mode);
 };
@@ -594,34 +650,62 @@ $('btn-del-rec').onclick = () => {
     });
 };
 
-$('btn-share').onclick = async () => {
-  const rec = current;
+/* ============ resumen para compartir ============ */
+function buildResumen(rec) {
   const t = totals(rec);
   const groups = new Map();
   for (const p of rec.pesadas) {
     const key = fmt(p.peso) + ' kg' + (p.cestas === 1 ? ' (1 cesta)' : '');
     groups.set(key, (groups.get(key) || 0) + 1);
   }
-  let txt = '🐔 Recepción de pollo — ' + fmtDate(rec.fecha) + '\n';
-  for (const [k, c] of groups) txt += '• ' + c + ' × ' + k + '\n';
-  txt += 'Pesadas: ' + t.pesadas + ' · Cestas: ' + t.cestas + '\n';
-  txt += 'Bruto: ' + fmtKg(t.bruto) + '\n';
+  let txt = '🐔 *RECEPCIÓN DE POLLO*\n📅 ' + fmtDate(rec.fecha) + '\n';
+  txt += '\n*Pesadas:*\n';
+  if (groups.size) {
+    for (const [k, c] of groups) txt += '• ' + c + ' × ' + k + '\n';
+  } else {
+    txt += '• (sin pesadas)\n';
+  }
+  txt += '\nCestas recibidas: ' + t.cestas + '\n';
+  txt += 'Peso bruto: ' + fmtKg(t.bruto) + '\n';
   txt += 'Tara (' + t.cestas + ' × ' + fmt(rec.tara, 1) + ' kg): −' + fmtKg(t.tara) + '\n';
-  txt += 'POLLO NETO: ' + fmtKg(t.neto);
+  txt += '✅ *POLLO NETO: ' + fmtKg(t.neto) + '*\n';
+  txt += '\n🧺 Cestas vacías que se lleva el proveedor: ' + (rec.cestasVacias || 0);
+  return txt;
+}
+
+$('btn-wa').onclick = () => {
+  window.open('https://wa.me/?text=' + encodeURIComponent(buildResumen(current)), '_blank');
+};
+
+$('btn-share').onclick = async () => {
   try {
-    if (navigator.share) { await navigator.share({ text: txt }); return; }
-    await navigator.clipboard.writeText(txt);
+    await navigator.clipboard.writeText(buildResumen(current));
     toast('Resumen copiado');
-  } catch (e) {
-    if (e.name !== 'AbortError') toast('No se pudo compartir');
+  } catch {
+    toast('No se pudo copiar');
   }
 };
+
+/* ============ cestas vacías ============ */
+function setEmpties(n) {
+  if (!current || current.cerrada) return;
+  current.cestasVacias = Math.max(0, Math.min(999, n));
+  save(); renderRec();
+}
+$('emp-minus').onclick = () => setEmpties((current.cestasVacias || 0) - 1);
+$('emp-plus').onclick = () => setEmpties((current.cestasVacias || 0) + 1);
+$('emp-input').addEventListener('change', e => {
+  const s = e.target.value.trim();
+  setEmpties(/^\d+$/.test(s) ? parseInt(s, 10) : 0);
+});
 
 /* ============ ajustes ============ */
 $('btn-settings').onclick = () => {
   $('set-tara').value = fmt(db.settings.tara, 1);
   $('set-min').value = fmt(db.settings.min);
   $('set-max').value = fmt(db.settings.max);
+  $('set-min1').value = fmt(db.settings.min1);
+  $('set-max1').value = fmt(db.settings.max1);
   $('modal-settings').classList.add('show');
 };
 $('set-cancel').onclick = () => $('modal-settings').classList.remove('show');
@@ -629,10 +713,13 @@ $('set-save').onclick = () => {
   const tara = parseNum($('set-tara').value);
   const min = parseNum($('set-min').value);
   const max = parseNum($('set-max').value);
-  if (isNaN(tara) || tara <= 0 || isNaN(min) || min <= 0 || isNaN(max) || max <= min) {
+  const min1 = parseNum($('set-min1').value);
+  const max1 = parseNum($('set-max1').value);
+  if (isNaN(tara) || tara <= 0 || isNaN(min) || min <= 0 || isNaN(max) || max <= min ||
+      isNaN(min1) || min1 <= 0 || isNaN(max1) || max1 <= min1) {
     toast('Revisa los valores'); return;
   }
-  db.settings = { tara, min, max };
+  db.settings = { tara, min, max, min1, max1 };
   save();
   $('modal-settings').classList.remove('show');
   toast('Ajustes guardados');

@@ -5,12 +5,13 @@ Esta primera versión cubre la **recepción de pollo**; más adelante se irán a
 
 ## Cómo funciona la recepción de pollo
 
-- El pollo llega en cestas y se pesa **de 2 en 2 cestas**.
+- El pollo llega en cestas y se pesa **de 2 en 2 cestas**. Los pesos se anotan en **kg enteros**.
 - Cada pesada de 2 cestas debe estar entre **68 y 71 kg** (configurable en Ajustes ⚙️).
   Si una pesada queda fuera del rango, la app avisa y pide confirmación antes de anotarla.
-- Si sobra una **cesta suelta**, se registra con el modo "1 cesta" (rango 34–35,5 kg).
+- Si sobra una **cesta suelta**, se registra con el modo "1 cesta" (rango 32–37 kg, configurable).
 - La app suma todas las pesadas (peso bruto), cuenta las cestas y descuenta la **tara**:
   cada cesta vacía pesa **2,3 kg** (también configurable).
+- Se anota también cuántas **cestas vacías se lleva el proveedor**, y sale en el resumen.
 
 **Pollo neto = peso bruto − (nº de cestas × 2,3 kg)**
 
@@ -24,8 +25,10 @@ Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 - Totales en vivo: pesadas, cestas, bruto, tara y pollo neto.
 - Resumen agrupado (ej. "13 × 69 kg") y lista de pesadas con opción de borrar.
 - Historial de recepciones guardado en el propio teléfono (funciona sin internet).
-- Botón "Copiar resumen" para compartir el parte del día por WhatsApp, etc.
-- Ajustes: tara por cesta y rango mínimo/máximo por pesada.
+- Contador de cestas vacías que se lleva el proveedor.
+- Botón "Enviar por WhatsApp": abre WhatsApp con el parte del día ya escrito, listo
+  para elegir el contacto y enviarlo. También hay botón para copiar el resumen.
+- Ajustes: tara por cesta y rangos mínimo/máximo (2 cestas y cesta suelta).
 
 ## Cómo instalarla en el iPhone
 
