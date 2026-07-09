@@ -113,6 +113,13 @@
   }
   .seg button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); border: 1px solid var(--line); }
   .seg-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  #home-tabs button { font-size: 16px; padding: 12px; }
+  .syncline {
+    display: block; width: 100%; text-align: center; font-size: 13px; font-weight: 600;
+    color: var(--muted); padding: 8px 4px 12px;
+  }
+  .syncline.err { color: var(--bad); }
+  .syncline.ok { color: var(--ok); }
 
   .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
   .quick button {
@@ -234,8 +241,12 @@
       </div>
       <button class="iconbtn" id="btn-settings" aria-label="Ajustes">⚙️</button>
     </div>
-    <button class="btn-primary" id="btn-new-pollo" style="margin-bottom:10px">🐔 Nueva recepción de pollo</button>
-    <button class="btn-primary" id="btn-new-papas" style="margin-bottom:18px">🥔 Nueva recepción de papas</button>
+    <div class="seg" id="home-tabs">
+      <button data-t="pollo" class="on">🐔 Pollo</button>
+      <button data-t="papas">🥔 Papas</button>
+    </div>
+    <button class="btn-primary" id="btn-new" style="margin:14px 0 4px">🐔 Nueva recepción de pollo</button>
+    <button class="syncline" id="sync-status">☁️ Sincronización no configurada — toca aquí</button>
     <div id="home-list"></div>
   </section>
 
@@ -340,6 +351,11 @@
         <input id="set-max1" type="text" inputmode="decimal">
       </div>
     </div>
+    <div class="field">
+      <label>Código de sincronización</label>
+      <input id="set-token" type="password" placeholder="github_pat_…" autocomplete="off">
+      <div class="sub" style="margin-top:6px">Pega el mismo código en cada teléfono para compartir los datos entre todos. Vacío = solo este teléfono.</div>
+    </div>
     <div class="actions">
       <button class="btn-secondary" id="set-cancel">Cancelar</button>
       <button class="btn-primary" id="set-save">Guardar</button>
@@ -365,7 +381,7 @@
 'use strict';
 /* ============ almacenamiento ============ */
 const STORE_KEY = 'mercancia.v1';
-const defaults = { settings: { tara: 2.3, min: 68, max: 71, min1: 32, max1: 37 }, recepciones: [] };
+const defaults = { settings: { tara: 2.3, min: 68, max: 71, min1: 32, max1: 37, syncToken: '' }, recepciones: [], borradas: {} };
 
 const PRODUCTOS = {
   pollo: { emoji: '🐔', nombre: 'Pollo', neto: 'POLLO NETO' },
@@ -379,16 +395,24 @@ function load() {
     const d = JSON.parse(raw);
     d.settings = Object.assign({}, defaults.settings, d.settings);
     d.recepciones = d.recepciones || [];
+    d.borradas = d.borradas || {};
     for (const r of d.recepciones) if (!r.tipo) r.tipo = 'pollo';
     return d;
   } catch { return structuredClone(defaults); }
 }
-function save() { localStorage.setItem(STORE_KEY, JSON.stringify(db)); }
+// pushChanges=false cuando el cambio viene de la propia sincronización
+function save(pushChanges) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(db));
+  if (pushChanges !== false) schedulePush();
+}
+// marca una recepción como modificada, para que gane al sincronizar
+function touch(rec) { rec.mod = Date.now(); }
 
 let db = load();
 let current = null;        // recepción abierta en pantalla
 let mode = 2;              // cestas por pesada (pollo: 2 o 1 · papas: 1 a 5)
 let showAllEntries = false;
+let homeTab = 'pollo';     // pestaña activa en inicio
 
 /* ============ utilidades ============ */
 const $ = id => document.getElementById(id);
@@ -453,13 +477,19 @@ function show(view) {
 }
 
 function renderHome() {
+  const P = PRODUCTOS[homeTab];
+  for (const b of $('home-tabs').querySelectorAll('button'))
+    b.classList.toggle('on', b.dataset.t === homeTab);
+  $('btn-new').textContent = P.emoji + ' Nueva recepción de ' + P.nombre.toLowerCase();
+
   const list = $('home-list');
-  if (!db.recepciones.length) {
-    list.innerHTML = '<div class="empty"><span class="big">🐔</span>Todavía no hay recepciones.<br>Pulsa «Nueva recepción» para empezar.</div>';
+  const recs = db.recepciones.filter(r => (r.tipo || 'pollo') === homeTab).sort((a, b) => b.creada - a.creada);
+  if (!recs.length) {
+    list.innerHTML = '<div class="empty"><span class="big">' + P.emoji + '</span>Todavía no hay recepciones de ' +
+      P.nombre.toLowerCase() + '.<br>Pulsa «Nueva recepción» para empezar.</div>';
     return;
   }
   list.innerHTML = '';
-  const recs = [...db.recepciones].sort((a, b) => b.creada - a.creada);
   for (const rec of recs) {
     const t = totals(rec);
     const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
@@ -589,6 +619,7 @@ function renderRec() {
     const del = row.querySelector('.del');
     if (del) del.onclick = () => {
       rec.pesadas.splice(idx, 1);
+      touch(rec);
       save(); renderRec();
       toast('Pesada eliminada');
     };
@@ -612,12 +643,19 @@ function nuevaRecepcion(tipo) {
     cestasVacias: 0,
     pesadas: []
   };
+  touch(rec);
   db.recepciones.push(rec);
   save();
   openRec(rec.id);
 }
-$('btn-new-pollo').onclick = () => nuevaRecepcion('pollo');
-$('btn-new-papas').onclick = () => nuevaRecepcion('papas');
+$('btn-new').onclick = () => nuevaRecepcion(homeTab);
+
+$('home-tabs').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  homeTab = b.dataset.t;
+  renderHome();
+});
 
 $('btn-back').onclick = () => { current = null; renderHome(); show('home'); };
 
@@ -640,6 +678,7 @@ function addEntry(peso, cestas) {
   if (!rec || rec.cerrada) return;
   const doAdd = () => {
     rec.pesadas.push({ peso, cestas, ts: Date.now() });
+    touch(rec);
     save();
     $('weight-input').value = '';
     renderRec();
@@ -682,12 +721,13 @@ $('btn-close-rec').onclick = () => {
   const rec = current;
   if (rec.cerrada) {
     rec.cerrada = false;
+    touch(rec);
     save(); renderRec();
     toast('Recepción reabierta');
   } else {
     askConfirm('Terminar recepción',
       'Se guardará con ' + fmtKg(totals(rec).neto) + ' de ' + (PRODUCTOS[rec.tipo] || PRODUCTOS.pollo).nombre.toLowerCase() + ' neto. Podrás reabrirla si lo necesitas.',
-      () => { rec.cerrada = true; save(); renderRec(); toast('Recepción terminada'); });
+      () => { rec.cerrada = true; touch(rec); save(); renderRec(); toast('Recepción terminada'); });
   }
 };
 
@@ -695,6 +735,7 @@ $('btn-del-rec').onclick = () => {
   askConfirm('Eliminar recepción',
     'Se borrará esta recepción y todas sus pesadas. Esta acción no se puede deshacer.',
     () => {
+      db.borradas[current.id] = Date.now();  // para que también se borre en los demás teléfonos
       db.recepciones = db.recepciones.filter(r => r.id !== current.id);
       save();
       current = null;
@@ -750,6 +791,7 @@ $('btn-share').onclick = async () => {
 function setEmpties(n) {
   if (!current || current.cerrada) return;
   current.cestasVacias = Math.max(0, Math.min(999, n));
+  touch(current);
   save(); renderRec();
 }
 $('emp-minus').onclick = () => setEmpties((current.cestasVacias || 0) - 1);
@@ -766,6 +808,7 @@ $('btn-settings').onclick = () => {
   $('set-max').value = fmt(db.settings.max);
   $('set-min1').value = fmt(db.settings.min1);
   $('set-max1').value = fmt(db.settings.max1);
+  $('set-token').value = db.settings.syncToken || '';
   $('modal-settings').classList.add('show');
 };
 $('set-cancel').onclick = () => $('modal-settings').classList.remove('show');
@@ -779,20 +822,197 @@ $('set-save').onclick = () => {
       isNaN(min1) || min1 <= 0 || isNaN(max1) || max1 <= min1) {
     toast('Revisa los valores'); return;
   }
-  db.settings = { tara, min, max, min1, max1 };
-  save();
+  const tokenNuevo = $('set-token').value.trim();
+  const tokenCambio = tokenNuevo !== (db.settings.syncToken || '');
+  db.settings = { tara, min, max, min1, max1, syncToken: tokenNuevo };
+  save(false);
   $('modal-settings').classList.remove('show');
   toast('Ajustes guardados');
-  // los ajustes nuevos aplican a las próximas recepciones
+  // los ajustes de pesos aplican a las próximas recepciones
+  if (tokenCambio) syncNow();
 };
 
 for (const id of ['modal-settings', 'modal-confirm']) {
   $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
 }
 
+/* ============ sincronización entre teléfonos ============
+   Los datos se guardan en un archivo (datos.json) dentro del propio
+   repositorio de GitHub, en la rama "datos". Cada teléfono necesita el
+   mismo código de sincronización (un token de GitHub) en Ajustes. */
+const SYNC = {
+  api: 'https://api.github.com/repos/pattialberto1/mercancia',
+  branch: 'datos',
+  file: 'datos.json',
+  busy: false,
+  pushTimer: null
+};
+
+function syncToken() { return (db.settings.syncToken || '').trim(); }
+
+function setSyncStatus(cls, msg) {
+  const el = $('sync-status');
+  el.className = 'syncline' + (cls ? ' ' + cls : '');
+  el.textContent = msg;
+}
+
+async function gh(method, path, body) {
+  return fetch(SYNC.api + path, {
+    method,
+    cache: 'no-store',
+    headers: {
+      'Authorization': 'Bearer ' + syncToken(),
+      'Accept': 'application/vnd.github+json'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+}
+
+// base64 de texto UTF-8, por partes para no desbordar con archivos grandes
+function b64enc(s) {
+  const bytes = new TextEncoder().encode(s);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 8192)
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  return btoa(bin);
+}
+function b64dec(b) {
+  return new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, '')), c => c.charCodeAt(0)));
+}
+
+// mezcla lo local con lo remoto: por recepción gana la modificada más reciente
+function mergeRemote(remote) {
+  const map = new Map();
+  for (const r of (remote && remote.recepciones) || []) map.set(r.id, r);
+  for (const r of db.recepciones) {
+    const o = map.get(r.id);
+    // en empate gana la copia local (conserva la referencia de la pantalla abierta)
+    if (!o || (r.mod || 0) >= (o.mod || 0)) map.set(r.id, r);
+  }
+  const borradas = Object.assign({}, (remote && remote.borradas) || {}, db.borradas);
+  const recepciones = [...map.values()].filter(r => !(r.id in borradas));
+  recepciones.sort((a, b) => (a.creada || 0) - (b.creada || 0));
+  return { recepciones, borradas };
+}
+
+// ¿lo mezclado ya es idéntico a lo que hay en el servidor?
+function sameAsRemote(merged, remote) {
+  const rr = (remote && remote.recepciones) || [];
+  const rb = (remote && remote.borradas) || {};
+  if (rr.length !== merged.recepciones.length) return false;
+  const rmap = new Map(rr.map(r => [r.id, r.mod || 0]));
+  for (const r of merged.recepciones) if (rmap.get(r.id) !== (r.mod || 0)) return false;
+  const bk = Object.keys(merged.borradas), rbk = Object.keys(rb);
+  if (bk.length !== rbk.length) return false;
+  for (const k of bk) if (!(k in rb)) return false;
+  return true;
+}
+
+async function crearRamaDatos() {
+  const repo = await (await gh('GET', '')).json();
+  const ref = await (await gh('GET', '/git/ref/heads/' + encodeURIComponent(repo.default_branch))).json();
+  await gh('POST', '/git/refs', { ref: 'refs/heads/' + SYNC.branch, sha: ref.object.sha });
+}
+
+async function syncNow(reintento) {
+  if (!syncToken()) {
+    setSyncStatus('', '☁️ Sincronización no configurada — toca aquí');
+    return;
+  }
+  if (SYNC.busy) return;
+  SYNC.busy = true;
+  setSyncStatus('', '🔄 Sincronizando…');
+  try {
+    // 1. bajar lo que haya en el servidor
+    let remote = null, sha = null;
+    const res = await gh('GET', '/contents/' + SYNC.file + '?ref=' + SYNC.branch);
+    if (res.status === 200) {
+      const j = await res.json();
+      sha = j.sha;
+      remote = JSON.parse(b64dec(j.content));
+    } else if (res.status === 401 || res.status === 403) {
+      throw new Error('codigo');
+    } else if (res.status !== 404) {
+      throw new Error('http ' + res.status);
+    }
+
+    // 2. mezclar y aplicar en este teléfono
+    const antes = db.recepciones.map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
+    const merged = mergeRemote(remote);
+    db.recepciones = merged.recepciones;
+    db.borradas = merged.borradas;
+    save(false);
+    const despues = db.recepciones.map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
+    if (antes !== despues) {
+      // llegaron cambios de otro teléfono: refrescar lo que está en pantalla
+      if (current) {
+        current = db.recepciones.find(r => r.id === current.id);
+        if (current) renderRec();
+        else { renderHome(); show('home'); }
+      } else {
+        renderHome();
+      }
+      toast('☁️ Datos actualizados');
+    }
+
+    // 3. subir si este teléfono aporta algo nuevo
+    if (!sameAsRemote(merged, remote)) {
+      const body = {
+        message: 'datos: actualización desde la app',
+        content: b64enc(JSON.stringify({ recepciones: merged.recepciones, borradas: merged.borradas })),
+        branch: SYNC.branch
+      };
+      if (sha) body.sha = sha;
+      let put = await gh('PUT', '/contents/' + SYNC.file, body);
+      if (put.status === 404 && !sha) {
+        await crearRamaDatos();
+        put = await gh('PUT', '/contents/' + SYNC.file, body);
+      }
+      if (put.status === 409 || put.status === 422) {
+        // otro teléfono subió a la vez: volver a mezclar una vez
+        if (!reintento) { SYNC.busy = false; return syncNow(true); }
+        throw new Error('conflicto');
+      }
+      if (!put.ok) throw new Error('http ' + put.status);
+    }
+
+    const h = new Date();
+    setSyncStatus('ok', '☁️ Sincronizado a las ' + String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0'));
+  } catch (e) {
+    if (e.message === 'codigo') {
+      setSyncStatus('err', '⚠️ El código de sincronización no funciona — revísalo en Ajustes');
+    } else {
+      setSyncStatus('err', '⚠️ Sin conexión — guardado en este teléfono, se subirá luego');
+    }
+  } finally {
+    SYNC.busy = false;
+  }
+}
+
+// tras cada cambio, subir a los 2 segundos (agrupa cambios seguidos)
+function schedulePush() {
+  if (!syncToken()) return;
+  clearTimeout(SYNC.pushTimer);
+  SYNC.pushTimer = setTimeout(() => { SYNC.pushTimer = null; syncNow(); }, 2000);
+}
+
+$('sync-status').onclick = () => {
+  if (!syncToken()) $('btn-settings').click();
+  else syncNow();
+};
+
+// sincronizar al abrir, al volver a la app, y cada 30 segundos
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncNow();
+});
+setInterval(() => {
+  if (document.visibilityState === 'visible' && !SYNC.pushTimer) syncNow();
+}, 30000);
+
 /* ============ arranque ============ */
 renderHome();
 show('home');
+syncNow();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }

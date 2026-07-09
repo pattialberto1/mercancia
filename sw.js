@@ -1,5 +1,5 @@
 // Service worker: deja la app disponible sin conexión.
-const CACHE = 'mercancia-v1';
+const CACHE = 'mercancia-v2';
 const ASSETS = ['.', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', e => {
@@ -17,6 +17,8 @@ self.addEventListener('activate', e => {
 // Red primero (para recibir actualizaciones), caché como respaldo offline.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // no tocar las llamadas a la API de GitHub (sincronización)
+  if (new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then(res => {

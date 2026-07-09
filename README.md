@@ -36,6 +36,26 @@ Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
   para elegir el contacto y enviarlo. También hay botón para copiar el resumen.
 - Ajustes: tara por cesta y rangos mínimo/máximo (2 cestas y cesta suelta).
 
+## Sincronización entre teléfonos
+
+Los datos se comparten entre todos los teléfonos a través de un archivo (`datos.json`)
+guardado en la rama `datos` de este mismo repositorio. Para activarla:
+
+1. El dueño del repositorio crea un **token de GitHub** (una sola vez):
+   GitHub → foto de perfil → *Settings* → *Developer settings* →
+   *Personal access tokens* → **Fine-grained tokens** → *Generate new token*.
+   - *Repository access*: **Only select repositories** → elegir `mercancia`.
+   - *Permissions* → *Repository permissions* → **Contents: Read and write**.
+   - *Expiration*: 1 año (cuando caduque, se genera otro y se vuelve a pegar).
+2. Copiar el token (empieza por `github_pat_…`) y pegarlo en la app:
+   **Ajustes ⚙️ → Código de sincronización**, en **cada teléfono**.
+3. Listo: cada cambio se sube solo, y la app comprueba novedades al abrirse,
+   al volver a primer plano y cada 30 segundos. Sin conexión sigue funcionando
+   y sincroniza cuando vuelve el internet.
+
+Si dos personas modifican **la misma recepción** a la vez, se queda la versión
+modificada más recientemente. Recepciones distintas nunca chocan.
+
 ## Cómo instalarla en el iPhone
 
 1. Publica este repositorio con **GitHub Pages**:
@@ -53,4 +73,7 @@ Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 - `sw.js` — service worker para que funcione sin conexión.
 - `icons/` — iconos de la app.
 
-Los datos se guardan en `localStorage` del navegador, solo en el dispositivo.
+Los datos se guardan en `localStorage` del navegador y, si la sincronización está
+activada, también en `datos.json` en la rama `datos` del repositorio. Ojo: si el
+repositorio es público, ese archivo de datos también lo es (pesos y cantidades,
+nada más). El token de sincronización nunca se guarda en el repositorio.
