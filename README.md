@@ -1,7 +1,7 @@
 # Mercancía — Recepción de mercancía
 
 App para iPhone (web app instalable) para controlar la recepción de mercancía del negocio.
-Esta primera versión cubre la **recepción de pollo**; más adelante se irán añadiendo otros apartados.
+Cubre la **recepción de pollo** y la **recepción de papas**; se irán añadiendo más apartados.
 
 ## Cómo funciona la recepción de pollo
 
@@ -14,6 +14,12 @@ Esta primera versión cubre la **recepción de pollo**; más adelante se irán a
 - Se anota también cuántas **cestas vacías se lleva el proveedor**, y sale en el resumen.
 
 **Pollo neto = peso bruto − (nº de cestas × 2,3 kg)**
+
+## Cómo funciona la recepción de papas
+
+- Las papas se pesan **de 5 en 5 cestas** (se puede cambiar a 1–4 cestas para la última pesada).
+- El peso se escribe directamente y **admite decimales** (ej. 72,4). No hay rango ni avisos.
+- La tara es la misma: 2,3 kg por cesta, y el neto se calcula igual que con el pollo.
 
 Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 = 1.548 kg bruto, 45 cestas → tara 103,5 kg → **1.444,5 kg de pollo neto**.

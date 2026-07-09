@@ -112,6 +112,7 @@
     flex: 1; padding: 10px; border-radius: 9px; font-size: 15px; font-weight: 600; color: var(--muted);
   }
   .seg button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); border: 1px solid var(--line); }
+  .seg-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 
   .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
   .quick button {
@@ -228,12 +229,13 @@
   <section id="view-home">
     <div class="topbar">
       <div>
-        <h1>🐔 Recepción de pollo</h1>
+        <h1>📦 Recepción de mercancía</h1>
         <div class="sub">Mercancía · mi negocio</div>
       </div>
       <button class="iconbtn" id="btn-settings" aria-label="Ajustes">⚙️</button>
     </div>
-    <button class="btn-primary" id="btn-new" style="margin-bottom:18px">+ Nueva recepción</button>
+    <button class="btn-primary" id="btn-new-pollo" style="margin-bottom:10px">🐔 Nueva recepción de pollo</button>
+    <button class="btn-primary" id="btn-new-papas" style="margin-bottom:18px">🥔 Nueva recepción de papas</button>
     <div id="home-list"></div>
   </section>
 
@@ -253,6 +255,16 @@
         <button data-mode="2" class="on">2 cestas</button>
         <button data-mode="1">1 cesta suelta</button>
       </div>
+      <div id="cestas-picker" class="hidden">
+        <div class="seg-label">Cestas en esta pesada</div>
+        <div class="seg" id="seg-cestas">
+          <button data-c="1">1</button>
+          <button data-c="2">2</button>
+          <button data-c="3">3</button>
+          <button data-c="4">4</button>
+          <button data-c="5" class="on">5</button>
+        </div>
+      </div>
       <div class="quick" id="quick-btns"></div>
       <div class="inputrow">
         <input id="weight-input" type="text" inputmode="numeric" placeholder="Peso en kg" autocomplete="off">
@@ -267,7 +279,7 @@
         <div class="tot"><div class="lbl">Cestas</div><div class="val" id="t-cestas">0</div></div>
         <div class="tot"><div class="lbl">Peso bruto</div><div class="val" id="t-bruto">0 kg</div></div>
         <div class="tot"><div class="lbl">Tara cestas</div><div class="val" id="t-tara">−0 kg</div></div>
-        <div class="net"><span class="lbl">POLLO NETO</span><span class="val" id="t-neto">0 kg</span></div>
+        <div class="net"><span class="lbl" id="t-neto-lbl">POLLO NETO</span><span class="val" id="t-neto">0 kg</span></div>
       </div>
     </div>
 
@@ -355,6 +367,11 @@
 const STORE_KEY = 'mercancia.v1';
 const defaults = { settings: { tara: 2.3, min: 68, max: 71, min1: 32, max1: 37 }, recepciones: [] };
 
+const PRODUCTOS = {
+  pollo: { emoji: '🐔', nombre: 'Pollo', neto: 'POLLO NETO' },
+  papas: { emoji: '🥔', nombre: 'Papas', neto: 'PAPAS NETAS' }
+};
+
 function load() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
@@ -362,6 +379,7 @@ function load() {
     const d = JSON.parse(raw);
     d.settings = Object.assign({}, defaults.settings, d.settings);
     d.recepciones = d.recepciones || [];
+    for (const r of d.recepciones) if (!r.tipo) r.tipo = 'pollo';
     return d;
   } catch { return structuredClone(defaults); }
 }
@@ -369,7 +387,7 @@ function save() { localStorage.setItem(STORE_KEY, JSON.stringify(db)); }
 
 let db = load();
 let current = null;        // recepción abierta en pantalla
-let mode = 2;              // 2 cestas o 1 cesta
+let mode = 2;              // cestas por pesada (pollo: 2 o 1 · papas: 1 a 5)
 let showAllEntries = false;
 
 /* ============ utilidades ============ */
@@ -422,6 +440,7 @@ function rango(cestas, rec) {
   return cestas === 2 ? [rec.min, rec.max] : [rec.min1 ?? 32, rec.max1 ?? 37];
 }
 function inRange(peso, cestas, rec) {
+  if (rec.tipo !== 'pollo') return true;  // las papas no tienen rango
   const [min, max] = rango(cestas, rec);
   return peso >= min && peso <= max;
 }
@@ -443,10 +462,11 @@ function renderHome() {
   const recs = [...db.recepciones].sort((a, b) => b.creada - a.creada);
   for (const rec of recs) {
     const t = totals(rec);
+    const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
     const btn = document.createElement('button');
     btn.className = 'rec-item';
     btn.innerHTML =
-      '<div><div style="font-weight:700">' + fmtDate(rec.fecha) +
+      '<div><div style="font-weight:700">' + P.emoji + ' ' + P.nombre + ' · ' + fmtDate(rec.fecha) +
       (rec.cerrada ? '<span class="badge">terminada</span>' : '<span class="badge open">abierta</span>') +
       '</div><div class="meta sub">' + t.pesadas + ' pesadas · ' + t.cestas + ' cestas</div></div>' +
       '<div style="display:flex;align-items:center;gap:8px"><span class="kg">' + fmtKg(t.neto) + '</span><span class="chev">›</span></div>';
@@ -458,7 +478,7 @@ function renderHome() {
 function openRec(id) {
   current = db.recepciones.find(r => r.id === id);
   if (!current) return;
-  mode = 2;
+  mode = current.tipo === 'papas' ? 5 : 2;
   showAllEntries = false;
   $('weight-input').value = '';
   renderRec();
@@ -468,21 +488,30 @@ function openRec(id) {
 function renderRec() {
   const rec = current;
   const t = totals(rec);
-  $('rec-title').textContent = 'Pollo · ' + fmtDate(rec.fecha);
+  const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
+  const esPollo = rec.tipo === 'pollo';
+  $('rec-title').textContent = P.nombre + ' · ' + fmtDate(rec.fecha);
   $('rec-sub').textContent = rec.cerrada
     ? 'Recepción terminada'
-    : 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · rango ' + fmt(rec.min) + '–' + fmt(rec.max) + ' kg';
+    : esPollo
+      ? 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · rango ' + fmt(rec.min) + '–' + fmt(rec.max) + ' kg'
+      : 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · pesadas de 5 cestas';
 
   // modo entrada
   $('entry-card').classList.toggle('hidden', rec.cerrada);
   $('btn-close-rec').textContent = rec.cerrada ? 'Reabrir recepción' : 'Terminar recepción';
+  $('seg-mode').classList.toggle('hidden', !esPollo);
+  $('cestas-picker').classList.toggle('hidden', esPollo);
   for (const b of $('seg-mode').querySelectorAll('button'))
     b.classList.toggle('on', +b.dataset.mode === mode);
+  for (const b of $('seg-cestas').querySelectorAll('button'))
+    b.classList.toggle('on', +b.dataset.c === mode);
+  $('weight-input').setAttribute('inputmode', esPollo ? 'numeric' : 'decimal');
 
-  // botones rápidos (solo enteros del rango, modo 2 cestas)
+  // botones rápidos (solo pollo: enteros del rango, modo 2 cestas)
   const qb = $('quick-btns');
   qb.innerHTML = '';
-  if (mode === 2) {
+  if (esPollo && mode === 2) {
     const lo = Math.ceil(rec.min), hi = Math.floor(rec.max);
     const vals = [];
     for (let v = lo; v <= hi && vals.length < 8; v++) vals.push(v);
@@ -495,10 +524,13 @@ function renderRec() {
     }
     qb.classList.remove('hidden');
     $('range-hint').textContent = 'Cada pesada de 2 cestas debe pesar entre ' + fmt(rec.min) + ' y ' + fmt(rec.max) + ' kg.';
-  } else {
+  } else if (esPollo) {
     qb.classList.add('hidden');
     const [lo1, hi1] = rango(1, rec);
     $('range-hint').textContent = 'Cesta suelta: entre ' + fmt(lo1) + ' y ' + fmt(hi1) + ' kg.';
+  } else {
+    qb.classList.add('hidden');
+    $('range-hint').textContent = 'Escribe el peso de la pesada (puede llevar decimales, ej. 72,4).';
   }
 
   // totales
@@ -506,9 +538,11 @@ function renderRec() {
   $('t-cestas').textContent = t.cestas;
   $('t-bruto').textContent = fmtKg(t.bruto);
   $('t-tara').textContent = '−' + fmtKg(t.tara);
+  $('t-neto-lbl').textContent = P.neto;
   $('t-neto').textContent = fmtKg(t.neto);
 
-  // resumen agrupado
+  // resumen agrupado (solo pollo: en papas los pesos casi nunca se repiten)
+  $('summary-card').classList.toggle('hidden', !esPollo);
   const groups = new Map();
   for (const p of rec.pesadas) {
     const key = p.peso + '|' + p.cestas;
@@ -549,7 +583,7 @@ function renderRec() {
     row.className = 'entry';
     row.innerHTML =
       '<div><span class="w">' + fmt(p.peso) + ' kg</span> ' +
-      '<span class="meta">· ' + (p.cestas === 2 ? '2 cestas' : '1 cesta') + ' · #' + (idx + 1) + '</span>' +
+      '<span class="meta">· ' + (p.cestas === 1 ? '1 cesta' : p.cestas + ' cestas') + ' · #' + (idx + 1) + '</span>' +
       (inRange(p.peso, p.cestas, rec) ? '' : ' <span class="flag">fuera de rango</span>') + '</div>' +
       (rec.cerrada ? '' : '<button class="del">Borrar</button>');
     const del = row.querySelector('.del');
@@ -563,9 +597,10 @@ function renderRec() {
 }
 
 /* ============ acciones ============ */
-$('btn-new').onclick = () => {
+function nuevaRecepcion(tipo) {
   const rec = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    tipo,
     fecha: todayISO(),
     creada: Date.now(),
     cerrada: false,
@@ -580,7 +615,9 @@ $('btn-new').onclick = () => {
   db.recepciones.push(rec);
   save();
   openRec(rec.id);
-};
+}
+$('btn-new-pollo').onclick = () => nuevaRecepcion('pollo');
+$('btn-new-papas').onclick = () => nuevaRecepcion('papas');
 
 $('btn-back').onclick = () => { current = null; renderHome(); show('home'); };
 
@@ -588,6 +625,13 @@ $('seg-mode').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
   mode = +b.dataset.mode;
+  renderRec();
+});
+
+$('seg-cestas').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mode = +b.dataset.c;
   renderRec();
 });
 
@@ -615,8 +659,17 @@ function addEntry(peso, cestas) {
 
 $('btn-add').onclick = () => {
   const s = $('weight-input').value.trim();
-  if (!/^\d+$/.test(s)) { toast('Solo números enteros, sin decimales'); return; }
-  const v = parseInt(s, 10);
+  let v;
+  if (current.tipo === 'pollo') {
+    // el pollo se anota en kg enteros
+    if (!/^\d+$/.test(s)) { toast('Solo números enteros, sin decimales'); return; }
+    v = parseInt(s, 10);
+  } else {
+    // las papas admiten decimales (con coma o punto)
+    v = parseNum(s);
+    if (isNaN(v)) { toast('Escribe un peso válido'); return; }
+    v = round1(v);
+  }
   if (v <= 0) { toast('Escribe un peso válido'); return; }
   if (v > 500) { toast('Ese peso no parece correcto'); return; }
   addEntry(v, mode);
@@ -633,7 +686,7 @@ $('btn-close-rec').onclick = () => {
     toast('Recepción reabierta');
   } else {
     askConfirm('Terminar recepción',
-      'Se guardará con ' + fmtKg(totals(rec).neto) + ' de pollo neto. Podrás reabrirla si lo necesitas.',
+      'Se guardará con ' + fmtKg(totals(rec).neto) + ' de ' + (PRODUCTOS[rec.tipo] || PRODUCTOS.pollo).nombre.toLowerCase() + ' neto. Podrás reabrirla si lo necesitas.',
       () => { rec.cerrada = true; save(); renderRec(); toast('Recepción terminada'); });
   }
 };
@@ -653,22 +706,29 @@ $('btn-del-rec').onclick = () => {
 /* ============ resumen para compartir ============ */
 function buildResumen(rec) {
   const t = totals(rec);
-  const groups = new Map();
-  for (const p of rec.pesadas) {
-    const key = fmt(p.peso) + ' kg' + (p.cestas === 1 ? ' (1 cesta)' : '');
-    groups.set(key, (groups.get(key) || 0) + 1);
-  }
-  let txt = '🐔 *RECEPCIÓN DE POLLO*\n📅 ' + fmtDate(rec.fecha) + '\n';
+  const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
+  let txt = P.emoji + ' *RECEPCIÓN DE ' + P.nombre.toUpperCase() + '*\n📅 ' + fmtDate(rec.fecha) + '\n';
   txt += '\n*Pesadas:*\n';
-  if (groups.size) {
+  if (!rec.pesadas.length) {
+    txt += '• (sin pesadas)\n';
+  } else if (rec.tipo === 'pollo') {
+    // el pollo se agrupa porque los pesos se repiten (68, 69, 70, 71)
+    const groups = new Map();
+    for (const p of rec.pesadas) {
+      const key = fmt(p.peso) + ' kg' + (p.cestas === 1 ? ' (1 cesta)' : '');
+      groups.set(key, (groups.get(key) || 0) + 1);
+    }
     for (const [k, c] of groups) txt += '• ' + c + ' × ' + k + '\n';
   } else {
-    txt += '• (sin pesadas)\n';
+    // las papas se listan una a una (los pesos llevan decimales)
+    rec.pesadas.forEach((p, i) => {
+      txt += '• Pesada ' + (i + 1) + ': ' + fmt(p.peso) + ' kg (' + p.cestas + (p.cestas === 1 ? ' cesta' : ' cestas') + ')\n';
+    });
   }
   txt += '\nCestas recibidas: ' + t.cestas + '\n';
   txt += 'Peso bruto: ' + fmtKg(t.bruto) + '\n';
   txt += 'Tara (' + t.cestas + ' × ' + fmt(rec.tara, 1) + ' kg): −' + fmtKg(t.tara) + '\n';
-  txt += '✅ *POLLO NETO: ' + fmtKg(t.neto) + '*\n';
+  txt += '✅ *' + P.neto + ': ' + fmtKg(t.neto) + '*\n';
   txt += '\n🧺 Cestas vacías que se lleva el proveedor: ' + (rec.cestasVacias || 0);
   return txt;
 }
