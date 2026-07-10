@@ -6,8 +6,9 @@ Cubre la **recepción de pollo** y la **recepción de papas**; se irán añadien
 ## Cómo funciona la recepción de pollo
 
 - El pollo llega en cestas y se pesa **de 2 en 2 cestas**. Los pesos se anotan en **kg enteros**.
-- Cada pesada de 2 cestas debe estar entre **68 y 71 kg** (configurable en Ajustes ⚙️).
+- Cada pesada de 2 cestas debe estar entre **65 y 75 kg** (configurable en Ajustes ⚙️).
   Si una pesada queda fuera del rango, la app avisa y pide confirmación antes de anotarla.
+- Botones rápidos de 67 a 71 kg para anotar las pesadas más habituales con un toque.
 - Si sobra una **cesta suelta**, se registra con el modo "1 cesta" (rango 32–37 kg, configurable).
 - La app suma todas las pesadas (peso bruto), cuenta las cestas y descuenta la **tara**:
   cada cesta vacía pesa **2,3 kg** (también configurable).
@@ -26,7 +27,7 @@ Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 
 ## Funciones
 
-- Botones rápidos 68/69/70/71 kg: una pesada por toque.
+- Botones rápidos 67/68/69/70/71 kg: una pesada por toque.
 - Aviso y confirmación para pesadas fuera de rango.
 - Totales en vivo: pesadas, cestas, bruto, tara y pollo neto.
 - Resumen agrupado (ej. "13 × 69 kg") y lista de pesadas con opción de borrar.

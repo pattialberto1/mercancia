@@ -381,7 +381,8 @@
 'use strict';
 /* ============ almacenamiento ============ */
 const STORE_KEY = 'mercancia.v1';
-const defaults = { settings: { tara: 2.3, min: 68, max: 71, min1: 32, max1: 37, syncToken: '' }, recepciones: [], borradas: {} };
+const defaults = { settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '' }, recepciones: [], borradas: {} };
+const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
 
 const PRODUCTOS = {
   pollo: { emoji: '🐔', nombre: 'Pollo', neto: 'POLLO NETO' },
@@ -397,6 +398,12 @@ function load() {
     d.recepciones = d.recepciones || [];
     d.borradas = d.borradas || {};
     for (const r of d.recepciones) if (!r.tipo) r.tipo = 'pollo';
+    // v2: el rango de 2 cestas pasó de 68-71 a 65-75 (solo si no se había personalizado)
+    if (!d.v || d.v < 2) {
+      if (d.settings.min === 68) d.settings.min = 65;
+      if (d.settings.max === 71) d.settings.max = 75;
+      d.v = 2;
+    }
     return d;
   } catch { return structuredClone(defaults); }
 }
@@ -542,9 +549,7 @@ function renderRec() {
   const qb = $('quick-btns');
   qb.innerHTML = '';
   if (esPollo && mode === 2) {
-    const lo = Math.ceil(rec.min), hi = Math.floor(rec.max);
-    const vals = [];
-    for (let v = lo; v <= hi && vals.length < 8; v++) vals.push(v);
+    const vals = QUICK_POLLO;
     qb.style.gridTemplateColumns = 'repeat(' + Math.max(vals.length, 1) + ', 1fr)';
     for (const v of vals) {
       const b = document.createElement('button');
