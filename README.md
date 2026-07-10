@@ -37,6 +37,14 @@ Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
   para elegir el contacto y enviarlo. También hay botón para copiar el resumen.
 - Ajustes: tara por cesta y rangos mínimo/máximo (2 cestas y cesta suelta).
 
+## Código de acceso
+
+Al abrir la app por primera vez en un teléfono pide un **código de acceso (PIN)**,
+definido en `index.html` (constante `PIN`). Se escribe una vez por teléfono.
+Al cambiar el PIN en el código, todos los teléfonos vuelven a pedirlo — así se
+puede dejar fuera a quien no deba entrar. Es una barrera práctica, no un
+cifrado: los datos compartidos siguen protegidos por el token de sincronización.
+
 ## Sincronización entre teléfonos
 
 Los datos se comparten entre todos los teléfonos a través de un archivo (`datos.json`)

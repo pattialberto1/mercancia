@@ -219,6 +219,19 @@
   .modal .actions { display: flex; gap: 10px; margin-top: 8px; }
   .modal .actions button { flex: 1; }
 
+  .lockscreen {
+    position: fixed; inset: 0; z-index: 100; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .lockbox { width: 100%; max-width: 300px; text-align: center; }
+  .lockbox input {
+    width: 100%; font: inherit; font-size: 28px; font-weight: 800; text-align: center;
+    letter-spacing: .35em; padding: 14px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text); outline: none;
+  }
+  .lockbox input:focus { border-color: var(--accent); }
+
   .toast {
     position: fixed; left: 50%; bottom: calc(30px + env(safe-area-inset-bottom));
     transform: translateX(-50%) translateY(20px);
@@ -372,6 +385,17 @@
       <button class="btn-secondary" id="confirm-no">Cancelar</button>
       <button class="btn-primary" id="confirm-yes">Sí, continuar</button>
     </div>
+  </div>
+</div>
+
+<!-- ================= PANTALLA DE BLOQUEO ================= -->
+<div class="lockscreen hidden" id="lock">
+  <div class="lockbox">
+    <div style="font-size:48px">🔒</div>
+    <h1 style="margin:10px 0 4px">Mercancía</h1>
+    <p class="sub" style="margin-bottom:20px">Escribe el código de acceso</p>
+    <input id="pin-input" type="password" inputmode="numeric" maxlength="8" autocomplete="off" aria-label="Código de acceso">
+    <button class="btn-primary" id="pin-btn" style="margin-top:12px">Entrar</button>
   </div>
 </div>
 
@@ -1014,9 +1038,33 @@ setInterval(() => {
   if (document.visibilityState === 'visible' && !SYNC.pushTimer) syncNow();
 }, 30000);
 
+/* ============ código de acceso ============
+   Se escribe una vez por teléfono. Al cambiar el PIN aquí, todos los
+   teléfonos vuelven a pedirlo la próxima vez que abran la app. */
+const PIN = '7070';
+const PIN_KEY = 'mercancia.pin';
+
+function initLock() {
+  if (localStorage.getItem(PIN_KEY) === PIN) return;
+  $('lock').classList.remove('hidden');
+  const entrar = () => {
+    if ($('pin-input').value.trim() === PIN) {
+      localStorage.setItem(PIN_KEY, PIN);
+      $('lock').classList.add('hidden');
+      syncNow();
+    } else {
+      $('pin-input').value = '';
+      toast('Código incorrecto');
+    }
+  };
+  $('pin-btn').onclick = entrar;
+  $('pin-input').addEventListener('keydown', e => { if (e.key === 'Enter') entrar(); });
+}
+
 /* ============ arranque ============ */
 renderHome();
 show('home');
+initLock();
 syncNow();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
