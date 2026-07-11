@@ -113,7 +113,12 @@
   }
   .seg button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); border: 1px solid var(--line); }
   .seg-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
-  #home-tabs button { font-size: 16px; padding: 12px; }
+  #home-tabs {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #home-tabs::-webkit-scrollbar { display: none; }
+  #home-tabs button { flex: none; font-size: 15px; padding: 12px 13px; white-space: nowrap; }
   .syncline {
     display: block; width: 100%; text-align: center; font-size: 13px; font-weight: 600;
     color: var(--muted); padding: 8px 4px 12px;
@@ -254,10 +259,7 @@
       </div>
       <button class="iconbtn" id="btn-settings" aria-label="Ajustes">⚙️</button>
     </div>
-    <div class="seg" id="home-tabs">
-      <button data-t="pollo" class="on">🐔 Pollo</button>
-      <button data-t="papas">🥔 Papas</button>
-    </div>
+    <div class="seg" id="home-tabs"></div>
     <button class="btn-primary" id="btn-new" style="margin:14px 0 4px">🐔 Nueva recepción de pollo</button>
     <button class="syncline" id="sync-status">☁️ Sincronización no configurada — toca aquí</button>
     <div id="home-list"></div>
@@ -281,13 +283,7 @@
       </div>
       <div id="cestas-picker" class="hidden">
         <div class="seg-label">Cestas en esta pesada</div>
-        <div class="seg" id="seg-cestas">
-          <button data-c="1">1</button>
-          <button data-c="2">2</button>
-          <button data-c="3">3</button>
-          <button data-c="4">4</button>
-          <button data-c="5" class="on">5</button>
-        </div>
+        <div class="seg" id="seg-cestas"></div>
       </div>
       <div class="quick" id="quick-btns"></div>
       <div class="inputrow">
@@ -376,6 +372,17 @@
   </div>
 </div>
 
+<!-- ================= MODAL ELEGIR PRODUCTO ================= -->
+<div class="modal-back" id="modal-producto">
+  <div class="modal">
+    <h2>¿Qué producto recibes?</h2>
+    <div id="producto-btns"></div>
+    <div class="actions">
+      <button class="btn-secondary" id="producto-cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= MODAL CONFIRMAR ================= -->
 <div class="modal-back" id="modal-confirm">
   <div class="modal">
@@ -408,9 +415,22 @@ const STORE_KEY = 'mercancia.v1';
 const defaults = { settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '' }, recepciones: [], borradas: {} };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
 
+/* Catálogo de productos.
+   - neto: etiqueta del total · cestas: máximo de cestas por pesada (a granel)
+   - todo lo que no es pollo se pesa a granel: peso con decimales, sin rango */
 const PRODUCTOS = {
-  pollo: { emoji: '🐔', nombre: 'Pollo', neto: 'POLLO NETO' },
-  papas: { emoji: '🥔', nombre: 'Papas', neto: 'PAPAS NETAS' }
+  pollo:          { emoji: '🐔', nombre: 'Pollo',          neto: 'POLLO NETO' },
+  papas:          { emoji: '🥔', nombre: 'Papas',          neto: 'PAPAS NETAS', cestas: 5 },
+  repollo_blanco: { emoji: '🥬', nombre: 'Repollo blanco', neto: 'R. BLANCO NETO', cestas: 3 },
+  repollo_morado: { emoji: '🟣', nombre: 'Repollo morado', neto: 'R. MORADO NETO', cestas: 3 },
+  zanahoria:      { emoji: '🥕', nombre: 'Zanahoria',      neto: 'ZANAHORIA NETA', cestas: 3 }
+};
+
+/* Pestañas del inicio: una puede agrupar varios productos */
+const TABS = {
+  pollo:    { emoji: '🐔', nombre: 'Pollo',    tipos: ['pollo'] },
+  papas:    { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
+  verduras: { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria'] }
 };
 
 function load() {
@@ -441,7 +461,7 @@ function touch(rec) { rec.mod = Date.now(); }
 
 let db = load();
 let current = null;        // recepción abierta en pantalla
-let mode = 2;              // cestas por pesada (pollo: 2 o 1 · papas: 1 a 5)
+let mode = 2;              // cestas por pesada (pollo: 2 o 1 · granel: 1 a 5)
 let showAllEntries = false;
 let homeTab = 'pollo';     // pestaña activa en inicio
 
@@ -495,7 +515,7 @@ function rango(cestas, rec) {
   return cestas === 2 ? [rec.min, rec.max] : [rec.min1 ?? 32, rec.max1 ?? 37];
 }
 function inRange(peso, cestas, rec) {
-  if (rec.tipo !== 'pollo') return true;  // las papas no tienen rango
+  if (rec.tipo !== 'pollo') return true;  // los productos a granel no tienen rango
   const [min, max] = rango(cestas, rec);
   return peso >= min && peso <= max;
 }
@@ -507,17 +527,28 @@ function show(view) {
   window.scrollTo(0, 0);
 }
 
+function buildTabs() {
+  const tabs = $('home-tabs');
+  tabs.innerHTML = '';
+  for (const [id, T] of Object.entries(TABS)) {
+    const b = document.createElement('button');
+    b.dataset.t = id;
+    b.textContent = T.emoji + ' ' + T.nombre;
+    tabs.appendChild(b);
+  }
+}
+
 function renderHome() {
-  const P = PRODUCTOS[homeTab];
+  const T = TABS[homeTab];
   for (const b of $('home-tabs').querySelectorAll('button'))
     b.classList.toggle('on', b.dataset.t === homeTab);
-  $('btn-new').textContent = P.emoji + ' Nueva recepción de ' + P.nombre.toLowerCase();
+  $('btn-new').textContent = T.emoji + ' Nueva recepción de ' + T.nombre.toLowerCase();
 
   const list = $('home-list');
-  const recs = db.recepciones.filter(r => (r.tipo || 'pollo') === homeTab).sort((a, b) => b.creada - a.creada);
+  const recs = db.recepciones.filter(r => T.tipos.includes(r.tipo || 'pollo')).sort((a, b) => b.creada - a.creada);
   if (!recs.length) {
-    list.innerHTML = '<div class="empty"><span class="big">' + P.emoji + '</span>Todavía no hay recepciones de ' +
-      P.nombre.toLowerCase() + '.<br>Pulsa «Nueva recepción» para empezar.</div>';
+    list.innerHTML = '<div class="empty"><span class="big">' + T.emoji + '</span>Todavía no hay recepciones de ' +
+      T.nombre.toLowerCase() + '.<br>Pulsa «Nueva recepción» para empezar.</div>';
     return;
   }
   list.innerHTML = '';
@@ -539,7 +570,7 @@ function renderHome() {
 function openRec(id) {
   current = db.recepciones.find(r => r.id === id);
   if (!current) return;
-  mode = current.tipo === 'papas' ? 5 : 2;
+  mode = current.tipo === 'pollo' ? 2 : ((PRODUCTOS[current.tipo] || {}).cestas || 5);
   showAllEntries = false;
   $('weight-input').value = '';
   renderRec();
@@ -556,7 +587,7 @@ function renderRec() {
     ? 'Recepción terminada'
     : esPollo
       ? 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · rango ' + fmt(rec.min) + '–' + fmt(rec.max) + ' kg'
-      : 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · pesadas de 5 cestas';
+      : 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · pesadas de hasta ' + (P.cestas || 5) + ' cestas';
 
   // modo entrada
   $('entry-card').classList.toggle('hidden', rec.cerrada);
@@ -565,8 +596,22 @@ function renderRec() {
   $('cestas-picker').classList.toggle('hidden', esPollo);
   for (const b of $('seg-mode').querySelectorAll('button'))
     b.classList.toggle('on', +b.dataset.mode === mode);
-  for (const b of $('seg-cestas').querySelectorAll('button'))
-    b.classList.toggle('on', +b.dataset.c === mode);
+  if (!esPollo) {
+    // botones 1..máximo de cestas del producto (papas: 5 · verduras: 3)
+    const segC = $('seg-cestas');
+    const maxC = P.cestas || 5;
+    if (segC.childElementCount !== maxC) {
+      segC.innerHTML = '';
+      for (let c = 1; c <= maxC; c++) {
+        const b = document.createElement('button');
+        b.dataset.c = c;
+        b.textContent = c;
+        segC.appendChild(b);
+      }
+    }
+    for (const b of segC.querySelectorAll('button'))
+      b.classList.toggle('on', +b.dataset.c === mode);
+  }
   $('weight-input').setAttribute('inputmode', esPollo ? 'numeric' : 'decimal');
 
   // botones rápidos (solo pollo: enteros del rango, modo 2 cestas)
@@ -677,7 +722,24 @@ function nuevaRecepcion(tipo) {
   save();
   openRec(rec.id);
 }
-$('btn-new').onclick = () => nuevaRecepcion(homeTab);
+$('btn-new').onclick = () => {
+  const T = TABS[homeTab];
+  if (T.tipos.length === 1) { nuevaRecepcion(T.tipos[0]); return; }
+  // la pestaña agrupa varios productos: preguntar cuál llega
+  const cont = $('producto-btns');
+  cont.innerHTML = '';
+  for (const tipo of T.tipos) {
+    const P = PRODUCTOS[tipo];
+    const b = document.createElement('button');
+    b.className = 'btn-secondary';
+    b.style.marginBottom = '10px';
+    b.textContent = P.emoji + ' ' + P.nombre;
+    b.onclick = () => { $('modal-producto').classList.remove('show'); nuevaRecepcion(tipo); };
+    cont.appendChild(b);
+  }
+  $('modal-producto').classList.add('show');
+};
+$('producto-cancel').onclick = () => $('modal-producto').classList.remove('show');
 
 $('home-tabs').addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -733,7 +795,7 @@ $('btn-add').onclick = () => {
     if (!/^\d+$/.test(s)) { toast('Solo números enteros, sin decimales'); return; }
     v = parseInt(s, 10);
   } else {
-    // las papas admiten decimales (con coma o punto)
+    // los productos a granel admiten decimales (con coma o punto)
     v = parseNum(s);
     if (isNaN(v)) { toast('Escribe un peso válido'); return; }
     v = round1(v);
@@ -790,7 +852,7 @@ function buildResumen(rec) {
     }
     for (const [k, c] of groups) txt += '• ' + c + ' × ' + k + '\n';
   } else {
-    // las papas se listan una a una (los pesos llevan decimales)
+    // los productos a granel se listan uno a uno (los pesos llevan decimales)
     rec.pesadas.forEach((p, i) => {
       txt += '• Pesada ' + (i + 1) + ': ' + fmt(p.peso) + ' kg (' + p.cestas + (p.cestas === 1 ? ' cesta' : ' cestas') + ')\n';
     });
@@ -861,7 +923,7 @@ $('set-save').onclick = () => {
   if (tokenCambio) syncNow();
 };
 
-for (const id of ['modal-settings', 'modal-confirm']) {
+for (const id of ['modal-settings', 'modal-confirm', 'modal-producto']) {
   $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
 }
 
@@ -1062,6 +1124,7 @@ function initLock() {
 }
 
 /* ============ arranque ============ */
+buildTabs();
 renderHome();
 show('home');
 initLock();

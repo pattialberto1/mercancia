@@ -16,11 +16,18 @@ Cubre la **recepción de pollo** y la **recepción de papas**; se irán añadien
 
 **Pollo neto = peso bruto − (nº de cestas × 2,3 kg)**
 
-## Cómo funciona la recepción de papas
+## Cómo funcionan las papas y las verduras
 
-- Las papas se pesan **de 5 en 5 cestas** (se puede cambiar a 1–4 cestas para la última pesada).
+La pantalla de inicio tiene tres pestañas: **🐔 Pollo**, **🥔 Papas** y **🥬 Verduras**
+(repollo blanco, repollo morado y zanahoria — al crear una recepción de verduras la
+app pregunta cuál de los tres llega).
+
+- Las papas se pesan **de 5 en 5 cestas**; las verduras **de 1 a 3 cestas** por pesada
+  (el selector de cestas se ajusta solo).
 - El peso se escribe directamente y **admite decimales** (ej. 72,4). No hay rango ni avisos.
 - La tara es la misma: 2,3 kg por cesta, y el neto se calcula igual que con el pollo.
+- Para agregar un producto nuevo: una línea en `PRODUCTOS` y su pestaña (o grupo) en `TABS`,
+  en `index.html`.
 
 Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 = 1.548 kg bruto, 45 cestas → tara 103,5 kg → **1.444,5 kg de pollo neto**.
