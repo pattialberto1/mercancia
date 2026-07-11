@@ -477,8 +477,9 @@ function fmt(n, dec) {
   const d = dec !== undefined ? dec : (Math.abs(n % 1) > 1e-9 ? 1 : 0);
   return n.toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: Math.max(d, 2) });
 }
-function fmtKg(n) { return fmt(round1(n)) + ' kg'; }
-function round1(n) { return Math.round(n * 10) / 10; }
+function fmtKg(n) { return fmt(round2(n)) + ' kg'; }
+// dos decimales: solo corrige el error flotante de las sumas, no redondea el peso
+function round2(n) { return Math.round(n * 100) / 100; }
 function fmtDate(iso) {
   const d = new Date(iso + 'T12:00:00');
   return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -795,10 +796,10 @@ $('btn-add').onclick = () => {
     if (!/^\d+$/.test(s)) { toast('Solo números enteros, sin decimales'); return; }
     v = parseInt(s, 10);
   } else {
-    // los productos a granel admiten decimales (con coma o punto)
+    // los productos a granel admiten hasta 2 decimales (con coma o punto)
     v = parseNum(s);
     if (isNaN(v)) { toast('Escribe un peso válido'); return; }
-    v = round1(v);
+    v = round2(v);
   }
   if (v <= 0) { toast('Escribe un peso válido'); return; }
   if (v > 500) { toast('Ese peso no parece correcto'); return; }
