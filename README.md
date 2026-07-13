@@ -19,11 +19,13 @@ Cubre la **recepción de pollo** y la **recepción de papas**; se irán añadien
 ## Cómo funcionan las papas y las verduras
 
 La pantalla de inicio tiene tres pestañas: **🐔 Pollo**, **🥔 Papas** y **🥬 Verduras**
-(repollo blanco, repollo morado y zanahoria — al crear una recepción de verduras la
-app pregunta cuál de los tres llega).
+(repollo blanco, repollo morado, zanahoria y cebollín — al crear una recepción de
+verduras la app pregunta cuál llega).
 
-- Las papas se pesan **de 5 en 5 cestas**; las verduras **de 1 a 3 cestas** por pesada
-  (el selector de cestas se ajusta solo).
+- Las papas y las verduras se pesan **de 1 a 5 cestas** por pesada (selector en pantalla).
+- En la pestaña de verduras hay un botón **"Enviar verduras del día"** que junta todas
+  las recepciones de verduras de hoy en un solo mensaje de WhatsApp, con el neto de
+  cada producto, el total y las cestas vacías devueltas.
 - El peso se escribe directamente y **admite decimales** (ej. 72,4). No hay rango ni avisos.
 - La tara es la misma: 2,3 kg por cesta, y el neto se calcula igual que con el pollo.
 - Para agregar un producto nuevo: una línea en `PRODUCTOS` y su pestaña (o grupo) en `TABS`,

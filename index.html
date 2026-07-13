@@ -260,7 +260,8 @@
       <button class="iconbtn" id="btn-settings" aria-label="Ajustes">⚙️</button>
     </div>
     <div class="seg" id="home-tabs"></div>
-    <button class="btn-primary" id="btn-new" style="margin:14px 0 4px">🐔 Nueva recepción de pollo</button>
+    <button class="btn-primary" id="btn-new" style="margin:14px 0 10px">🐔 Nueva recepción de pollo</button>
+    <button class="btn-wa hidden" id="btn-wa-dia">📲 Enviar verduras del día</button>
     <button class="syncline" id="sync-status">☁️ Sincronización no configurada — toca aquí</button>
     <div id="home-list"></div>
   </section>
@@ -421,16 +422,17 @@ const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 ce
 const PRODUCTOS = {
   pollo:          { emoji: '🐔', nombre: 'Pollo',          neto: 'POLLO NETO' },
   papas:          { emoji: '🥔', nombre: 'Papas',          neto: 'PAPAS NETAS', cestas: 5 },
-  repollo_blanco: { emoji: '🥬', nombre: 'Repollo blanco', neto: 'R. BLANCO NETO', cestas: 3 },
-  repollo_morado: { emoji: '🥬💜', nombre: 'Repollo morado', neto: 'R. MORADO NETO', cestas: 3 },
-  zanahoria:      { emoji: '🥕', nombre: 'Zanahoria',      neto: 'ZANAHORIA NETA', cestas: 3 }
+  repollo_blanco: { emoji: '🥬', nombre: 'Repollo blanco', neto: 'R. BLANCO NETO', cestas: 5 },
+  repollo_morado: { emoji: '🥬💜', nombre: 'Repollo morado', neto: 'R. MORADO NETO', cestas: 5 },
+  zanahoria:      { emoji: '🥕', nombre: 'Zanahoria',      neto: 'ZANAHORIA NETA', cestas: 5 },
+  cebollin:       { emoji: '🌿', nombre: 'Cebollín',       neto: 'CEBOLLÍN NETO', cestas: 5 }
 };
 
 /* Pestañas del inicio: una puede agrupar varios productos */
 const TABS = {
   pollo:    { emoji: '🐔', nombre: 'Pollo',    tipos: ['pollo'] },
   papas:    { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
-  verduras: { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria'] }
+  verduras: { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] }
 };
 
 function load() {
@@ -544,6 +546,7 @@ function renderHome() {
   for (const b of $('home-tabs').querySelectorAll('button'))
     b.classList.toggle('on', b.dataset.t === homeTab);
   $('btn-new').textContent = T.emoji + ' Nueva recepción de ' + T.nombre.toLowerCase();
+  $('btn-wa-dia').classList.toggle('hidden', homeTab !== 'verduras');
 
   const list = $('home-list');
   const recs = db.recepciones.filter(r => T.tipos.includes(r.tipo || 'pollo')).sort((a, b) => b.creada - a.creada);
@@ -868,6 +871,30 @@ function buildResumen(rec) {
 
 $('btn-wa').onclick = () => {
   window.open('https://wa.me/?text=' + encodeURIComponent(buildResumen(current)), '_blank');
+};
+
+// resumen conjunto: todas las recepciones de verduras de hoy en un solo mensaje
+$('btn-wa-dia').onclick = () => {
+  const hoy = todayISO();
+  const recs = db.recepciones
+    .filter(r => TABS.verduras.tipos.includes(r.tipo) && r.fecha === hoy)
+    .sort((a, b) => a.creada - b.creada);
+  if (!recs.length) { toast('Hoy no hay recepciones de verduras'); return; }
+  let cestas = 0, neto = 0, vacias = 0;
+  let txt = '🥬 *VERDURAS DEL DÍA*\n📅 ' + fmtDate(hoy) + '\n';
+  for (const rec of recs) {
+    const P = PRODUCTOS[rec.tipo];
+    const t = totals(rec);
+    cestas += t.cestas; neto += t.neto; vacias += rec.cestasVacias || 0;
+    txt += '\n' + P.emoji + ' *' + P.nombre + '*\n';
+    if (!rec.pesadas.length) txt += '• (sin pesadas)\n';
+    for (const p of rec.pesadas)
+      txt += '• ' + fmt(p.peso) + ' kg (' + p.cestas + (p.cestas === 1 ? ' cesta' : ' cestas') + ')\n';
+    txt += '✅ Neto: ' + fmtKg(t.neto) + '\n';
+  }
+  txt += '\n📦 *TOTAL VERDURAS: ' + fmtKg(neto) + '* (' + cestas + ' cestas)';
+  if (vacias) txt += '\n🧺 Cestas vacías que se lleva el proveedor: ' + vacias;
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
 };
 
 $('btn-share').onclick = async () => {
