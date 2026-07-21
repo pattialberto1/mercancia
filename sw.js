@@ -1,6 +1,6 @@
 // Service worker: deja la app disponible sin conexión.
-const CACHE = 'mercancia-v3';
-const ASSETS = ['.', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
+const CACHE = 'mercancia-saas-v1';
+const ASSETS = ['.', 'index.html', 'manifest.webmanifest', 'vendor/supabase.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -17,7 +17,7 @@ self.addEventListener('activate', e => {
 // Red primero (para recibir actualizaciones), caché como respaldo offline.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  // no tocar las llamadas a la API de GitHub (sincronización)
+  // no tocar las llamadas a Supabase (auth, datos, tiempo real)
   if (new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)

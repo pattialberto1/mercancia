@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#fbf7f1" media="(prefers-color-scheme: light)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Mercancía · Recepción</title>
+<title>Mercancía</title>
 <style>
   :root {
     --bg: #fbf7f1;
@@ -21,1142 +21,440 @@
     --line: #e7e0d6;
     --accent: #b45309;
     --accent-soft: #fef3e2;
+    --accent-contrast: #ffffff;
     --ok: #15803d;
     --ok-soft: #e7f6ec;
     --bad: #b91c1c;
     --bad-soft: #fdeaea;
-    --accent-contrast: #ffffff;
+    --warn: #b45309;
+    --warn-soft: #fef3e2;
     --shadow: 0 1px 3px rgba(41,37,36,.08);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1c1917;
-      --card: #292524;
-      --text: #f5f0e8;
-      --muted: #a8a29e;
-      --line: #3f3a36;
-      --accent: #f59e0b;
-      --accent-soft: #3a2c14;
-      --ok: #4ade80;
-      --ok-soft: #14301d;
-      --bad: #f87171;
-      --bad-soft: #3a1616;
-      --accent-contrast: #1c1207;
-      --shadow: none;
+      --bg: #1c1917; --card: #292524; --text: #f5f0e8; --muted: #a8a29e; --line: #3f3a36;
+      --accent: #f59e0b; --accent-soft: #3a2c14; --accent-contrast: #1c1207;
+      --ok: #4ade80; --ok-soft: #14301d; --bad: #f87171; --bad-soft: #3a1616;
+      --warn: #f59e0b; --warn-soft: #3a2c14; --shadow: none;
     }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1917; --card: #292524; --text: #f5f0e8; --muted: #a8a29e; --line: #3f3a36;
+    --accent: #f59e0b; --accent-soft: #3a2c14; --accent-contrast: #1c1207;
+    --ok: #4ade80; --ok-soft: #14301d; --bad: #f87171; --bad-soft: #3a1616;
+    --warn: #f59e0b; --warn-soft: #3a2c14; --shadow: none;
+  }
+  :root[data-theme="light"] {
+    --bg: #fbf7f1; --card: #ffffff; --text: #292524; --muted: #78716c; --line: #e7e0d6;
+    --accent: #b45309; --accent-soft: #fef3e2; --accent-contrast: #ffffff;
+    --ok: #15803d; --ok-soft: #e7f6ec; --bad: #b91c1c; --bad-soft: #fdeaea;
+    --warn: #b45309; --warn-soft: #fef3e2; --shadow: 0 1px 3px rgba(41,37,36,.08);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html { height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text);
-    min-height: 100%;
+    background: var(--bg); color: var(--text); min-height: 100%;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-    -webkit-font-smoothing: antialiased;
-    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased; overscroll-behavior-y: none;
   }
-  main { max-width: 480px; margin: 0 auto; padding: 16px 16px 40px; }
+  main { max-width: 460px; margin: 0 auto; padding: 16px 16px 40px; min-height: 100vh; }
   h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
   h2 { font-size: 17px; font-weight: 700; }
   .sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
   button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; touch-action: manipulation; }
+  input { font: inherit; }
 
-  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 16px; gap: 8px; }
-  .iconbtn {
-    width: 40px; height: 40px; border-radius: 12px; background: var(--card);
-    box-shadow: var(--shadow); border: 1px solid var(--line);
-    display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none;
-  }
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 16px;
-    box-shadow: var(--shadow); padding: 16px; margin-bottom: 14px;
+    box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px;
   }
   .btn-primary {
-    display: block; width: 100%; padding: 16px; border-radius: 14px;
-    background: var(--accent); color: var(--accent-contrast); font-size: 17px; font-weight: 700;
-    text-align: center;
+    display: block; width: 100%; padding: 15px; border-radius: 14px;
+    background: var(--accent); color: var(--accent-contrast); font-size: 16px; font-weight: 700; text-align: center;
   }
   .btn-primary:active { opacity: .85; }
+  .btn-primary:disabled { opacity: .55; }
   .btn-secondary {
-    display: block; width: 100%; padding: 14px; border-radius: 14px;
-    background: var(--card); border: 1px solid var(--line); font-size: 16px; font-weight: 600;
-    text-align: center;
+    display: block; width: 100%; padding: 13px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); font-size: 15px; font-weight: 600; text-align: center;
   }
-  .btn-danger { color: var(--bad); }
+  .btn-link { color: var(--accent); font-size: 14px; font-weight: 600; padding: 6px; }
 
-  /* ---- lista de recepciones ---- */
-  .rec-item {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    width: 100%; text-align: left; padding: 14px 16px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    box-shadow: var(--shadow); margin-bottom: 10px;
-  }
-  .rec-item:active { background: var(--accent-soft); }
-  .rec-item .kg { font-size: 18px; font-weight: 800; white-space: nowrap; }
-  .rec-item .chev { color: var(--muted); font-size: 18px; }
-  .badge {
-    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px;
-    border-radius: 99px; background: var(--ok-soft); color: var(--ok); margin-left: 6px;
-    vertical-align: 2px;
-  }
-  .badge.open { background: var(--accent-soft); color: var(--accent); }
-  .empty { text-align: center; color: var(--muted); padding: 36px 16px; font-size: 15px; }
-  .empty .big { font-size: 40px; display: block; margin-bottom: 10px; }
+  /* ---- logo / cabecera de bienvenida ---- */
+  .brand { text-align: center; padding: 28px 0 22px; }
+  .brand .emoji { font-size: 44px; }
+  .brand h1 { margin-top: 6px; }
 
-  /* ---- pantalla de recepción ---- */
+  /* ---- pestañas modo (iniciar sesión / crear cuenta) ---- */
   .seg {
     display: flex; background: var(--bg); border: 1px solid var(--line);
-    border-radius: 12px; padding: 3px; margin-bottom: 12px;
+    border-radius: 12px; padding: 3px; margin-bottom: 16px;
   }
-  .seg button {
-    flex: 1; padding: 10px; border-radius: 9px; font-size: 15px; font-weight: 600; color: var(--muted);
-  }
+  .seg button { flex: 1; padding: 10px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted); }
   .seg button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); border: 1px solid var(--line); }
-  .seg-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
-  #home-tabs {
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  #home-tabs::-webkit-scrollbar { display: none; }
-  #home-tabs button { flex: none; font-size: 15px; padding: 12px 13px; white-space: nowrap; }
-  .syncline {
-    display: block; width: 100%; text-align: center; font-size: 13px; font-weight: 600;
-    color: var(--muted); padding: 8px 4px 12px;
-  }
-  .syncline.err { color: var(--bad); }
-  .syncline.ok { color: var(--ok); }
 
-  .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-  .quick button {
-    padding: 16px 4px; border-radius: 12px; background: var(--accent-soft); color: var(--accent);
-    font-size: 19px; font-weight: 800; border: 1px solid transparent;
-  }
-  .quick button:active { border-color: var(--accent); }
-  .quick .unit { display: block; font-size: 11px; font-weight: 600; opacity: .75; }
-
-  .inputrow { display: flex; gap: 8px; }
-  .inputrow input {
-    flex: 1; min-width: 0; font: inherit; font-size: 22px; font-weight: 700; text-align: center;
-    padding: 12px; border-radius: 12px; border: 1px solid var(--line);
-    background: var(--bg); color: var(--text); outline: none;
-  }
-  .inputrow input:focus { border-color: var(--accent); }
-  .inputrow button {
-    flex: none; padding: 0 22px; border-radius: 12px; background: var(--accent);
-    color: var(--accent-contrast); font-size: 16px; font-weight: 700;
-  }
-  .hint { font-size: 13px; color: var(--muted); margin-top: 8px; text-align: center; }
-
-  /* ---- totales ---- */
-  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .tot { padding: 4px 0; }
-  .tot .lbl { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-  .tot .val { font-size: 20px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .net {
-    grid-column: 1 / -1; margin-top: 4px; padding: 12px 14px; border-radius: 12px;
-    background: var(--ok-soft); display: flex; align-items: baseline; justify-content: space-between;
-  }
-  .net .lbl { font-size: 14px; font-weight: 700; color: var(--ok); }
-  .net .val { font-size: 26px; font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }
-
-  /* ---- resumen agrupado y lista ---- */
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip {
-    font-size: 14px; font-weight: 700; padding: 6px 12px; border-radius: 99px;
-    background: var(--bg); border: 1px solid var(--line); font-variant-numeric: tabular-nums;
-  }
-  .chip.warn { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
-  .entry {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 11px 2px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums;
-  }
-  .entry:last-child { border-bottom: none; }
-  .entry .w { font-size: 17px; font-weight: 700; }
-  .entry .meta { font-size: 13px; color: var(--muted); }
-  .entry .flag { color: var(--bad); font-size: 12px; font-weight: 700; }
-  .entry .del { color: var(--bad); font-size: 14px; font-weight: 600; padding: 6px 10px; }
-  .listhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .listhead .toggle { font-size: 14px; color: var(--accent); font-weight: 600; padding: 4px; }
-
-  /* ---- cestas vacías ---- */
-  .stepper { display: flex; gap: 8px; align-items: stretch; }
-  .stepper button {
-    flex: none; width: 64px; border-radius: 12px; background: var(--accent-soft);
-    color: var(--accent); font-size: 26px; font-weight: 800; border: 1px solid transparent;
-  }
-  .stepper button:active { border-color: var(--accent); }
-  .stepper button:disabled { opacity: .4; }
-  .stepper input {
-    flex: 1; min-width: 0; font: inherit; font-size: 24px; font-weight: 800; text-align: center;
-    padding: 12px; border-radius: 12px; border: 1px solid var(--line);
-    background: var(--bg); color: var(--text); outline: none; font-variant-numeric: tabular-nums;
-  }
-  .stepper input:focus { border-color: var(--accent); }
-
-  .btn-wa {
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    width: 100%; padding: 16px; border-radius: 14px;
-    background: #1da851; color: #fff; font-size: 17px; font-weight: 700;
-  }
-  .btn-wa:active { opacity: .85; }
-
-  /* ---- formularios / ajustes ---- */
-  .field { margin-bottom: 14px; }
+  .field { margin-bottom: 13px; }
   .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
   .field input {
-    width: 100%; font: inherit; font-size: 17px; padding: 12px; border-radius: 12px;
+    width: 100%; font-size: 16px; padding: 12px; border-radius: 12px;
     border: 1px solid var(--line); background: var(--bg); color: var(--text); outline: none;
   }
   .field input:focus { border-color: var(--accent); }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field .hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
 
-  /* ---- modal ---- */
-  .modal-back {
-    position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none;
-    align-items: flex-end; justify-content: center; z-index: 50;
+  .choice { display: flex; gap: 8px; margin-bottom: 14px; }
+  .choice button {
+    flex: 1; padding: 12px 8px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.3;
   }
-  .modal-back.show { display: flex; }
-  .modal {
-    background: var(--card); width: 100%; max-width: 480px;
-    border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
-  }
-  .modal h2 { margin-bottom: 16px; }
-  .modal .actions { display: flex; gap: 10px; margin-top: 8px; }
-  .modal .actions button { flex: 1; }
+  .choice button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
-  .lockscreen {
-    position: fixed; inset: 0; z-index: 100; background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
+  .msg {
+    padding: 11px 13px; border-radius: 12px; font-size: 14px; font-weight: 600; margin-bottom: 14px;
   }
-  .lockbox { width: 100%; max-width: 300px; text-align: center; }
-  .lockbox input {
-    width: 100%; font: inherit; font-size: 28px; font-weight: 800; text-align: center;
-    letter-spacing: .35em; padding: 14px; border-radius: 14px;
-    border: 1px solid var(--line); background: var(--card); color: var(--text); outline: none;
+  .msg.error { background: var(--bad-soft); color: var(--bad); }
+  .msg.warn { background: var(--warn-soft); color: var(--warn); }
+  .msg.ok { background: var(--ok-soft); color: var(--ok); }
+
+  /* ---- home autenticado ---- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 18px; gap: 10px; }
+  .who { display: flex; align-items: center; gap: 10px; }
+  .who .av {
+    width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; flex: none;
   }
-  .lockbox input:focus { border-color: var(--accent); }
+  .role-badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-top: 2px;
+  }
+  .iconbtn {
+    width: 40px; height: 40px; border-radius: 12px; background: var(--card);
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 17px; flex: none;
+  }
+
+  .invite-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--bg); border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px;
+  }
+  .invite-row .code { font-size: 20px; font-weight: 800; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+
+  .empty { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 15px; }
+  .empty .big { font-size: 38px; display: block; margin-bottom: 10px; }
+
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: currentColor;
+    animation: spin .7s linear infinite; vertical-align: -3px; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  .hidden { display: none !important; }
 
   .toast {
     position: fixed; left: 50%; bottom: calc(30px + env(safe-area-inset-bottom));
     transform: translateX(-50%) translateY(20px);
     background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600;
     padding: 10px 18px; border-radius: 99px; opacity: 0; pointer-events: none;
-    transition: opacity .2s, transform .2s; z-index: 60; white-space: nowrap;
+    transition: opacity .2s, transform .2s; z-index: 60; white-space: nowrap; max-width: 90vw;
+    overflow: hidden; text-overflow: ellipsis;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 <main>
-  <!-- ================= INICIO ================= -->
-  <section id="view-home">
-    <div class="topbar">
-      <div>
-        <h1>📦 Recepción de mercancía</h1>
-        <div class="sub">Mercancía · mi negocio</div>
-      </div>
-      <button class="iconbtn" id="btn-settings" aria-label="Ajustes">⚙️</button>
-    </div>
-    <div class="seg" id="home-tabs"></div>
-    <button class="btn-primary" id="btn-new" style="margin:14px 0 10px">🐔 Nueva recepción de pollo</button>
-    <button class="btn-wa hidden" id="btn-wa-dia">📲 Enviar verduras del día</button>
-    <button class="syncline" id="sync-status">☁️ Sincronización no configurada — toca aquí</button>
-    <div id="home-list"></div>
+
+  <!-- ================= CARGANDO ================= -->
+  <section id="view-loading">
+    <div class="brand"><span class="emoji">📦</span><h1>Mercancía</h1></div>
+    <p class="sub" style="text-align:center">Cargando…</p>
   </section>
 
-  <!-- ================= RECEPCIÓN ================= -->
-  <section id="view-rec" class="hidden">
-    <div class="topbar">
-      <button class="iconbtn" id="btn-back" aria-label="Volver">←</button>
-      <div style="flex:1">
-        <h1 id="rec-title">Recepción</h1>
-        <div class="sub" id="rec-sub"></div>
-      </div>
-      <button class="iconbtn btn-danger" id="btn-del-rec" aria-label="Eliminar">🗑️</button>
+  <!-- ================= LOGIN / REGISTRO ================= -->
+  <section id="view-auth" class="hidden">
+    <div class="brand">
+      <span class="emoji">📦</span>
+      <h1>Mercancía</h1>
+      <p class="sub">Recepción de mercancía para tu negocio</p>
     </div>
 
-    <div class="card" id="entry-card">
-      <div class="seg" id="seg-mode">
-        <button data-mode="2" class="on">2 cestas</button>
-        <button data-mode="1">1 cesta suelta</button>
+    <div class="seg" id="auth-mode">
+      <button data-mode="login" class="on">Iniciar sesión</button>
+      <button data-mode="signup">Crear cuenta</button>
+    </div>
+
+    <div id="msg-area"></div>
+
+    <form id="form-auth" class="card" autocomplete="on">
+      <div id="signup-choice" class="choice hidden">
+        <button type="button" data-tipo="dueno" class="on">🏢 Soy dueño de<br>un negocio nuevo</button>
+        <button type="button" data-tipo="operador">🔑 Tengo un código<br>de invitación</button>
       </div>
-      <div id="cestas-picker" class="hidden">
-        <div class="seg-label">Cestas en esta pesada</div>
-        <div class="seg" id="seg-cestas"></div>
+
+      <div class="field" id="field-negocio">
+        <label for="in-negocio">Nombre de tu negocio</label>
+        <input id="in-negocio" type="text" autocomplete="organization" placeholder="Ej. Broaster Express">
       </div>
-      <div class="quick" id="quick-btns"></div>
-      <div class="inputrow">
-        <input id="weight-input" type="text" inputmode="numeric" placeholder="Peso en kg" autocomplete="off">
-        <button id="btn-add">Añadir</button>
+      <div class="field hidden" id="field-invite">
+        <label for="in-invite">Código de invitación</label>
+        <input id="in-invite" type="text" autocomplete="off" placeholder="Ej. a1b2c3d4" style="text-transform:lowercase">
+        <div class="hint">Te lo comparte el dueño del negocio desde su app.</div>
       </div>
-      <div class="hint" id="range-hint"></div>
+
+      <div class="field">
+        <label for="in-email">Correo</label>
+        <input id="in-email" type="email" autocomplete="email" inputmode="email" placeholder="tu@correo.com" required>
+      </div>
+      <div class="field">
+        <label for="in-pass">Contraseña</label>
+        <input id="in-pass" type="password" autocomplete="current-password" placeholder="••••••••" required>
+        <div class="hint" id="pass-hint">Mínimo 6 caracteres.</div>
+      </div>
+
+      <button type="submit" class="btn-primary" id="btn-auth-submit">Iniciar sesión</button>
+    </form>
+  </section>
+
+  <!-- ================= HOME AUTENTICADO ================= -->
+  <section id="view-home" class="hidden">
+    <div class="topbar">
+      <div class="who">
+        <div class="av">📦</div>
+        <div>
+          <div style="font-weight:800" id="home-negocio">—</div>
+          <span class="role-badge" id="home-role">—</span>
+        </div>
+      </div>
+      <button class="iconbtn" id="btn-logout" aria-label="Cerrar sesión">⎋</button>
+    </div>
+
+    <div id="trial-banner"></div>
+
+    <div class="card hidden" id="invite-card">
+      <h2>Invita a tu equipo</h2>
+      <p class="sub" style="margin-bottom:12px">Comparte este código con tus repartidores o encargados de sitio para que se unan a tu negocio.</p>
+      <div class="invite-row">
+        <span class="code" id="invite-code">--------</span>
+        <button class="btn-link" id="btn-copy-invite">Copiar</button>
+      </div>
     </div>
 
     <div class="card">
-      <div class="totals">
-        <div class="tot"><div class="lbl">Pesadas</div><div class="val" id="t-pesadas">0</div></div>
-        <div class="tot"><div class="lbl">Cestas</div><div class="val" id="t-cestas">0</div></div>
-        <div class="tot"><div class="lbl">Peso bruto</div><div class="val" id="t-bruto">0 kg</div></div>
-        <div class="tot"><div class="lbl">Tara cestas</div><div class="val" id="t-tara">−0 kg</div></div>
-        <div class="net"><span class="lbl" id="t-neto-lbl">POLLO NETO</span><span class="val" id="t-neto">0 kg</span></div>
+      <div class="empty">
+        <span class="big">🚧</span>
+        Ya iniciaste sesión correctamente.<br>
+        Los productos y las recepciones llegan en el próximo paso.
       </div>
     </div>
-
-    <div class="card" id="summary-card">
-      <div class="listhead"><h2>Resumen</h2></div>
-      <div class="chips" id="summary-chips"></div>
-    </div>
-
-    <div class="card" id="entries-card">
-      <div class="listhead">
-        <h2>Pesadas</h2>
-        <button class="toggle" id="btn-toggle-list">Ver todas</button>
-      </div>
-      <div id="entries-list"></div>
-    </div>
-
-    <div class="card">
-      <h2>🧺 Cestas vacías</h2>
-      <div class="sub" style="margin-bottom:12px">Cestas vacías que se lleva el proveedor</div>
-      <div class="stepper">
-        <button id="emp-minus" aria-label="Quitar una cesta">−</button>
-        <input id="emp-input" type="text" inputmode="numeric" autocomplete="off">
-        <button id="emp-plus" aria-label="Añadir una cesta">+</button>
-      </div>
-    </div>
-
-    <button class="btn-wa" id="btn-wa" style="margin-bottom:10px">📲 Enviar por WhatsApp</button>
-    <button class="btn-secondary" id="btn-share" style="margin-bottom:10px">📋 Copiar resumen</button>
-    <button class="btn-secondary" id="btn-close-rec">Terminar recepción</button>
   </section>
+
 </main>
-
-<!-- ================= MODAL AJUSTES ================= -->
-<div class="modal-back" id="modal-settings">
-  <div class="modal">
-    <h2>Ajustes</h2>
-    <div class="field">
-      <label>Peso de cada cesta vacía (tara, kg)</label>
-      <input id="set-tara" type="text" inputmode="decimal">
-    </div>
-    <div class="row2">
-      <div class="field">
-        <label>Mínimo por pesada (2 cestas)</label>
-        <input id="set-min" type="text" inputmode="decimal">
-      </div>
-      <div class="field">
-        <label>Máximo por pesada (2 cestas)</label>
-        <input id="set-max" type="text" inputmode="decimal">
-      </div>
-    </div>
-    <div class="row2">
-      <div class="field">
-        <label>Mínimo cesta suelta</label>
-        <input id="set-min1" type="text" inputmode="decimal">
-      </div>
-      <div class="field">
-        <label>Máximo cesta suelta</label>
-        <input id="set-max1" type="text" inputmode="decimal">
-      </div>
-    </div>
-    <div class="field">
-      <label>Código de sincronización</label>
-      <input id="set-token" type="password" placeholder="github_pat_…" autocomplete="off">
-      <div class="sub" style="margin-top:6px">Pega el mismo código en cada teléfono para compartir los datos entre todos. Vacío = solo este teléfono.</div>
-    </div>
-    <div class="actions">
-      <button class="btn-secondary" id="set-cancel">Cancelar</button>
-      <button class="btn-primary" id="set-save">Guardar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL ELEGIR PRODUCTO ================= -->
-<div class="modal-back" id="modal-producto">
-  <div class="modal">
-    <h2>¿Qué producto recibes?</h2>
-    <div id="producto-btns"></div>
-    <div class="actions">
-      <button class="btn-secondary" id="producto-cancel">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= MODAL CONFIRMAR ================= -->
-<div class="modal-back" id="modal-confirm">
-  <div class="modal">
-    <h2 id="confirm-title">¿Seguro?</h2>
-    <p class="sub" id="confirm-msg" style="margin-bottom:16px"></p>
-    <div class="actions">
-      <button class="btn-secondary" id="confirm-no">Cancelar</button>
-      <button class="btn-primary" id="confirm-yes">Sí, continuar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= PANTALLA DE BLOQUEO ================= -->
-<div class="lockscreen hidden" id="lock">
-  <div class="lockbox">
-    <div style="font-size:48px">🔒</div>
-    <h1 style="margin:10px 0 4px">Mercancía</h1>
-    <p class="sub" style="margin-bottom:20px">Escribe el código de acceso</p>
-    <input id="pin-input" type="password" inputmode="numeric" maxlength="8" autocomplete="off" aria-label="Código de acceso">
-    <button class="btn-primary" id="pin-btn" style="margin-top:12px">Entrar</button>
-  </div>
-</div>
 
 <div class="toast" id="toast"></div>
 
+<script src="vendor/supabase.js"></script>
 <script>
 'use strict';
-/* ============ almacenamiento ============ */
-const STORE_KEY = 'mercancia.v1';
-const defaults = { settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '' }, recepciones: [], borradas: {} };
-const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
 
-/* Catálogo de productos.
-   - neto: etiqueta del total · cestas: máximo de cestas por pesada (a granel)
-   - todo lo que no es pollo se pesa a granel: peso con decimales, sin rango */
-const PRODUCTOS = {
-  pollo:          { emoji: '🐔', nombre: 'Pollo',          neto: 'POLLO NETO' },
-  papas:          { emoji: '🥔', nombre: 'Papas',          neto: 'PAPAS NETAS', cestas: 5 },
-  repollo_blanco: { emoji: '🥬', nombre: 'Repollo blanco', neto: 'R. BLANCO NETO', cestas: 5 },
-  repollo_morado: { emoji: '🥬💜', nombre: 'Repollo morado', neto: 'R. MORADO NETO', cestas: 5 },
-  zanahoria:      { emoji: '🥕', nombre: 'Zanahoria',      neto: 'ZANAHORIA NETA', cestas: 5 },
-  cebollin:       { emoji: '🌿', nombre: 'Cebollín',       neto: 'CEBOLLÍN NETO', cestas: 5 }
-};
+/* ============ configuración del proyecto de Supabase ============
+   La "anon key" es pública a propósito: la seguridad real la da el
+   Row Level Security definido en supabase/schema.sql, no el secreto
+   de esta llave. Lo que NUNCA debe ir aquí es la "service_role key". */
+const SUPABASE_URL = 'https://vbmsbuxvswbwnopovebg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZibXNidXh2c3did25vcG92ZWJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2Mzc4NzEsImV4cCI6MjEwMDIxMzg3MX0.SeQrUpVZAG3kI3-4dZVN05_h7LrGlJ5REgOHQfVdR8M';
 
-/* Pestañas del inicio: una puede agrupar varios productos */
-const TABS = {
-  pollo:    { emoji: '🐔', nombre: 'Pollo',    tipos: ['pollo'] },
-  papas:    { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
-  verduras: { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] }
-};
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function load() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return structuredClone(defaults);
-    const d = JSON.parse(raw);
-    d.settings = Object.assign({}, defaults.settings, d.settings);
-    d.recepciones = d.recepciones || [];
-    d.borradas = d.borradas || {};
-    for (const r of d.recepciones) if (!r.tipo) r.tipo = 'pollo';
-    // v2: el rango de 2 cestas pasó de 68-71 a 65-75 (solo si no se había personalizado)
-    if (!d.v || d.v < 2) {
-      if (d.settings.min === 68) d.settings.min = 65;
-      if (d.settings.max === 71) d.settings.max = 75;
-      d.v = 2;
-    }
-    return d;
-  } catch { return structuredClone(defaults); }
-}
-// pushChanges=false cuando el cambio viene de la propia sincronización
-function save(pushChanges) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(db));
-  if (pushChanges !== false) schedulePush();
-}
-// marca una recepción como modificada, para que gane al sincronizar
-function touch(rec) { rec.mod = Date.now(); }
-
-let db = load();
-let current = null;        // recepción abierta en pantalla
-let mode = 2;              // cestas por pesada (pollo: 2 o 1 · granel: 1 a 5)
-let showAllEntries = false;
-let homeTab = 'pollo';     // pestaña activa en inicio
-
-/* ============ utilidades ============ */
 const $ = id => document.getElementById(id);
-function parseNum(s) {
-  if (typeof s !== 'string') return NaN;
-  s = s.trim().replace(',', '.');
-  if (!s || !/^\d+(\.\d+)?$/.test(s)) return NaN;
-  return parseFloat(s);
-}
-function fmt(n, dec) {
-  const d = dec !== undefined ? dec : (Math.abs(n % 1) > 1e-9 ? 1 : 0);
-  return n.toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: Math.max(d, 2) });
-}
-function fmtKg(n) { return fmt(round2(n)) + ' kg'; }
-// dos decimales: solo corrige el error flotante de las sumas, no redondea el peso
-function round2(n) { return Math.round(n * 100) / 100; }
-function fmtDate(iso) {
-  const d = new Date(iso + 'T12:00:00');
-  return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-}
-function todayISO() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function show(view) {
+  for (const id of ['view-loading', 'view-auth', 'view-home'])
+    $(id).classList.toggle('hidden', id !== 'view-' + view);
+  window.scrollTo(0, 0);
 }
 function toast(msg) {
   const t = $('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toast._h);
-  toast._h = setTimeout(() => t.classList.remove('show'), 1800);
-}
-let confirmCb = null;
-function askConfirm(title, msg, cb) {
-  $('confirm-title').textContent = title;
-  $('confirm-msg').textContent = msg;
-  confirmCb = cb;
-  $('modal-confirm').classList.add('show');
-}
-$('confirm-no').onclick = () => { $('modal-confirm').classList.remove('show'); confirmCb = null; };
-$('confirm-yes').onclick = () => { $('modal-confirm').classList.remove('show'); const cb = confirmCb; confirmCb = null; if (cb) cb(); };
-
-/* ============ cálculos ============ */
-function totals(rec) {
-  let pesadas = rec.pesadas.length, cestas = 0, bruto = 0;
-  for (const p of rec.pesadas) { cestas += p.cestas; bruto += p.peso; }
-  const tara = cestas * rec.tara;
-  return { pesadas, cestas, bruto, tara, neto: bruto - tara };
-}
-function rango(cestas, rec) {
-  return cestas === 2 ? [rec.min, rec.max] : [rec.min1 ?? 32, rec.max1 ?? 37];
-}
-function inRange(peso, cestas, rec) {
-  if (rec.tipo !== 'pollo') return true;  // los productos a granel no tienen rango
-  const [min, max] = rango(cestas, rec);
-  return peso >= min && peso <= max;
+  toast._h = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-/* ============ vistas ============ */
-function show(view) {
-  $('view-home').classList.toggle('hidden', view !== 'home');
-  $('view-rec').classList.toggle('hidden', view !== 'rec');
-  window.scrollTo(0, 0);
+/* ============ estado del formulario de acceso ============ */
+let authMode = 'login';   // 'login' | 'signup'
+let signupTipo = 'dueno'; // 'dueno' | 'operador'
+
+function renderMsg(text, kind) {
+  $('msg-area').innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : '';
 }
 
-function buildTabs() {
-  const tabs = $('home-tabs');
-  tabs.innerHTML = '';
-  for (const [id, T] of Object.entries(TABS)) {
-    const b = document.createElement('button');
-    b.dataset.t = id;
-    b.textContent = T.emoji + ' ' + T.nombre;
-    tabs.appendChild(b);
+function renderAuthForm() {
+  for (const b of $('auth-mode').querySelectorAll('button'))
+    b.classList.toggle('on', b.dataset.mode === authMode);
+
+  const isSignup = authMode === 'signup';
+  $('signup-choice').classList.toggle('hidden', !isSignup);
+  $('field-negocio').classList.toggle('hidden', !isSignup || signupTipo !== 'dueno');
+  $('field-invite').classList.toggle('hidden', !isSignup || signupTipo !== 'operador');
+  $('in-pass').setAttribute('autocomplete', isSignup ? 'new-password' : 'current-password');
+  $('pass-hint').classList.toggle('hidden', !isSignup);
+
+  for (const b of $('signup-choice').querySelectorAll('button'))
+    b.classList.toggle('on', b.dataset.tipo === signupTipo);
+
+  $('btn-auth-submit').textContent = isSignup
+    ? (signupTipo === 'dueno' ? 'Crear mi negocio' : 'Unirme al negocio')
+    : 'Iniciar sesión';
+  renderMsg('');
+}
+
+$('auth-mode').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  authMode = b.dataset.mode;
+  renderAuthForm();
+});
+$('signup-choice').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  signupTipo = b.dataset.tipo;
+  renderAuthForm();
+});
+
+/* mensajes de error de Supabase traducidos a algo útil para el usuario.
+   Los errores 5xx (ej. el trigger de la base de datos rechazando un
+   código de invitación con "raise exception") no traen un mensaje legible
+   en err.message — Supabase los agrupa como error "reintentable" y no
+   expone el texto real, así que ahí nos guiamos por el status, no el texto. */
+function traducirError(err, contexto) {
+  const status = err && err.status;
+  const m = (err && err.message) || '';
+  if (status >= 500) {
+    if (contexto === 'operador') return 'No se pudo crear la cuenta. Verifica que el código de invitación sea correcto.';
+    return 'No se pudo completar. Inténtalo de nuevo en un momento.';
   }
+  if (/invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
+  if (/already registered|already exists/i.test(m)) return 'Ese correo ya tiene una cuenta. Prueba «Iniciar sesión».';
+  if (/password.*(least|short|weak)/i.test(m)) return 'La contraseña es muy corta o muy débil (mínimo 6 caracteres).';
+  if (/invalid email/i.test(m)) return 'Ese correo no parece válido.';
+  if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Sin conexión a internet. Intenta de nuevo cuando tengas señal.';
+  return m || 'Algo salió mal. Intenta de nuevo.';
 }
 
-function renderHome() {
-  const T = TABS[homeTab];
-  for (const b of $('home-tabs').querySelectorAll('button'))
-    b.classList.toggle('on', b.dataset.t === homeTab);
-  $('btn-new').textContent = T.emoji + ' Nueva recepción de ' + T.nombre.toLowerCase();
-  $('btn-wa-dia').classList.toggle('hidden', homeTab !== 'verduras');
+$('form-auth').addEventListener('submit', async e => {
+  e.preventDefault();
+  renderMsg('');
+  const email = $('in-email').value.trim();
+  const password = $('in-pass').value;
+  const btn = $('btn-auth-submit');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Un momento…';
 
-  const list = $('home-list');
-  const recs = db.recepciones.filter(r => T.tipos.includes(r.tipo || 'pollo')).sort((a, b) => b.creada - a.creada);
-  if (!recs.length) {
-    list.innerHTML = '<div class="empty"><span class="big">' + T.emoji + '</span>Todavía no hay recepciones de ' +
-      T.nombre.toLowerCase() + '.<br>Pulsa «Nueva recepción» para empezar.</div>';
-    return;
-  }
-  list.innerHTML = '';
-  for (const rec of recs) {
-    const t = totals(rec);
-    const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
-    const btn = document.createElement('button');
-    btn.className = 'rec-item';
-    btn.innerHTML =
-      '<div><div style="font-weight:700">' + P.emoji + ' ' + P.nombre + ' · ' + fmtDate(rec.fecha) +
-      (rec.cerrada ? '<span class="badge">terminada</span>' : '<span class="badge open">abierta</span>') +
-      '</div><div class="meta sub">' + t.pesadas + ' pesadas · ' + t.cestas + ' cestas</div></div>' +
-      '<div style="display:flex;align-items:center;gap:8px"><span class="kg">' + fmtKg(t.neto) + '</span><span class="chev">›</span></div>';
-    btn.onclick = () => openRec(rec.id);
-    list.appendChild(btn);
-  }
-}
-
-function openRec(id) {
-  current = db.recepciones.find(r => r.id === id);
-  if (!current) return;
-  mode = current.tipo === 'pollo' ? 2 : ((PRODUCTOS[current.tipo] || {}).cestas || 5);
-  showAllEntries = false;
-  $('weight-input').value = '';
-  renderRec();
-  show('rec');
-}
-
-function renderRec() {
-  const rec = current;
-  const t = totals(rec);
-  const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
-  const esPollo = rec.tipo === 'pollo';
-  $('rec-title').textContent = P.nombre + ' · ' + fmtDate(rec.fecha);
-  $('rec-sub').textContent = rec.cerrada
-    ? 'Recepción terminada'
-    : esPollo
-      ? 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · rango ' + fmt(rec.min) + '–' + fmt(rec.max) + ' kg'
-      : 'Tara: ' + fmt(rec.tara, 1) + ' kg por cesta · pesadas de hasta ' + (P.cestas || 5) + ' cestas';
-
-  // modo entrada
-  $('entry-card').classList.toggle('hidden', rec.cerrada);
-  $('btn-close-rec').textContent = rec.cerrada ? 'Reabrir recepción' : 'Terminar recepción';
-  $('seg-mode').classList.toggle('hidden', !esPollo);
-  $('cestas-picker').classList.toggle('hidden', esPollo);
-  for (const b of $('seg-mode').querySelectorAll('button'))
-    b.classList.toggle('on', +b.dataset.mode === mode);
-  if (!esPollo) {
-    // botones 1..máximo de cestas del producto (papas: 5 · verduras: 3)
-    const segC = $('seg-cestas');
-    const maxC = P.cestas || 5;
-    if (segC.childElementCount !== maxC) {
-      segC.innerHTML = '';
-      for (let c = 1; c <= maxC; c++) {
-        const b = document.createElement('button');
-        b.dataset.c = c;
-        b.textContent = c;
-        segC.appendChild(b);
+  try {
+    if (authMode === 'login') {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      // onAuthStateChange se encarga de mostrar el home
+    } else {
+      const meta = {};
+      if (signupTipo === 'dueno') {
+        const nombre = $('in-negocio').value.trim();
+        if (!nombre) { renderMsg('Escribe el nombre de tu negocio.', 'error'); return; }
+        meta.nombre_negocio = nombre;
+      } else {
+        const codigo = $('in-invite').value.trim().toLowerCase();
+        if (!codigo) { renderMsg('Escribe el código de invitación.', 'error'); return; }
+        meta.invite_code = codigo;
+      }
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: meta } });
+      if (error) throw error;
+      if (data.session) {
+        // confirmación de correo desactivada: ya queda con sesión iniciada
+      } else {
+        renderMsg('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.', 'ok');
+        authMode = 'login';
+        renderAuthForm();
       }
     }
-    for (const b of segC.querySelectorAll('button'))
-      b.classList.toggle('on', +b.dataset.c === mode);
+  } catch (err) {
+    renderMsg(traducirError(err, signupTipo), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
   }
-  $('weight-input').setAttribute('inputmode', esPollo ? 'numeric' : 'decimal');
-
-  // botones rápidos (solo pollo: enteros del rango, modo 2 cestas)
-  const qb = $('quick-btns');
-  qb.innerHTML = '';
-  if (esPollo && mode === 2) {
-    const vals = QUICK_POLLO;
-    qb.style.gridTemplateColumns = 'repeat(' + Math.max(vals.length, 1) + ', 1fr)';
-    for (const v of vals) {
-      const b = document.createElement('button');
-      b.innerHTML = fmt(v) + '<span class="unit">kg</span>';
-      b.onclick = () => addEntry(v, 2);
-      qb.appendChild(b);
-    }
-    qb.classList.remove('hidden');
-    $('range-hint').textContent = 'Cada pesada de 2 cestas debe pesar entre ' + fmt(rec.min) + ' y ' + fmt(rec.max) + ' kg.';
-  } else if (esPollo) {
-    qb.classList.add('hidden');
-    const [lo1, hi1] = rango(1, rec);
-    $('range-hint').textContent = 'Cesta suelta: entre ' + fmt(lo1) + ' y ' + fmt(hi1) + ' kg.';
-  } else {
-    qb.classList.add('hidden');
-    $('range-hint').textContent = 'Escribe el peso de la pesada (puede llevar decimales, ej. 72,4).';
-  }
-
-  // totales
-  $('t-pesadas').textContent = t.pesadas;
-  $('t-cestas').textContent = t.cestas;
-  $('t-bruto').textContent = fmtKg(t.bruto);
-  $('t-tara').textContent = '−' + fmtKg(t.tara);
-  $('t-neto-lbl').textContent = P.neto;
-  $('t-neto').textContent = fmtKg(t.neto);
-
-  // resumen agrupado (solo pollo: en papas los pesos casi nunca se repiten)
-  $('summary-card').classList.toggle('hidden', !esPollo);
-  const groups = new Map();
-  for (const p of rec.pesadas) {
-    const key = p.peso + '|' + p.cestas;
-    groups.set(key, (groups.get(key) || 0) + 1);
-  }
-  const chips = $('summary-chips');
-  chips.innerHTML = '';
-  if (!groups.size) {
-    chips.innerHTML = '<span class="sub">Sin pesadas todavía.</span>';
-  } else {
-    const sorted = [...groups.entries()].sort((a, b) => b[1] - a[1]);
-    for (const [key, count] of sorted) {
-      const [peso, cestas] = key.split('|').map(Number);
-      const el = document.createElement('span');
-      el.className = 'chip' + (inRange(peso, cestas, rec) ? '' : ' warn');
-      el.textContent = count + ' × ' + fmt(peso) + ' kg' + (cestas === 1 ? ' (1 cesta)' : '');
-      chips.appendChild(el);
-    }
-  }
-
-  // cestas vacías que se lleva el proveedor
-  $('emp-input').value = rec.cestasVacias || 0;
-  $('emp-input').disabled = rec.cerrada;
-  $('emp-minus').disabled = rec.cerrada;
-  $('emp-plus').disabled = rec.cerrada;
-
-  // lista de pesadas
-  const list = $('entries-list');
-  list.innerHTML = '';
-  const items = [...rec.pesadas].reverse();
-  const shown = showAllEntries ? items : items.slice(0, 5);
-  $('btn-toggle-list').classList.toggle('hidden', items.length <= 5);
-  $('btn-toggle-list').textContent = showAllEntries ? 'Ver menos' : 'Ver todas (' + items.length + ')';
-  if (!items.length) list.innerHTML = '<div class="sub" style="padding:6px 0">Aquí aparecerá cada pesada que registres.</div>';
-  for (const p of shown) {
-    const idx = rec.pesadas.indexOf(p);
-    const row = document.createElement('div');
-    row.className = 'entry';
-    row.innerHTML =
-      '<div><span class="w">' + fmt(p.peso) + ' kg</span> ' +
-      '<span class="meta">· ' + (p.cestas === 1 ? '1 cesta' : p.cestas + ' cestas') + ' · #' + (idx + 1) + '</span>' +
-      (inRange(p.peso, p.cestas, rec) ? '' : ' <span class="flag">fuera de rango</span>') + '</div>' +
-      (rec.cerrada ? '' : '<button class="del">Borrar</button>');
-    const del = row.querySelector('.del');
-    if (del) del.onclick = () => {
-      rec.pesadas.splice(idx, 1);
-      touch(rec);
-      save(); renderRec();
-      toast('Pesada eliminada');
-    };
-    list.appendChild(row);
-  }
-}
-
-/* ============ acciones ============ */
-function nuevaRecepcion(tipo) {
-  const rec = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    tipo,
-    fecha: todayISO(),
-    creada: Date.now(),
-    cerrada: false,
-    tara: db.settings.tara,
-    min: db.settings.min,
-    max: db.settings.max,
-    min1: db.settings.min1,
-    max1: db.settings.max1,
-    cestasVacias: 0,
-    pesadas: []
-  };
-  touch(rec);
-  db.recepciones.push(rec);
-  save();
-  openRec(rec.id);
-}
-$('btn-new').onclick = () => {
-  const T = TABS[homeTab];
-  if (T.tipos.length === 1) { nuevaRecepcion(T.tipos[0]); return; }
-  // la pestaña agrupa varios productos: preguntar cuál llega
-  const cont = $('producto-btns');
-  cont.innerHTML = '';
-  for (const tipo of T.tipos) {
-    const P = PRODUCTOS[tipo];
-    const b = document.createElement('button');
-    b.className = 'btn-secondary';
-    b.style.marginBottom = '10px';
-    b.textContent = P.emoji + ' ' + P.nombre;
-    b.onclick = () => { $('modal-producto').classList.remove('show'); nuevaRecepcion(tipo); };
-    cont.appendChild(b);
-  }
-  $('modal-producto').classList.add('show');
-};
-$('producto-cancel').onclick = () => $('modal-producto').classList.remove('show');
-
-$('home-tabs').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (!b) return;
-  homeTab = b.dataset.t;
-  renderHome();
 });
 
-$('btn-back').onclick = () => { current = null; renderHome(); show('home'); };
+/* ============ cargar datos del negocio tras iniciar sesión ============ */
+async function cargarNegocio(user) {
+  const { data, error } = await sb
+    .from('memberships')
+    .select('role, tenants(trial_ends_at, is_paid, invite_code, tenant_profile(nombre_negocio))')
+    .eq('user_id', user.id)
+    .single();
 
-$('seg-mode').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (!b) return;
-  mode = +b.dataset.mode;
-  renderRec();
-});
-
-$('seg-cestas').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (!b) return;
-  mode = +b.dataset.c;
-  renderRec();
-});
-
-function addEntry(peso, cestas) {
-  const rec = current;
-  if (!rec || rec.cerrada) return;
-  const doAdd = () => {
-    rec.pesadas.push({ peso, cestas, ts: Date.now() });
-    touch(rec);
-    save();
-    $('weight-input').value = '';
-    renderRec();
-    toast('✓ ' + fmt(peso) + ' kg añadidos');
-    if (navigator.vibrate) navigator.vibrate(15);
-  };
-  if (!inRange(peso, cestas, rec)) {
-    const [min, max] = rango(cestas, rec);
-    askConfirm('Peso fuera de rango',
-      fmt(peso) + ' kg está fuera del rango permitido (' + fmt(min) + '–' + fmt(max) + ' kg' +
-      (cestas === 2 ? ' por 2 cestas' : ' por cesta') + '). ¿Registrarlo de todas formas?',
-      doAdd);
+  if (error || !data) {
+    console.error(error);
+    toast('No se pudo cargar tu negocio. Intenta de nuevo.');
     return;
   }
-  doAdd();
+
+  const t = data.tenants;
+  const nombre = (t.tenant_profile && t.tenant_profile.nombre_negocio) || 'Tu negocio';
+  const esDueno = data.role === 'dueno';
+
+  $('home-negocio').textContent = nombre;
+  $('home-role').textContent = esDueno ? 'Dueño' : 'Operador';
+
+  // banner de la prueba de 14 días
+  const vence = new Date(t.trial_ends_at);
+  const activo = t.is_paid || vence > new Date();
+  const banner = $('trial-banner');
+  if (t.is_paid) {
+    banner.innerHTML = '';
+  } else if (activo) {
+    const dias = Math.max(1, Math.ceil((vence - new Date()) / 86400000));
+    banner.innerHTML = `<div class="msg warn">🕑 Prueba gratis: ${dias} ${dias === 1 ? 'día' : 'días'} restantes.</div>`;
+  } else {
+    banner.innerHTML = '<div class="msg error">⚠️ Tu prueba gratuita venció. Contacta para activar tu cuenta — el historial sigue guardado, pero no se pueden registrar recepciones nuevas.</div>';
+  }
+
+  // el código de invitación solo lo ve el dueño
+  $('invite-card').classList.toggle('hidden', !esDueno);
+  if (esDueno) $('invite-code').textContent = t.invite_code;
 }
 
-$('btn-add').onclick = () => {
-  const s = $('weight-input').value.trim();
-  let v;
-  if (current.tipo === 'pollo') {
-    // el pollo se anota en kg enteros
-    if (!/^\d+$/.test(s)) { toast('Solo números enteros, sin decimales'); return; }
-    v = parseInt(s, 10);
-  } else {
-    // los productos a granel admiten hasta 2 decimales (con coma o punto)
-    v = parseNum(s);
-    if (isNaN(v)) { toast('Escribe un peso válido'); return; }
-    v = round2(v);
-  }
-  if (v <= 0) { toast('Escribe un peso válido'); return; }
-  if (v > 500) { toast('Ese peso no parece correcto'); return; }
-  addEntry(v, mode);
-};
-$('weight-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-add').click(); });
-
-$('btn-toggle-list').onclick = () => { showAllEntries = !showAllEntries; renderRec(); };
-
-$('btn-close-rec').onclick = () => {
-  const rec = current;
-  if (rec.cerrada) {
-    rec.cerrada = false;
-    touch(rec);
-    save(); renderRec();
-    toast('Recepción reabierta');
-  } else {
-    askConfirm('Terminar recepción',
-      'Se guardará con ' + fmtKg(totals(rec).neto) + ' de ' + (PRODUCTOS[rec.tipo] || PRODUCTOS.pollo).nombre.toLowerCase() + ' neto. Podrás reabrirla si lo necesitas.',
-      () => { rec.cerrada = true; touch(rec); save(); renderRec(); toast('Recepción terminada'); });
-  }
-};
-
-$('btn-del-rec').onclick = () => {
-  askConfirm('Eliminar recepción',
-    'Se borrará esta recepción y todas sus pesadas. Esta acción no se puede deshacer.',
-    () => {
-      db.borradas[current.id] = Date.now();  // para que también se borre en los demás teléfonos
-      db.recepciones = db.recepciones.filter(r => r.id !== current.id);
-      save();
-      current = null;
-      renderHome(); show('home');
-      toast('Recepción eliminada');
-    });
-};
-
-/* ============ resumen para compartir ============ */
-function buildResumen(rec) {
-  const t = totals(rec);
-  const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
-  let txt = P.emoji + ' *RECEPCIÓN DE ' + P.nombre.toUpperCase() + '*\n📅 ' + fmtDate(rec.fecha) + '\n';
-  txt += '\n*Pesadas:*\n';
-  if (!rec.pesadas.length) {
-    txt += '• (sin pesadas)\n';
-  } else if (rec.tipo === 'pollo') {
-    // el pollo se agrupa porque los pesos se repiten (68, 69, 70, 71)
-    const groups = new Map();
-    for (const p of rec.pesadas) {
-      const key = fmt(p.peso) + ' kg' + (p.cestas === 1 ? ' (1 cesta)' : '');
-      groups.set(key, (groups.get(key) || 0) + 1);
-    }
-    for (const [k, c] of groups) txt += '• ' + c + ' × ' + k + '\n';
-  } else {
-    // los productos a granel se listan uno a uno (los pesos llevan decimales)
-    rec.pesadas.forEach((p, i) => {
-      txt += '• Pesada ' + (i + 1) + ': ' + fmt(p.peso) + ' kg (' + p.cestas + (p.cestas === 1 ? ' cesta' : ' cestas') + ')\n';
-    });
-  }
-  txt += '\nCestas recibidas: ' + t.cestas + '\n';
-  txt += 'Peso bruto: ' + fmtKg(t.bruto) + '\n';
-  txt += 'Tara (' + t.cestas + ' × ' + fmt(rec.tara, 1) + ' kg): −' + fmtKg(t.tara) + '\n';
-  txt += '✅ *' + P.neto + ': ' + fmtKg(t.neto) + '*\n';
-  txt += '\n🧺 Cestas vacías que se lleva el proveedor: ' + (rec.cestasVacias || 0);
-  return txt;
-}
-
-$('btn-wa').onclick = () => {
-  window.open('https://wa.me/?text=' + encodeURIComponent(buildResumen(current)), '_blank');
-};
-
-// resumen conjunto: todas las recepciones de verduras de hoy en un solo mensaje
-$('btn-wa-dia').onclick = () => {
-  const hoy = todayISO();
-  const recs = db.recepciones
-    .filter(r => TABS.verduras.tipos.includes(r.tipo) && r.fecha === hoy)
-    .sort((a, b) => a.creada - b.creada);
-  if (!recs.length) { toast('Hoy no hay recepciones de verduras'); return; }
-  let cestas = 0, neto = 0, vacias = 0;
-  let txt = '🥬 *VERDURAS DEL DÍA*\n📅 ' + fmtDate(hoy) + '\n';
-  for (const rec of recs) {
-    const P = PRODUCTOS[rec.tipo];
-    const t = totals(rec);
-    cestas += t.cestas; neto += t.neto; vacias += rec.cestasVacias || 0;
-    txt += '\n' + P.emoji + ' *' + P.nombre + '*\n';
-    if (!rec.pesadas.length) txt += '• (sin pesadas)\n';
-    for (const p of rec.pesadas)
-      txt += '• ' + fmt(p.peso) + ' kg (' + p.cestas + (p.cestas === 1 ? ' cesta' : ' cestas') + ')\n';
-    txt += '✅ Neto: ' + fmtKg(t.neto) + '\n';
-  }
-  txt += '\n📦 *TOTAL VERDURAS: ' + fmtKg(neto) + '* (' + cestas + ' cestas)';
-  if (vacias) txt += '\n🧺 Cestas vacías que se lleva el proveedor: ' + vacias;
-  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
-};
-
-$('btn-share').onclick = async () => {
+$('btn-copy-invite').addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(buildResumen(current));
-    toast('Resumen copiado');
+    await navigator.clipboard.writeText($('invite-code').textContent);
+    toast('Código copiado');
   } catch {
     toast('No se pudo copiar');
   }
-};
-
-/* ============ cestas vacías ============ */
-function setEmpties(n) {
-  if (!current || current.cerrada) return;
-  current.cestasVacias = Math.max(0, Math.min(999, n));
-  touch(current);
-  save(); renderRec();
-}
-$('emp-minus').onclick = () => setEmpties((current.cestasVacias || 0) - 1);
-$('emp-plus').onclick = () => setEmpties((current.cestasVacias || 0) + 1);
-$('emp-input').addEventListener('change', e => {
-  const s = e.target.value.trim();
-  setEmpties(/^\d+$/.test(s) ? parseInt(s, 10) : 0);
 });
 
-/* ============ ajustes ============ */
-$('btn-settings').onclick = () => {
-  $('set-tara').value = fmt(db.settings.tara, 1);
-  $('set-min').value = fmt(db.settings.min);
-  $('set-max').value = fmt(db.settings.max);
-  $('set-min1').value = fmt(db.settings.min1);
-  $('set-max1').value = fmt(db.settings.max1);
-  $('set-token').value = db.settings.syncToken || '';
-  $('modal-settings').classList.add('show');
-};
-$('set-cancel').onclick = () => $('modal-settings').classList.remove('show');
-$('set-save').onclick = () => {
-  const tara = parseNum($('set-tara').value);
-  const min = parseNum($('set-min').value);
-  const max = parseNum($('set-max').value);
-  const min1 = parseNum($('set-min1').value);
-  const max1 = parseNum($('set-max1').value);
-  if (isNaN(tara) || tara <= 0 || isNaN(min) || min <= 0 || isNaN(max) || max <= min ||
-      isNaN(min1) || min1 <= 0 || isNaN(max1) || max1 <= min1) {
-    toast('Revisa los valores'); return;
-  }
-  const tokenNuevo = $('set-token').value.trim();
-  const tokenCambio = tokenNuevo !== (db.settings.syncToken || '');
-  db.settings = { tara, min, max, min1, max1, syncToken: tokenNuevo };
-  save(false);
-  $('modal-settings').classList.remove('show');
-  toast('Ajustes guardados');
-  // los ajustes de pesos aplican a las próximas recepciones
-  if (tokenCambio) syncNow();
-};
-
-for (const id of ['modal-settings', 'modal-confirm', 'modal-producto']) {
-  $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
-}
-
-/* ============ sincronización entre teléfonos ============
-   Los datos se guardan en un archivo (datos.json) dentro del propio
-   repositorio de GitHub, en la rama "datos". Cada teléfono necesita el
-   mismo código de sincronización (un token de GitHub) en Ajustes. */
-const SYNC = {
-  api: 'https://api.github.com/repos/pattialberto1/mercancia',
-  branch: 'datos',
-  file: 'datos.json',
-  busy: false,
-  pushTimer: null
-};
-
-function syncToken() { return (db.settings.syncToken || '').trim(); }
-
-function setSyncStatus(cls, msg) {
-  const el = $('sync-status');
-  el.className = 'syncline' + (cls ? ' ' + cls : '');
-  el.textContent = msg;
-}
-
-async function gh(method, path, body) {
-  return fetch(SYNC.api + path, {
-    method,
-    cache: 'no-store',
-    headers: {
-      'Authorization': 'Bearer ' + syncToken(),
-      'Accept': 'application/vnd.github+json'
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
-}
-
-// base64 de texto UTF-8, por partes para no desbordar con archivos grandes
-function b64enc(s) {
-  const bytes = new TextEncoder().encode(s);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 8192)
-    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
-  return btoa(bin);
-}
-function b64dec(b) {
-  return new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, '')), c => c.charCodeAt(0)));
-}
-
-// mezcla lo local con lo remoto: por recepción gana la modificada más reciente
-function mergeRemote(remote) {
-  const map = new Map();
-  for (const r of (remote && remote.recepciones) || []) map.set(r.id, r);
-  for (const r of db.recepciones) {
-    const o = map.get(r.id);
-    // en empate gana la copia local (conserva la referencia de la pantalla abierta)
-    if (!o || (r.mod || 0) >= (o.mod || 0)) map.set(r.id, r);
-  }
-  const borradas = Object.assign({}, (remote && remote.borradas) || {}, db.borradas);
-  const recepciones = [...map.values()].filter(r => !(r.id in borradas));
-  recepciones.sort((a, b) => (a.creada || 0) - (b.creada || 0));
-  return { recepciones, borradas };
-}
-
-// ¿lo mezclado ya es idéntico a lo que hay en el servidor?
-function sameAsRemote(merged, remote) {
-  const rr = (remote && remote.recepciones) || [];
-  const rb = (remote && remote.borradas) || {};
-  if (rr.length !== merged.recepciones.length) return false;
-  const rmap = new Map(rr.map(r => [r.id, r.mod || 0]));
-  for (const r of merged.recepciones) if (rmap.get(r.id) !== (r.mod || 0)) return false;
-  const bk = Object.keys(merged.borradas), rbk = Object.keys(rb);
-  if (bk.length !== rbk.length) return false;
-  for (const k of bk) if (!(k in rb)) return false;
-  return true;
-}
-
-async function crearRamaDatos() {
-  const repo = await (await gh('GET', '')).json();
-  const ref = await (await gh('GET', '/git/ref/heads/' + encodeURIComponent(repo.default_branch))).json();
-  await gh('POST', '/git/refs', { ref: 'refs/heads/' + SYNC.branch, sha: ref.object.sha });
-}
-
-async function syncNow(reintento) {
-  if (!syncToken()) {
-    setSyncStatus('', '☁️ Sincronización no configurada — toca aquí');
-    return;
-  }
-  if (SYNC.busy) return;
-  SYNC.busy = true;
-  setSyncStatus('', '🔄 Sincronizando…');
-  try {
-    // 1. bajar lo que haya en el servidor
-    let remote = null, sha = null;
-    const res = await gh('GET', '/contents/' + SYNC.file + '?ref=' + SYNC.branch);
-    if (res.status === 200) {
-      const j = await res.json();
-      sha = j.sha;
-      remote = JSON.parse(b64dec(j.content));
-    } else if (res.status === 401 || res.status === 403) {
-      throw new Error('codigo');
-    } else if (res.status !== 404) {
-      throw new Error('http ' + res.status);
-    }
-
-    // 2. mezclar y aplicar en este teléfono
-    const antes = db.recepciones.map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
-    const merged = mergeRemote(remote);
-    db.recepciones = merged.recepciones;
-    db.borradas = merged.borradas;
-    save(false);
-    const despues = db.recepciones.map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
-    if (antes !== despues) {
-      // llegaron cambios de otro teléfono: refrescar lo que está en pantalla
-      if (current) {
-        current = db.recepciones.find(r => r.id === current.id);
-        if (current) renderRec();
-        else { renderHome(); show('home'); }
-      } else {
-        renderHome();
-      }
-      toast('☁️ Datos actualizados');
-    }
-
-    // 3. subir si este teléfono aporta algo nuevo
-    if (!sameAsRemote(merged, remote)) {
-      const body = {
-        message: 'datos: actualización desde la app',
-        content: b64enc(JSON.stringify({ recepciones: merged.recepciones, borradas: merged.borradas })),
-        branch: SYNC.branch
-      };
-      if (sha) body.sha = sha;
-      let put = await gh('PUT', '/contents/' + SYNC.file, body);
-      if (put.status === 404 && !sha) {
-        await crearRamaDatos();
-        put = await gh('PUT', '/contents/' + SYNC.file, body);
-      }
-      if (put.status === 409 || put.status === 422) {
-        // otro teléfono subió a la vez: volver a mezclar una vez
-        if (!reintento) { SYNC.busy = false; return syncNow(true); }
-        throw new Error('conflicto');
-      }
-      if (!put.ok) throw new Error('http ' + put.status);
-    }
-
-    const h = new Date();
-    setSyncStatus('ok', '☁️ Sincronizado a las ' + String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0'));
-  } catch (e) {
-    if (e.message === 'codigo') {
-      setSyncStatus('err', '⚠️ El código de sincronización no funciona — revísalo en Ajustes');
-    } else {
-      setSyncStatus('err', '⚠️ Sin conexión — guardado en este teléfono, se subirá luego');
-    }
-  } finally {
-    SYNC.busy = false;
-  }
-}
-
-// tras cada cambio, subir a los 2 segundos (agrupa cambios seguidos)
-function schedulePush() {
-  if (!syncToken()) return;
-  clearTimeout(SYNC.pushTimer);
-  SYNC.pushTimer = setTimeout(() => { SYNC.pushTimer = null; syncNow(); }, 2000);
-}
-
-$('sync-status').onclick = () => {
-  if (!syncToken()) $('btn-settings').click();
-  else syncNow();
-};
-
-// sincronizar al abrir, al volver a la app, y cada 30 segundos
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') syncNow();
+$('btn-logout').addEventListener('click', async () => {
+  await sb.auth.signOut();
 });
-setInterval(() => {
-  if (document.visibilityState === 'visible' && !SYNC.pushTimer) syncNow();
-}, 30000);
 
-/* ============ código de acceso ============
-   Se escribe una vez por teléfono. Al cambiar el PIN aquí, todos los
-   teléfonos vuelven a pedirlo la próxima vez que abran la app. */
-const PIN = '7070';
-const PIN_KEY = 'mercancia.pin';
-
-function initLock() {
-  if (localStorage.getItem(PIN_KEY) === PIN) return;
-  $('lock').classList.remove('hidden');
-  const entrar = () => {
-    if ($('pin-input').value.trim() === PIN) {
-      localStorage.setItem(PIN_KEY, PIN);
-      $('lock').classList.add('hidden');
-      syncNow();
-    } else {
-      $('pin-input').value = '';
-      toast('Código incorrecto');
-    }
-  };
-  $('pin-btn').onclick = entrar;
-  $('pin-input').addEventListener('keydown', e => { if (e.key === 'Enter') entrar(); });
-}
+/* ============ enrutamiento según la sesión ============ */
+sb.auth.onAuthStateChange((_event, session) => {
+  if (session) {
+    show('home');
+    cargarNegocio(session.user);
+  } else {
+    show('auth');
+    $('form-auth').reset();
+    authMode = 'login';
+    signupTipo = 'dueno';
+    renderAuthForm();
+  }
+});
 
 /* ============ arranque ============ */
-buildTabs();
-renderHome();
-show('home');
-initLock();
-syncNow();
+renderAuthForm();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }

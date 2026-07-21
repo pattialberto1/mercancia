@@ -14,10 +14,32 @@ de prueba gratis.
 
 - ✅ **Esquema de datos y configuración de Supabase** — completo, probado y documentado
   en [`supabase/schema.sql`](./supabase/schema.sql) y [`supabase/SETUP.md`](./supabase/SETUP.md).
-- ⏳ **Pantallas de la app conectadas a Supabase** (login, productos configurables,
-  reportes, alertas de discrepancia) — siguiente fase, aún no empieza.
-- ⏳ **PWA/offline con Supabase** (hoy solo existe en la versión clásica con GitHub
-  como almacén) — se rediseña en la siguiente fase.
+  Proyecto real ya creado y conectado.
+- ✅ **Login y registro** — crear negocio (dueño), unirse con código (operador),
+  iniciar/cerrar sesión, sesión persistente entre recargas, banner de prueba de
+  14 días, código de invitación visible para el dueño. Ver "Qué quedó probado" abajo.
+- ⏳ **Productos configurables, recepciones y tiempo real** — siguiente fase.
+- ⏳ **Reportes, exportación y alertas de discrepancia** — fases posteriores.
+
+### Qué quedó probado de la parte de login
+
+Se probó con Playwright simulando las respuestas reales de Supabase (esta caja
+de desarrollo no tiene salida a internet hacia el proyecto real, así que esta
+es la verificación más profunda posible desde aquí — el primer inicio de
+sesión real contra el proyecto en vivo todavía lo tienen que hacer ustedes):
+
+- Login correcto e incorrecto, con sus mensajes de error.
+- Crear negocio nuevo (dueño) y quedar con sesión iniciada al instante.
+- Unirse con código de invitación válido → queda ligado al negocio correcto;
+  con código inválido → mensaje de error claro.
+- El operador no ve el código de invitación (solo el dueño).
+- El banner cambia correctamente según los días de prueba restantes o vencidos.
+- La sesión persiste al recargar la página, y el logout limpia todo.
+
+De paso aparecieron y se corrigieron **dos bugs reales** antes de subir esto:
+una recursión infinita en las políticas de seguridad de `memberships`, y un
+error en la función que cambia de pantalla que dejaba la app trabada en
+"Cargando…" para todo el mundo.
 
 ## Qué cambia respecto a la versión clásica
 
@@ -33,8 +55,18 @@ de prueba gratis.
 
 ## Cómo seguir
 
-1. Sigue [`supabase/SETUP.md`](./supabase/SETUP.md) para crear el proyecto de
-   Supabase y correr el esquema.
-2. Pásame la **Project URL** y la **anon key** de ese proyecto.
-3. Con eso seguimos con las pantallas: registro/login, Ajustes de productos, y
-   las recepciones ya conectadas en tiempo real.
+1. ~~Sigue `supabase/SETUP.md` para crear el proyecto y correr el esquema.~~ Hecho.
+2. ~~Pásame la Project URL y la anon key.~~ Hecho — están en `index.html`.
+3. Cuando haya dirección pública (GitHub Pages) para esta rama, probar el
+   registro real como dueño de un negocio de prueba.
+4. Seguir con: Ajustes de productos (para recrear Pollo/Papas/Verduras como
+   configuración) y las recepciones conectadas en tiempo real.
+
+## Estructura
+
+- `index.html` — login, registro y el marco de la app ya autenticada.
+- `vendor/supabase.js` — cliente de Supabase empaquetado en el propio repo
+  (no depende de un CDN externo en cada carga; para actualizarlo:
+  `npm install @supabase/supabase-js@latest` en cualquier carpeta y copiar
+  `node_modules/@supabase/supabase-js/dist/umd/supabase.js` aquí encima).
+- `supabase/schema.sql`, `supabase/SETUP.md` — de la fase 1.
