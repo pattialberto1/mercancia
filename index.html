@@ -162,6 +162,16 @@
   }
   .chip-btn.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
+  /* ---- lista de clientes sugeridos (al despachar) ---- */
+  .cli-list { max-height: 260px; overflow-y: auto; margin-bottom: 14px; }
+  .cli-row {
+    display: block; width: 100%; text-align: left; min-height: 44px;
+    padding: 12px 14px; border-radius: 12px; font-size: 15px; font-weight: 600;
+    background: var(--bg); border: 1px solid var(--line); margin-bottom: 8px;
+  }
+  .cli-row:active { background: var(--accent-soft); }
+  .cli-row.nuevo { color: var(--accent); border-style: dashed; }
+
   .emoji-pick { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
   .emoji-pick button {
     width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line);
@@ -393,12 +403,17 @@
       </div>
     </div>
 
+    <div class="seg" id="home-modo">
+      <button data-modo="recepcion" class="on">📥 Recepciones</button>
+      <button data-modo="despacho">📤 Despachos</button>
+    </div>
+
     <div class="card">
       <div class="listhead">
         <h2>Tus productos</h2>
         <button class="btn-link hidden" id="btn-ir-productos">⚙️ Editar</button>
       </div>
-      <p class="sub" style="margin-bottom:10px">Toca un producto para ver o registrar sus recepciones</p>
+      <p class="sub" style="margin-bottom:10px" id="productos-hint">Toca un producto para ver o registrar sus recepciones</p>
       <div id="productos-preview"></div>
     </div>
   </section>
@@ -559,6 +574,21 @@
   </div>
 </div>
 
+<!-- ================= MODAL: elegir cliente (para despachos) ================= -->
+<div class="modal-back" id="modal-cliente">
+  <div class="modal">
+    <h2>¿Para qué cliente?</h2>
+    <div class="field">
+      <label for="cli-input">Cliente</label>
+      <input id="cli-input" type="text" placeholder="Escribe o elige de la lista" autocomplete="off">
+    </div>
+    <div id="cli-sugerencias"></div>
+    <div class="actions">
+      <button class="btn-secondary" id="cli-cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= MODAL: confirmar ================= -->
 <div class="modal-back" id="modal-confirm">
   <div class="modal">
@@ -597,7 +627,7 @@ function fmt(n) {
 }
 
 /* estado del negocio ya cargado */
-const state = { tenantId: null, esDueno: false, productos: [] };
+const state = { tenantId: null, esDueno: false, productos: [], clientes: [], homeModo: 'recepcion' };
 
 let confirmCb = null;
 function askConfirm(title, msg, cb) {
@@ -767,6 +797,7 @@ async function cargarNegocio(user) {
 
   state.userId = user.id;
   await cargarProductos();
+  await cargarClientes();
 }
 
 $('btn-copy-invite').addEventListener('click', async () => {
@@ -840,8 +871,23 @@ function renderProductosPreview() {
       <span class="chev">›</span>
     </button>`).join('');
   for (const b of cont.querySelectorAll('button[data-id]'))
-    b.onclick = () => abrirProducto(activos.find(p => p.id === b.dataset.id));
+    b.onclick = () => onTapProducto(activos.find(p => p.id === b.dataset.id));
 }
+
+function onTapProducto(p) {
+  if (state.homeModo === 'despacho') pedirClienteYAbrir(p);
+  else abrirCatalogoProducto(p, 'recepcion', null);
+}
+
+$('home-modo').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  state.homeModo = b.dataset.modo;
+  for (const x of $('home-modo').querySelectorAll('button')) x.classList.toggle('on', x === b);
+  $('productos-hint').textContent = state.homeModo === 'despacho'
+    ? 'Toca un producto para despachar a un cliente'
+    : 'Toca un producto para ver o registrar sus recepciones';
+});
 
 function renderProductosList() {
   const cont = $('productos-list');
@@ -1069,7 +1115,7 @@ $('plantillas-card').addEventListener('click', e => {
 $('btn-ir-productos').addEventListener('click', () => { unsubRec(); unsubRecs(); renderProductosList(); show('productos'); });
 $('btn-prod-back').addEventListener('click', () => show('home'));
 
-for (const id of ['modal-producto', 'modal-confirm']) {
+for (const id of ['modal-producto', 'modal-confirm', 'modal-cliente']) {
   $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
 }
 
@@ -1110,46 +1156,52 @@ let recChannel = null, recsChannel = null;
 function unsubRec() { if (recChannel) { sb.removeChannel(recChannel); recChannel = null; } }
 function unsubRecs() { if (recsChannel) { sb.removeChannel(recsChannel); recsChannel = null; } }
 
-async function crearRecepcion(p) {
-  const { data, error } = await sb.from('receptions').insert({ product_id: p.id, fecha: todayISO() }).select('id').single();
+async function crearMovimiento(p, tipo, clientId) {
+  const payload = { product_id: p.id, fecha: todayISO(), tipo };
+  if (tipo === 'despacho') payload.client_id = clientId;
+  const { data, error } = await sb.from('receptions').insert(payload).select('id').single();
   if (error) {
     if (error.code === '42501' || /row-level security/i.test(error.message || '')) {
-      toast('Tu prueba gratuita venció — no se pueden crear recepciones nuevas.');
+      toast('Tu prueba gratuita venció — no se pueden crear ' + (tipo === 'despacho' ? 'despachos' : 'recepciones') + ' nuevos.');
     } else {
       console.error(error);
-      toast('No se pudo crear la recepción');
+      toast('No se pudo crear ' + (tipo === 'despacho' ? 'el despacho' : 'la recepción'));
     }
     return null;
   }
   return data.id;
 }
 
-/* ---- pantalla: lista de recepciones de un producto (el "historial") ---- */
-async function abrirProducto(p) {
+/* ---- pantalla: lista de recepciones o despachos de un producto (el "historial") ---- */
+async function abrirCatalogoProducto(p, tipo, clientId) {
   unsubRec();
   unsubRecs();
   state.currentProduct = p;
+  state.currentTipo = tipo;
   $('recs-title').textContent = p.emoji + ' ' + p.nombre;
-  $('recs-sub').textContent = descripcionProducto(p);
+  $('recs-sub').textContent = (tipo === 'despacho' ? 'Despachos · ' : '') + descripcionProducto(p);
+  $('btn-rec-new').textContent = tipo === 'despacho' ? '+ Nuevo despacho' : '+ Nueva recepción';
 
-  recsChannel = sb.channel('recs-' + p.id)
+  recsChannel = sb.channel(tipo + '-' + p.id)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'receptions', filter: `product_id=eq.${p.id}` },
       () => { if (!$('view-recepciones').classList.contains('hidden')) cargarRecepciones(); })
     .subscribe();
 
-  // 1 solo toque, como en la app clásica: si ya hay una recepción abierta
-  // hoy, entra directo a pesar ahí; si no, crea una y entra igual. El botón
-  // "←" de esa pantalla lleva al historial completo (recepciones pasadas).
-  const { data, error } = await sb.from('receptions')
-    .select('id').eq('product_id', p.id).eq('fecha', todayISO()).eq('status', 'abierta')
-    .order('created_at', { ascending: false }).limit(1);
+  // 1 solo toque, como en la app clásica: si ya hay una recepción/despacho
+  // abierto hoy (con el mismo cliente, si aplica), entra directo a pesar
+  // ahí; si no, lo crea y entra igual. El botón "←" de esa pantalla lleva
+  // al historial completo.
+  let q = sb.from('receptions').select('id')
+    .eq('product_id', p.id).eq('tipo', tipo).eq('fecha', todayISO()).eq('status', 'abierta');
+  if (tipo === 'despacho') q = q.eq('client_id', clientId);
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(1);
 
   if (!error && data && data.length) {
     await abrirRecepcion(data[0].id);
     return;
   }
   if (!error) {
-    const id = await crearRecepcion(p);
+    const id = await crearMovimiento(p, tipo, clientId);
     if (id) { await abrirRecepcion(id); return; }
   } else {
     console.error(error);
@@ -1161,24 +1213,30 @@ async function abrirProducto(p) {
 
 async function cargarRecepciones() {
   const p = state.currentProduct;
-  const { data, error } = await sb.from('receptions').select('*, weighings(peso, cestas)').eq('product_id', p.id).order('created_at', { ascending: false });
+  const { data, error } = await sb.from('receptions')
+    .select('*, weighings(peso, cestas), clients(nombre)')
+    .eq('product_id', p.id).eq('tipo', state.currentTipo)
+    .order('created_at', { ascending: false });
   if (error) { console.error(error); toast('No se pudieron cargar las recepciones'); return; }
   renderRecepcionesList(data || []);
 }
 
 function renderRecepcionesList(list) {
-  const p = state.currentProduct;
+  const p = state.currentProduct, esDespacho = state.currentTipo === 'despacho';
   const cont = $('recs-list');
   if (!list.length) {
-    cont.innerHTML = `<div class="empty"><span class="big">${p.emoji}</span>Todavía no hay recepciones de ${escapeHtml(p.nombre.toLowerCase())}.<br>Pulsa «Nueva recepción» para empezar.</div>`;
+    const tipoTxt = esDespacho ? 'despachos' : 'recepciones';
+    const btnTxt = esDespacho ? '«Nuevo despacho»' : '«Nueva recepción»';
+    cont.innerHTML = `<div class="empty"><span class="big">${p.emoji}</span>Todavía no hay ${tipoTxt} de ${escapeHtml(p.nombre.toLowerCase())}.<br>Pulsa ${btnTxt} para empezar.</div>`;
     return;
   }
   cont.innerHTML = '';
   for (const r of list) {
     const t = totalesRecepcion(r.weighings || [], p);
+    const cliente = r.clients && r.clients.nombre;
     const btn = document.createElement('button');
     btn.className = 'rec-item';
-    btn.innerHTML = `<div><div style="font-weight:700">${fmtDate(r.fecha)}` +
+    btn.innerHTML = `<div><div style="font-weight:700">${cliente ? escapeHtml(cliente) + ' · ' : ''}${fmtDate(r.fecha)}` +
       (r.status === 'cerrada' ? '<span class="badge">terminada</span>' : '<span class="badge open">abierta</span>') +
       `</div><div class="sub">${t.pesadas} pesadas · ${t.cestas} cestas</div></div>` +
       `<div style="display:flex;align-items:center;gap:8px"><span class="kg">${fmtKg(t.neto)}</span><span class="chev">›</span></div>`;
@@ -1188,19 +1246,89 @@ function renderRecepcionesList(list) {
 }
 
 $('btn-rec-new').addEventListener('click', async () => {
-  const id = await crearRecepcion(state.currentProduct);
+  if (state.currentTipo === 'despacho') { pedirClienteYAbrir(state.currentProduct); return; }
+  const id = await crearMovimiento(state.currentProduct, 'recepcion', null);
   if (id) await abrirRecepcion(id);
 });
 
 $('btn-recs-back').addEventListener('click', () => { unsubRecs(); show('home'); });
 
+/* ---- elegir cliente (para despachos) ---- */
+async function cargarClientes() {
+  const { data, error } = await sb.from('clients').select('*').eq('tenant_id', state.tenantId).order('nombre');
+  if (error) { console.error(error); return; }
+  state.clientes = data || [];
+}
+
+function pedirClienteYAbrir(p) {
+  state.pendingProduct = p;
+  $('cli-input').value = '';
+  renderClienteSugerencias('');
+  $('modal-cliente').classList.add('show');
+  setTimeout(() => $('cli-input').focus(), 60);
+}
+
+function renderClienteSugerencias(texto) {
+  const q = texto.trim().toLowerCase();
+  const cont = $('cli-sugerencias');
+  const coincidencias = state.clientes.filter(c => c.nombre.toLowerCase().includes(q));
+  const existeExacto = state.clientes.some(c => c.nombre.toLowerCase() === q);
+
+  let html = '<div class="cli-list">';
+  for (const c of coincidencias) {
+    html += `<button type="button" class="cli-row" data-id="${c.id}">${escapeHtml(c.nombre)}</button>`;
+  }
+  if (q && !existeExacto) {
+    html += `<button type="button" class="cli-row nuevo" data-nuevo="1">+ Agregar «${escapeHtml(texto.trim())}» como cliente nuevo</button>`;
+  }
+  if (!coincidencias.length && (!q || existeExacto)) {
+    html += '<p class="sub" style="padding:8px 2px">Escribe el nombre del cliente.</p>';
+  }
+  html += '</div>';
+  cont.innerHTML = html;
+
+  for (const b of cont.querySelectorAll('.cli-row[data-id]'))
+    b.onclick = () => elegirCliente(b.dataset.id, state.clientes.find(c => c.id === b.dataset.id).nombre);
+  const nuevo = cont.querySelector('.cli-row[data-nuevo]');
+  if (nuevo) nuevo.onclick = () => crearYElegirCliente(texto.trim());
+}
+
+$('cli-input').addEventListener('input', e => renderClienteSugerencias(e.target.value));
+$('cli-cancel').addEventListener('click', () => { $('modal-cliente').classList.remove('show'); state.pendingProduct = null; });
+
+async function crearYElegirCliente(nombre) {
+  if (!nombre) return;
+  const { data, error } = await sb.from('clients').insert({ tenant_id: state.tenantId, nombre }).select('id').single();
+  if (error) {
+    if (error.code === '23505') {
+      // alguien más lo agregó justo antes (choque de nombres) — usar el que ya existe
+      const existente = state.clientes.find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
+      if (existente) { elegirCliente(existente.id, existente.nombre); return; }
+    }
+    console.error(error);
+    toast('No se pudo agregar el cliente');
+    return;
+  }
+  state.clientes.push({ id: data.id, nombre, tenant_id: state.tenantId });
+  elegirCliente(data.id, nombre);
+}
+
+function elegirCliente(clientId, nombre) {
+  $('modal-cliente').classList.remove('show');
+  const p = state.pendingProduct;
+  state.pendingProduct = null;
+  if (!p) return;
+  abrirCatalogoProducto(p, 'despacho', clientId);
+}
+
 /* ---- pantalla: una recepción (registrar pesadas) ---- */
 async function abrirRecepcion(id) {
   unsubRec();
-  const { data, error } = await sb.from('receptions').select('*, weighings(*)').eq('id', id).single();
+  const { data, error } = await sb.from('receptions').select('*, weighings(*), clients(nombre)').eq('id', id).single();
   if (error || !data) { console.error(error); toast('No se pudo abrir la recepción'); return; }
   state.currentReceptionId = id;
   state.currentReception = data;
+  state.currentTipo = data.tipo;
   state.pesadas = (data.weighings || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   state.cestasSel = null;
   renderRecepcion();
@@ -1221,11 +1349,21 @@ async function recargarPesadas() {
 function renderRecepcion() {
   const p = state.currentProduct, r = state.currentReception, t = totalesRecepcion(state.pesadas, p);
   const abierta = r.status === 'abierta';
+  const esDespacho = r.tipo === 'despacho';
+  const cliente = r.clients && r.clients.nombre;
 
-  $('rec-title').textContent = p.nombre + ' · ' + fmtDate(r.fecha);
-  $('rec-sub').textContent = abierta ? descripcionProducto(p) : 'Recepción terminada';
+  $('rec-title').textContent = esDespacho
+    ? `${p.emoji} Despacho de ${p.nombre}`
+    : p.nombre + ' · ' + fmtDate(r.fecha);
+  if (esDespacho) {
+    $('rec-sub').textContent = (cliente ? cliente + ' · ' : '') + fmtDate(r.fecha) + (abierta ? '' : ' · terminado');
+  } else {
+    $('rec-sub').textContent = abierta ? descripcionProducto(p) : 'Recepción terminada';
+  }
   $('entry-card').classList.toggle('hidden', !abierta);
-  $('btn-close-rec').textContent = abierta ? 'Terminar recepción' : 'Reabrir recepción';
+  $('btn-close-rec').textContent = abierta
+    ? (esDespacho ? 'Terminar despacho' : 'Terminar recepción')
+    : (esDespacho ? 'Reabrir despacho' : 'Reabrir recepción');
 
   // selector de cestas (solo para productos de varias cestas)
   const segC = $('seg-cestas');
@@ -1272,10 +1410,10 @@ function renderRecepcion() {
   $('t-cestas').textContent = t.cestas;
   $('t-bruto').textContent = fmtKg(t.bruto);
   $('t-tara').textContent = '−' + fmtKg(t.tara);
-  $('t-neto-lbl').textContent = (p.nombre + ' neto').toUpperCase();
+  $('t-neto-lbl').textContent = esDespacho ? (p.nombre + ' despachado').toUpperCase() : (p.nombre + ' neto').toUpperCase();
   $('t-neto').textContent = fmtKg(t.neto);
 
-  $('vacias-card').classList.toggle('hidden', p.weigh_type === 'libre');
+  $('vacias-card').classList.toggle('hidden', p.weigh_type === 'libre' || esDespacho);
   $('emp-input').value = r.cestas_vacias || 0;
   $('emp-input').disabled = !abierta;
   $('emp-minus').disabled = !abierta;
@@ -1384,13 +1522,14 @@ $('btn-close-rec').addEventListener('click', () => {
       .eq('id', r.id);
     if (error) { toast('No se pudo actualizar'); return; }
     r.status = nuevoEstado;
-    toast(abierta ? 'Recepción terminada' : 'Recepción reabierta');
+    toast(abierta ? (esDespacho ? 'Despacho terminado' : 'Recepción terminada') : (esDespacho ? 'Despacho reabierto' : 'Recepción reabierta'));
     renderRecepcion();
   };
+  const esDespacho = r.tipo === 'despacho';
   if (abierta) {
     const t = totalesRecepcion(state.pesadas, state.currentProduct);
-    askConfirm('Terminar recepción',
-      `Se guardará con ${fmtKg(t.neto)} de ${state.currentProduct.nombre.toLowerCase()} neto. Podrás reabrirla si lo necesitas.`,
+    askConfirm(esDespacho ? 'Terminar despacho' : 'Terminar recepción',
+      `Se guardará con ${fmtKg(t.neto)} de ${state.currentProduct.nombre.toLowerCase()} ${esDespacho ? 'despachado' : 'neto'}. Podrás reabrirlo si lo necesitas.`,
       hacer);
   } else {
     hacer();
@@ -1399,7 +1538,11 @@ $('btn-close-rec').addEventListener('click', () => {
 
 function buildResumenRecepcion() {
   const p = state.currentProduct, r = state.currentReception, t = totalesRecepcion(state.pesadas, p);
-  let txt = `${p.emoji} *RECEPCIÓN DE ${p.nombre.toUpperCase()}*\n📅 ${fmtDate(r.fecha)}\n\n*Pesadas:*\n`;
+  const esDespacho = r.tipo === 'despacho';
+  const cliente = r.clients && r.clients.nombre;
+  let txt = esDespacho
+    ? `${p.emoji} *DESPACHO DE ${p.nombre.toUpperCase()}*\n👤 Cliente: ${cliente || '—'}\n📅 ${fmtDate(r.fecha)}\n\n*Pesadas:*\n`
+    : `${p.emoji} *RECEPCIÓN DE ${p.nombre.toUpperCase()}*\n📅 ${fmtDate(r.fecha)}\n\n*Pesadas:*\n`;
   if (!state.pesadas.length) {
     txt += '• (sin pesadas)\n';
   } else if (!p.decimales) {
@@ -1414,8 +1557,8 @@ function buildResumenRecepcion() {
   }
   txt += `\nCestas: ${t.cestas}\nPeso bruto: ${fmtKg(t.bruto)}\n`;
   if (p.weigh_type !== 'libre') txt += `Tara (${t.cestas} × ${fmt(p.tara_kg)} kg): −${fmtKg(t.tara)}\n`;
-  txt += `✅ *${p.nombre.toUpperCase()} NETO: ${fmtKg(t.neto)}*`;
-  if (p.weigh_type !== 'libre' && r.cestas_vacias) txt += `\n🧺 Cestas vacías que se lleva el proveedor: ${r.cestas_vacias}`;
+  txt += esDespacho ? `✅ *${p.nombre.toUpperCase()} DESPACHADO: ${fmtKg(t.neto)}*` : `✅ *${p.nombre.toUpperCase()} NETO: ${fmtKg(t.neto)}*`;
+  if (!esDespacho && p.weigh_type !== 'libre' && r.cestas_vacias) txt += `\n🧺 Cestas vacías que se lleva el proveedor: ${r.cestas_vacias}`;
   return txt;
 }
 $('btn-rec-wa').addEventListener('click', () => {

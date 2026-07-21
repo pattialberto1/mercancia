@@ -32,7 +32,35 @@ de prueba gratis.
   Sincronización en tiempo real entre teléfonos del mismo negocio (Supabase
   Realtime) para las recepciones y las pesadas. Bloqueo real de nuevas
   recepciones/pesadas si el trial venció. Envío del resumen por WhatsApp.
+- ✅ **Clientes y despachos** — además de recibir mercancía de proveedores, el
+  negocio puede despachar a sus propios clientes. Ver sección abajo.
 - ⏳ **Reportes, exportación y alertas de discrepancia** — siguiente fase.
+
+### Clientes y despachos
+
+El inicio tiene un selector **📥 Recepciones / 📤 Despachos**. Un despacho
+usa exactamente la misma mecánica de pesadas que una recepción (cestas,
+tara, rango, botones rápidos, WhatsApp, tiempo real) — la diferencia es que
+antes de pesar pregunta **"¿Para qué cliente?"**, con un cuadro de texto que
+sugiere los clientes ya usados (se guardan solos la primera vez que se
+escribe un nombre nuevo, no hace falta crearlos a mano) y una opción de
+agregar uno nuevo si no está en la lista.
+
+Cada despacho sigue siendo de **un solo producto** — si despachas Pollo y
+Papas al mismo cliente el mismo día, son dos despachos separados, igual que
+hoy una recepción es de un solo producto. El historial y el resumen de
+WhatsApp de un despacho muestran el nombre del cliente.
+
+En la base de datos, un despacho **es** una recepción con `tipo='despacho'`
+y un `client_id` (en vez de una tabla aparte) — así toda la mecánica ya
+construida y probada (RLS, trial, tiempo real) aplica sin duplicar nada.
+Ver [`supabase/migrations/0002_despachos.sql`](./supabase/migrations/0002_despachos.sql).
+
+Probado con Playwright (20 verificaciones): elegir un cliente nuevo desde
+cero, que aparezca en la lista desplegable la próxima vez, que despachos y
+recepciones normales no se mezclen en los historiales, que reutiliza el
+despacho abierto de hoy para el mismo cliente en vez de duplicarlo, y que
+crea uno nuevo si el anterior ya se cerró.
 
 Probado con Playwright simulando PostgREST (33 verificaciones): crear
 recepción, botones rápidos, selector de cestas, rango proporcional, aviso

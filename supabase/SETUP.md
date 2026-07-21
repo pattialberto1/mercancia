@@ -5,6 +5,11 @@ Es la única parte de este producto que necesita un "backend" — Supabase lo ad
 por nosotros (base de datos, login y sincronización en tiempo real), sin servidores
 que mantener.
 
+> **¿Ya tienes el proyecto creado de antes?** No repitas estos pasos desde cero.
+> Solo hace falta correr los archivos nuevos de `supabase/migrations/` (en orden,
+> el que todavía no hayas corrido) en el SQL Editor — cada uno agrega solo lo
+> que cambió, sin tocar los datos que ya tengas.
+
 ## 1. Crear el proyecto
 
 1. Entra a **https://supabase.com** → *Start your project* → inicia sesión con GitHub.

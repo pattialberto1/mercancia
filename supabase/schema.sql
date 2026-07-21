@@ -61,17 +61,36 @@ create table products (
 );
 create index products_tenant_idx on products (tenant_id);
 
--- recepciones: una visita/entrega de un producto en una fecha
+-- clientes: directorio simple por negocio, para los despachos. No hace
+-- falta crearlos a mano — se guardan solos la primera vez que se escribe
+-- un nombre nuevo al despachar, y salen en una lista desplegable después.
+create table clients (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references tenants(id) on delete cascade,
+  nombre text not null,
+  created_at timestamptz not null default now(),
+  unique (tenant_id, nombre)
+);
+create index clients_tenant_idx on clients (tenant_id);
+
+-- recepciones: una visita/entrega de un producto en una fecha. También
+-- representa los despachos (mercancía que sale hacia un cliente propio):
+-- comparten toda la misma mecánica de pesadas, así que en vez de duplicar
+-- tablas se distinguen con "tipo" y, si es despacho, el cliente.
 create table receptions (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid references tenants(id) on delete cascade,  -- lo completa un trigger, ver abajo
   product_id uuid not null references products(id),
+  tipo text not null default 'recepcion' check (tipo in ('recepcion', 'despacho')),
+  client_id uuid references clients(id),                    -- obligatorio solo si tipo='despacho'
   fecha date not null default current_date,
   status text not null default 'abierta' check (status in ('abierta', 'cerrada')),
   cestas_vacias int not null default 0,
   created_by uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
-  closed_at timestamptz
+  closed_at timestamptz,
+  constraint receptions_tipo_cliente_chk
+    check ((tipo = 'recepcion' and client_id is null) or (tipo = 'despacho' and client_id is not null))
 );
 create index receptions_tenant_fecha_idx on receptions (tenant_id, fecha);
 create index receptions_product_idx on receptions (product_id);
@@ -236,6 +255,7 @@ alter table tenants enable row level security;
 alter table tenant_profile enable row level security;
 alter table memberships enable row level security;
 alter table products enable row level security;
+alter table clients enable row level security;
 alter table receptions enable row level security;
 alter table weighings enable row level security;
 alter table discrepancies enable row level security;
@@ -269,6 +289,18 @@ create policy "dueno edita productos" on products for update
 create policy "dueno elimina productos" on products for delete
   using (is_dueno(tenant_id));
 
+-- clients: los miembros leen; cualquiera del equipo agrega uno nuevo al
+-- despachar (no solo el dueño); solo el dueño edita/elimina (para
+-- corregir nombres repetidos o mal escritos)
+create policy "ver clientes de mi negocio" on clients for select
+  using (tenant_id in (select my_tenant_ids()));
+create policy "el equipo agrega clientes" on clients for insert
+  with check (tenant_id in (select my_tenant_ids()));
+create policy "dueno edita clientes" on clients for update
+  using (is_dueno(tenant_id));
+create policy "dueno elimina clientes" on clients for delete
+  using (is_dueno(tenant_id));
+
 -- receptions: los miembros leen y crean (si el trial está activo);
 -- cada quien edita/borra lo suyo, el dueño puede editar/borrar cualquiera
 create policy "ver recepciones de mi negocio" on receptions for select
@@ -278,6 +310,7 @@ create policy "crear recepciones si activo" on receptions for insert
     product_id in (select id from products where tenant_id in (select my_tenant_ids()))
     and tenant_activo((select tenant_id from products where id = product_id))
     and created_by = auth.uid()
+    and (client_id is null or client_id in (select id from clients where tenant_id in (select my_tenant_ids())))
   );
 create policy "editar mis recepciones o si soy dueno" on receptions for update
   using (tenant_id in (select my_tenant_ids()) and (created_by = auth.uid() or is_dueno(tenant_id)));
@@ -325,6 +358,9 @@ select
   r.product_id,
   p.nombre as producto,
   p.emoji,
+  r.tipo,
+  r.client_id,
+  c.nombre as cliente,
   r.fecha,
   r.status,
   r.cestas_vacias,
@@ -334,8 +370,9 @@ select
   coalesce(sum(w.peso), 0) - coalesce(sum(w.cestas), 0) * coalesce(p.tara_kg, 0) as peso_neto
 from receptions r
 join products p on p.id = r.product_id
+left join clients c on c.id = r.client_id
 left join weighings w on w.reception_id = r.id
-group by r.id, p.id;
+group by r.id, p.id, c.id;
 
 -- ============================================================
 -- REALTIME: para que los teléfonos de un mismo negocio se vean en vivo
@@ -344,3 +381,4 @@ alter publication supabase_realtime add table receptions;
 alter publication supabase_realtime add table weighings;
 alter publication supabase_realtime add table discrepancies;
 alter publication supabase_realtime add table products;
+alter publication supabase_realtime add table clients;
