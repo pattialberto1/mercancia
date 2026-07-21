@@ -117,6 +117,65 @@
   .msg.warn { background: var(--warn-soft); color: var(--warn); }
   .msg.ok { background: var(--ok-soft); color: var(--ok); }
 
+  .listhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+
+  /* ---- fila de producto ---- */
+  .prod-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line);
+  }
+  .prod-row:last-child { border-bottom: none; }
+  .prod-row .pemoji {
+    width: 40px; height: 40px; border-radius: 11px; background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 19px; flex: none;
+  }
+  .prod-row .pinfo { flex: 1; min-width: 0; }
+  .prod-row .pname { font-weight: 700; font-size: 15px; }
+  .prod-row .pmeta { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+  .prod-row.inactivo { opacity: .5; }
+  .prod-row .pactions { display: flex; align-items: center; gap: 4px; flex: none; }
+  .prod-row .pactions button { padding: 7px; font-size: 15px; color: var(--muted); }
+  .prod-row .pactions button.danger { color: var(--bad); }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip-btn {
+    font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 99px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--muted);
+  }
+  .chip-btn.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+  .emoji-pick { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .emoji-pick button {
+    width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); font-size: 18px; display: flex; align-items: center; justify-content: center;
+  }
+  .emoji-pick button.on { border-color: var(--accent); background: var(--accent-soft); }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .switch-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+  .switch { position: relative; width: 46px; height: 27px; border-radius: 99px; background: var(--line); flex: none; }
+  .switch.on { background: var(--accent); }
+  .switch .knob {
+    position: absolute; top: 3px; left: 3px; width: 21px; height: 21px; border-radius: 50%;
+    background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+  .switch.on .knob { transform: translateX(19px); }
+
+  /* ---- modal ---- */
+  .modal-back {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none;
+    align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .modal-back.show { display: flex; }
+  .modal {
+    background: var(--card); width: 100%; max-width: 460px;
+    border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height: 88vh; overflow-y: auto;
+  }
+  .modal h2 { margin-bottom: 16px; }
+  .modal .actions { display: flex; gap: 10px; margin-top: 8px; }
+  .modal .actions button { flex: 1; }
+
   /* ---- home autenticado ---- */
   .topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 18px; gap: 10px; }
   .who { display: flex; align-items: center; gap: 10px; }
@@ -243,15 +302,126 @@
     </div>
 
     <div class="card">
+      <div class="listhead">
+        <h2>Tus productos</h2>
+        <button class="btn-link hidden" id="btn-ir-productos">⚙️ Editar</button>
+      </div>
+      <div id="productos-preview"></div>
+    </div>
+
+    <div class="card">
       <div class="empty">
         <span class="big">🚧</span>
-        Ya iniciaste sesión correctamente.<br>
-        Los productos y las recepciones llegan en el próximo paso.
+        Las recepciones llegan en el próximo paso.
       </div>
     </div>
   </section>
 
+  <!-- ================= AJUSTES DE PRODUCTOS ================= -->
+  <section id="view-productos" class="hidden">
+    <div class="topbar">
+      <button class="iconbtn" id="btn-prod-back" aria-label="Volver">←</button>
+      <div style="flex:1"><h1>Tus productos</h1><p class="sub">Configura qué recibes y cómo se pesa</p></div>
+    </div>
+
+    <button class="btn-primary" id="btn-prod-new" style="margin-bottom:14px">+ Nuevo producto</button>
+
+    <div class="card" id="plantillas-card">
+      <h2 style="margin-bottom:10px">Empezar de una plantilla</h2>
+      <div class="chip-row">
+        <button class="chip-btn" data-plantilla="pollo">🐔 Pollo (2 cestas, rango fijo)</button>
+        <button class="chip-btn" data-plantilla="granel">🥔 A granel (varias cestas)</button>
+        <button class="chip-btn" data-plantilla="libre">⚖️ Pesada libre</button>
+      </div>
+    </div>
+
+    <div class="card" id="productos-list-card">
+      <div id="productos-list"></div>
+    </div>
+  </section>
+
 </main>
+
+<!-- ================= MODAL: crear/editar producto ================= -->
+<div class="modal-back" id="modal-producto">
+  <div class="modal">
+    <h2 id="pf-title">Nuevo producto</h2>
+    <div id="pf-msg"></div>
+
+    <div class="field">
+      <label for="pf-nombre">Nombre</label>
+      <input id="pf-nombre" type="text" placeholder="Ej. Pollo, Papas, Hielo…">
+    </div>
+
+    <div class="field">
+      <label>Ícono</label>
+      <div class="emoji-pick" id="pf-emoji-pick"></div>
+    </div>
+
+    <div class="field">
+      <label>¿Cómo se pesa?</label>
+      <div class="choice" id="pf-tipo">
+        <button type="button" data-tipo="cestas_tara">🧺 Varias<br>cestas</button>
+        <button type="button" data-tipo="cesta_suelta">🧺 Una sola<br>cesta</button>
+        <button type="button" data-tipo="libre">⚖️ Pesada<br>libre</button>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field hidden" id="pf-field-tara">
+        <label for="pf-tara">Tara por cesta (kg)</label>
+        <input id="pf-tara" type="text" inputmode="decimal" placeholder="Ej. 2.3">
+      </div>
+      <div class="field hidden" id="pf-field-cestasmax">
+        <label for="pf-cestasmax">Máximo de cestas por pesada</label>
+        <input id="pf-cestasmax" type="text" inputmode="numeric" placeholder="Ej. 5">
+      </div>
+    </div>
+
+    <div class="row2 hidden" id="pf-field-rango">
+      <div class="field">
+        <label for="pf-min">Peso mínimo esperado</label>
+        <input id="pf-min" type="text" inputmode="decimal" placeholder="Opcional">
+      </div>
+      <div class="field">
+        <label for="pf-max">Peso máximo esperado</label>
+        <input id="pf-max" type="text" inputmode="decimal" placeholder="Opcional">
+      </div>
+    </div>
+    <p class="hint hidden" id="pf-rango-hint" style="margin:-8px 0 13px"></p>
+
+    <div class="field">
+      <label>Decimales en el peso</label>
+      <div class="choice" id="pf-decimales">
+        <button type="button" data-dec="0">Enteros<br>(ej. 69 kg)</button>
+        <button type="button" data-dec="2">Con decimales<br>(ej. 69,45 kg)</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="pf-rapidos">Botones rápidos (opcional)</label>
+      <input id="pf-rapidos" type="text" inputmode="decimal" placeholder="Ej. 67, 68, 69, 70, 71">
+      <div class="hint">Pesos separados por coma para anotar con un solo toque.</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-secondary" id="pf-cancel">Cancelar</button>
+      <button class="btn-primary" id="pf-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: confirmar ================= -->
+<div class="modal-back" id="modal-confirm">
+  <div class="modal">
+    <h2 id="confirm-title">¿Seguro?</h2>
+    <p class="sub" id="confirm-msg" style="margin-bottom:16px"></p>
+    <div class="actions">
+      <button class="btn-secondary" id="confirm-no">Cancelar</button>
+      <button class="btn-primary" id="confirm-yes">Sí, continuar</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -270,10 +440,30 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = id => document.getElementById(id);
 function show(view) {
-  for (const id of ['view-loading', 'view-auth', 'view-home'])
+  for (const id of ['view-loading', 'view-auth', 'view-home', 'view-productos'])
     $(id).classList.toggle('hidden', id !== 'view-' + view);
   window.scrollTo(0, 0);
 }
+function fmt(n) {
+  return Number(n.toFixed(2)).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+/* estado del negocio ya cargado */
+const state = { tenantId: null, esDueno: false, productos: [] };
+
+let confirmCb = null;
+function askConfirm(title, msg, cb) {
+  $('confirm-title').textContent = title;
+  $('confirm-msg').textContent = msg;
+  confirmCb = cb;
+  $('modal-confirm').classList.add('show');
+}
+$('confirm-no').addEventListener('click', () => { $('modal-confirm').classList.remove('show'); confirmCb = null; });
+$('confirm-yes').addEventListener('click', () => {
+  $('modal-confirm').classList.remove('show');
+  const cb = confirmCb; confirmCb = null;
+  if (cb) cb();
+});
 function toast(msg) {
   const t = $('toast');
   t.textContent = msg;
@@ -391,7 +581,7 @@ $('form-auth').addEventListener('submit', async e => {
 async function cargarNegocio(user) {
   const { data, error } = await sb
     .from('memberships')
-    .select('role, tenants(trial_ends_at, is_paid, invite_code, tenant_profile(nombre_negocio))')
+    .select('role, tenant_id, tenants(trial_ends_at, is_paid, invite_code, tenant_profile(nombre_negocio))')
     .eq('user_id', user.id)
     .single();
 
@@ -403,10 +593,11 @@ async function cargarNegocio(user) {
 
   const t = data.tenants;
   const nombre = (t.tenant_profile && t.tenant_profile.nombre_negocio) || 'Tu negocio';
-  const esDueno = data.role === 'dueno';
+  state.tenantId = data.tenant_id;
+  state.esDueno = data.role === 'dueno';
 
   $('home-negocio').textContent = nombre;
-  $('home-role').textContent = esDueno ? 'Dueño' : 'Operador';
+  $('home-role').textContent = state.esDueno ? 'Dueño' : 'Operador';
 
   // banner de la prueba de 14 días
   const vence = new Date(t.trial_ends_at);
@@ -421,9 +612,12 @@ async function cargarNegocio(user) {
     banner.innerHTML = '<div class="msg error">⚠️ Tu prueba gratuita venció. Contacta para activar tu cuenta — el historial sigue guardado, pero no se pueden registrar recepciones nuevas.</div>';
   }
 
-  // el código de invitación solo lo ve el dueño
-  $('invite-card').classList.toggle('hidden', !esDueno);
-  if (esDueno) $('invite-code').textContent = t.invite_code;
+  // el código de invitación y el catálogo de productos solo los administra el dueño
+  $('invite-card').classList.toggle('hidden', !state.esDueno);
+  if (state.esDueno) $('invite-code').textContent = t.invite_code;
+  $('btn-ir-productos').classList.toggle('hidden', !state.esDueno);
+
+  await cargarProductos();
 }
 
 $('btn-copy-invite').addEventListener('click', async () => {
@@ -452,6 +646,271 @@ sb.auth.onAuthStateChange((_event, session) => {
     renderAuthForm();
   }
 });
+
+/* ============ productos ============ */
+
+const TIPO_LABEL = {
+  cestas_tara: 'cestas',
+  cesta_suelta: '1 cesta',
+  libre: 'pesada libre',
+};
+
+function descripcionProducto(p) {
+  if (p.weigh_type === 'libre') return 'Pesada libre, sin tara' + (p.decimales ? ', con decimales' : ', enteros');
+  const partes = [];
+  partes.push(p.weigh_type === 'cesta_suelta' ? '1 cesta' : `hasta ${p.cestas_max} cestas`);
+  partes.push(`tara ${fmt(p.tara_kg)} kg/cesta`);
+  if (p.min_peso != null && p.max_peso != null) partes.push(`rango ${fmt(p.min_peso)}–${fmt(p.max_peso)} kg`);
+  return partes.join(' · ');
+}
+
+async function cargarProductos() {
+  const { data, error } = await sb.from('products').select('*').eq('tenant_id', state.tenantId).order('orden');
+  if (error) { console.error(error); toast('No se pudieron cargar los productos'); return; }
+  state.productos = data || [];
+  renderProductosPreview();
+  if (!$('view-productos').classList.contains('hidden')) renderProductosList();
+}
+
+function renderProductosPreview() {
+  const cont = $('productos-preview');
+  const activos = state.productos.filter(p => p.activo);
+  if (!activos.length) {
+    cont.innerHTML = `<p class="sub">${state.esDueno ? 'Todavía no configuras ningún producto.' : 'El dueño del negocio aún no configura productos.'}</p>`;
+    return;
+  }
+  cont.innerHTML = '<div class="chip-row">' +
+    activos.map(p => `<span class="chip-btn on" style="pointer-events:none">${p.emoji} ${escapeHtml(p.nombre)}</span>`).join('') +
+    '</div>';
+}
+
+function renderProductosList() {
+  const cont = $('productos-list');
+  if (!state.productos.length) {
+    cont.innerHTML = '<div class="empty"><span class="big">📦</span>Todavía no tienes productos.<br>Usa una plantilla o crea uno nuevo.</div>';
+    return;
+  }
+  cont.innerHTML = '';
+  state.productos.forEach((p, idx) => {
+    const row = document.createElement('div');
+    row.className = 'prod-row' + (p.activo ? '' : ' inactivo');
+    row.innerHTML = `
+      <div class="pemoji">${p.emoji}</div>
+      <div class="pinfo">
+        <div class="pname">${escapeHtml(p.nombre)}${p.activo ? '' : ' <span class="sub">(inactivo)</span>'}</div>
+        <div class="pmeta">${descripcionProducto(p)}</div>
+      </div>
+      <div class="pactions">
+        <button data-act="up" ${idx === 0 ? 'disabled style="opacity:.25"' : ''} aria-label="Subir">↑</button>
+        <button data-act="down" ${idx === state.productos.length - 1 ? 'disabled style="opacity:.25"' : ''} aria-label="Bajar">↓</button>
+        <button data-act="toggle" aria-label="Activar o desactivar">${p.activo ? '👁️' : '🚫'}</button>
+        <button data-act="edit" aria-label="Editar">✏️</button>
+        <button data-act="del" class="danger" aria-label="Eliminar">🗑️</button>
+      </div>`;
+    row.querySelector('[data-act="edit"]').onclick = () => abrirFormProducto(p);
+    row.querySelector('[data-act="toggle"]').onclick = () => toggleActivo(p);
+    row.querySelector('[data-act="del"]').onclick = () => eliminarProducto(p);
+    row.querySelector('[data-act="up"]').onclick = () => moverProducto(idx, -1);
+    row.querySelector('[data-act="down"]').onclick = () => moverProducto(idx, 1);
+    cont.appendChild(row);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function toggleActivo(p) {
+  const { error } = await sb.from('products').update({ activo: !p.activo }).eq('id', p.id);
+  if (error) { toast('No se pudo actualizar'); return; }
+  await cargarProductos();
+}
+
+async function moverProducto(idx, dir) {
+  const otro = state.productos[idx + dir];
+  const yo = state.productos[idx];
+  if (!otro) return;
+  await sb.from('products').update({ orden: otro.orden }).eq('id', yo.id);
+  await sb.from('products').update({ orden: yo.orden }).eq('id', otro.id);
+  await cargarProductos();
+}
+
+async function eliminarProducto(p) {
+  askConfirm('Eliminar producto', `Se borrará «${p.nombre}» de tu catálogo. Si ya tiene recepciones registradas, no se podrá borrar — mejor desactívalo.`, async () => {
+    const { error } = await sb.from('products').delete().eq('id', p.id);
+    if (error) {
+      if (error.code === '23503' || /foreign key|violat/i.test(error.message || '')) {
+        toast('Ese producto ya tiene recepciones — desactívalo en vez de borrarlo (👁️).');
+      } else {
+        toast('No se pudo eliminar');
+      }
+      return;
+    }
+    toast('Producto eliminado');
+    await cargarProductos();
+  });
+}
+
+/* ---- formulario (crear / editar) ---- */
+const EMOJIS = ['📦', '🐔', '🥔', '🥬', '🥕', '🌿', '🐟', '🥩', '🍅', '🧅', '🥚', '🧊', '🍞', '🧀'];
+let editingId = null;
+let pfTipo = 'cestas_tara';
+let pfDec = 0;
+let pfEmoji = '📦';
+
+$('pf-emoji-pick').innerHTML = EMOJIS.map(e => `<button type="button" data-e="${e}">${e}</button>`).join('');
+$('pf-emoji-pick').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  pfEmoji = b.dataset.e;
+  renderPfForm();
+});
+$('pf-tipo').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  pfTipo = b.dataset.tipo;
+  renderPfForm();
+});
+$('pf-decimales').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  pfDec = +b.dataset.dec;
+  renderPfForm();
+});
+
+function renderPfForm() {
+  for (const b of $('pf-emoji-pick').querySelectorAll('button')) b.classList.toggle('on', b.dataset.e === pfEmoji);
+  for (const b of $('pf-tipo').querySelectorAll('button')) b.classList.toggle('on', b.dataset.tipo === pfTipo);
+  for (const b of $('pf-decimales').querySelectorAll('button')) b.classList.toggle('on', +b.dataset.dec === pfDec);
+
+  const necesitaTara = pfTipo !== 'libre';
+  $('pf-field-tara').classList.toggle('hidden', !necesitaTara);
+  $('pf-field-cestasmax').classList.toggle('hidden', pfTipo !== 'cestas_tara');
+  $('pf-field-rango').classList.toggle('hidden', !necesitaTara);
+  $('pf-rango-hint').classList.toggle('hidden', !necesitaTara);
+  $('pf-rango-hint').textContent = pfTipo === 'cestas_tara'
+    ? 'Deja vacío si no quieres avisos de peso raro. El rango es para la pesada completa (con el máximo de cestas); para menos cestas se ajusta proporcional.'
+    : 'Deja vacío si no quieres avisos de peso raro.';
+}
+
+function abrirFormProducto(p) {
+  editingId = p ? p.id : null;
+  $('pf-title').textContent = p ? 'Editar producto' : 'Nuevo producto';
+  $('pf-msg').innerHTML = '';
+  $('pf-nombre').value = p ? p.nombre : '';
+  pfEmoji = p ? p.emoji : '📦';
+  pfTipo = p ? p.weigh_type : 'cestas_tara';
+  pfDec = p ? p.decimales : 0;
+  $('pf-tara').value = p && p.tara_kg != null ? fmt(p.tara_kg) : '';
+  $('pf-cestasmax').value = p ? p.cestas_max : 5;
+  $('pf-min').value = p && p.min_peso != null ? fmt(p.min_peso) : '';
+  $('pf-max').value = p && p.max_peso != null ? fmt(p.max_peso) : '';
+  $('pf-rapidos').value = p && p.pesos_rapidos && p.pesos_rapidos.length ? p.pesos_rapidos.map(fmt).join(', ') : '';
+  renderPfForm();
+  $('modal-producto').classList.add('show');
+}
+
+$('btn-prod-new').addEventListener('click', () => abrirFormProducto(null));
+$('pf-cancel').addEventListener('click', () => $('modal-producto').classList.remove('show'));
+
+function parseNum(s) {
+  if (typeof s !== 'string') return NaN;
+  s = s.trim().replace(',', '.');
+  if (!s) return NaN;
+  return parseFloat(s);
+}
+
+$('pf-save').addEventListener('click', async () => {
+  const nombre = $('pf-nombre').value.trim();
+  if (!nombre) { $('pf-msg').innerHTML = '<div class="msg error">Escribe un nombre.</div>'; return; }
+
+  const payload = {
+    tenant_id: state.tenantId,
+    nombre,
+    emoji: pfEmoji,
+    weigh_type: pfTipo,
+    decimales: pfDec,
+    tara_kg: null,
+    cestas_max: 1,
+    min_peso: null,
+    max_peso: null,
+    pesos_rapidos: [],
+  };
+
+  if (pfTipo !== 'libre') {
+    const tara = parseNum($('pf-tara').value);
+    if (isNaN(tara) || tara < 0) { $('pf-msg').innerHTML = '<div class="msg error">Escribe la tara por cesta (puede ser 0).</div>'; return; }
+    payload.tara_kg = tara;
+    const min = parseNum($('pf-min').value);
+    const max = parseNum($('pf-max').value);
+    if (!isNaN(min) && !isNaN(max) && max <= min) { $('pf-msg').innerHTML = '<div class="msg error">El máximo debe ser mayor que el mínimo.</div>'; return; }
+    payload.min_peso = isNaN(min) ? null : min;
+    payload.max_peso = isNaN(max) ? null : max;
+  }
+  if (pfTipo === 'cestas_tara') {
+    const cmax = parseInt($('pf-cestasmax').value, 10);
+    if (!cmax || cmax < 1) { $('pf-msg').innerHTML = '<div class="msg error">El máximo de cestas debe ser al menos 1.</div>'; return; }
+    payload.cestas_max = cmax;
+  }
+  const rapidosTxt = $('pf-rapidos').value.trim();
+  if (rapidosTxt) {
+    payload.pesos_rapidos = rapidosTxt.split(',').map(s => parseNum(s)).filter(n => !isNaN(n));
+  }
+
+  const btn = $('pf-save');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Guardando…';
+  try {
+    if (editingId) {
+      const { error } = await sb.from('products').update(payload).eq('id', editingId);
+      if (error) throw error;
+    } else {
+      payload.orden = state.productos.length;
+      const { error } = await sb.from('products').insert(payload);
+      if (error) throw error;
+    }
+    $('modal-producto').classList.remove('show');
+    toast(editingId ? 'Producto actualizado' : 'Producto creado');
+    await cargarProductos();
+  } catch (err) {
+    console.error(err);
+    $('pf-msg').innerHTML = '<div class="msg error">No se pudo guardar. Intenta de nuevo.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+  }
+});
+
+/* ---- plantillas rápidas ---- */
+const PLANTILLAS = {
+  pollo: { nombre: 'Pollo', emoji: '🐔', weigh_type: 'cestas_tara', tara_kg: 2.3, cestas_max: 2, min_peso: 65, max_peso: 75, decimales: 0, pesos_rapidos: [67, 68, 69, 70, 71] },
+  granel: { nombre: '', emoji: '🥔', weigh_type: 'cestas_tara', tara_kg: 2.3, cestas_max: 5, min_peso: null, max_peso: null, decimales: 2, pesos_rapidos: [] },
+  libre: { nombre: '', emoji: '⚖️', weigh_type: 'libre', tara_kg: null, cestas_max: 1, min_peso: null, max_peso: null, decimales: 2, pesos_rapidos: [] },
+};
+$('plantillas-card').addEventListener('click', e => {
+  const b = e.target.closest('.chip-btn');
+  if (!b) return;
+  const t = PLANTILLAS[b.dataset.plantilla];
+  abrirFormProducto(null);
+  $('pf-nombre').value = t.nombre;
+  pfEmoji = t.emoji;
+  pfTipo = t.weigh_type;
+  pfDec = t.decimales;
+  $('pf-tara').value = t.tara_kg != null ? fmt(t.tara_kg) : '';
+  $('pf-cestasmax').value = t.cestas_max;
+  $('pf-min').value = t.min_peso != null ? fmt(t.min_peso) : '';
+  $('pf-max').value = t.max_peso != null ? fmt(t.max_peso) : '';
+  $('pf-rapidos').value = t.pesos_rapidos.length ? t.pesos_rapidos.join(', ') : '';
+  renderPfForm();
+});
+
+/* ---- navegación ---- */
+$('btn-ir-productos').addEventListener('click', () => { renderProductosList(); show('productos'); });
+$('btn-prod-back').addEventListener('click', () => show('home'));
+
+for (const id of ['modal-producto', 'modal-confirm']) {
+  $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
+}
 
 /* ============ arranque ============ */
 renderAuthForm();

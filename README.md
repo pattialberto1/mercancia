@@ -5,10 +5,13 @@ solo negocio, cada negocio ("tenant") se registra, configura sus propios
 productos y usa la app con su propio equipo (dueño + operadores), con 14 días
 de prueba gratis.
 
-> **La versión original de un solo negocio sigue viva** en la rama
-> [`claude/chicken-receiving-app-8z1rs2`](../../tree/claude/chicken-receiving-app-8z1rs2)
-> y en producción en https://pattialberto1.github.io/mercancia/ — esta rama no
+> **La versión original de un solo negocio sigue viva** en el repositorio
+> [`pattialberto1/mercancia`](https://github.com/pattialberto1/mercancia)
+> y en producción en https://pattialberto1.github.io/mercancia/ — esto no
 > la toca ni la reemplaza.
+>
+> Esta versión SaaS vive en su propio repositorio y su propia dirección:
+> **https://pattialberto1.github.io/mercancia-saas/**
 
 ## Estado actual
 
@@ -17,8 +20,13 @@ de prueba gratis.
   Proyecto real ya creado y conectado.
 - ✅ **Login y registro** — crear negocio (dueño), unirse con código (operador),
   iniciar/cerrar sesión, sesión persistente entre recargas, banner de prueba de
-  14 días, código de invitación visible para el dueño. Ver "Qué quedó probado" abajo.
-- ⏳ **Productos configurables, recepciones y tiempo real** — siguiente fase.
+  14 días, código de invitación visible para el dueño. Probado en vivo por el
+  dueño contra el proyecto real.
+- ✅ **Ajustes de productos** — crear, editar, activar/desactivar, reordenar y
+  eliminar productos; 3 plantillas rápidas (Pollo, a granel, pesada libre) para
+  recrear la versión clásica sin escribir todo a mano; borrar un producto con
+  historial se bloquea con un aviso claro (sugiere desactivar en su lugar).
+- ⏳ **Recepciones y pesadas en tiempo real** — siguiente fase.
 - ⏳ **Reportes, exportación y alertas de discrepancia** — fases posteriores.
 
 ### Qué quedó probado de la parte de login
@@ -55,18 +63,16 @@ error en la función que cambia de pantalla que dejaba la app trabada en
 
 ## Cómo seguir
 
-1. ~~Sigue `supabase/SETUP.md` para crear el proyecto y correr el esquema.~~ Hecho.
-2. ~~Pásame la Project URL y la anon key.~~ Hecho — están en `index.html`.
-3. Cuando haya dirección pública (GitHub Pages) para esta rama, probar el
-   registro real como dueño de un negocio de prueba.
-4. Seguir con: Ajustes de productos (para recrear Pollo/Papas/Verduras como
-   configuración) y las recepciones conectadas en tiempo real.
+Falta: pantalla de recepciones/pesadas (usando la configuración de cada
+producto para decidir cestas, tara, rango y decimales), tiempo real entre
+teléfonos del mismo negocio, reportes con exportación, y alertas de
+discrepancia destacadas para el dueño.
 
 ## Estructura
 
-- `index.html` — login, registro y el marco de la app ya autenticada.
+- `index.html` — login, registro, marco autenticado y Ajustes de productos.
 - `vendor/supabase.js` — cliente de Supabase empaquetado en el propio repo
   (no depende de un CDN externo en cada carga; para actualizarlo:
   `npm install @supabase/supabase-js@latest` en cualquier carpeta y copiar
   `node_modules/@supabase/supabase-js/dist/umd/supabase.js` aquí encima).
-- `supabase/schema.sql`, `supabase/SETUP.md` — de la fase 1.
+- `supabase/schema.sql`, `supabase/SETUP.md` — el esquema y su guía de alta.
