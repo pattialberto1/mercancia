@@ -123,17 +123,31 @@
      los botones de acción van en su propia fila, con 44px de alto mínimo
      (el mínimo recomendado para tocar cómodo en iPhone), en vez de 5
      iconitos apretados uno junto al otro. */
-  .prod-row { padding: 12px 2px; border-bottom: 1px solid var(--line); }
-  .prod-row:last-child { border-bottom: none; }
-  .prod-row .ptop { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-  .prod-row .pemoji {
+  /* pemoji/pinfo/pname/pmeta son reutilizables: las usan tanto la fila de
+     Ajustes de productos como la lista de navegación del inicio. */
+  .pemoji {
     width: 40px; height: 40px; border-radius: 11px; background: var(--accent-soft);
     display: flex; align-items: center; justify-content: center; font-size: 19px; flex: none;
   }
-  .prod-row .pinfo { flex: 1; min-width: 0; }
-  .prod-row .pname { font-weight: 700; font-size: 15px; }
-  .prod-row .pmeta { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+  .pinfo { flex: 1; min-width: 0; }
+  .pname { font-weight: 700; font-size: 15px; }
+  .pmeta { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+
+  .prod-row { padding: 12px 2px; border-bottom: 1px solid var(--line); }
+  .prod-row:last-child { border-bottom: none; }
+  .prod-row .ptop { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
   .prod-row.inactivo { opacity: .5; }
+
+  /* lista de productos del inicio: una fila-tarjeta completa por producto,
+     en vez de píldoras amontonadas — aguanta cualquier cantidad sin verse
+     apretado, y cada fila ya sale grande y cómoda de tocar. */
+  .prod-nav-item {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    padding: 12px 14px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow); margin-bottom: 10px;
+  }
+  .prod-nav-item:active { background: var(--accent-soft); }
+  .prod-nav-item .chev { color: var(--muted); font-size: 18px; flex: none; }
   .prod-row .pactions { display: flex; gap: 8px; }
   .prod-row .pactions button {
     flex: 1; min-height: 44px; min-width: 44px; border-radius: 10px; font-size: 16px;
@@ -816,9 +830,15 @@ function renderProductosPreview() {
     cont.innerHTML = `<p class="sub">${state.esDueno ? 'Todavía no configuras ningún producto.' : 'El dueño del negocio aún no configura productos.'}</p>`;
     return;
   }
-  cont.innerHTML = '<div class="chip-row">' +
-    activos.map(p => `<button class="chip-btn on" data-id="${p.id}">${p.emoji} ${escapeHtml(p.nombre)} ›</button>`).join('') +
-    '</div>';
+  cont.innerHTML = activos.map(p => `
+    <button class="prod-nav-item" data-id="${p.id}">
+      <div class="pemoji">${p.emoji}</div>
+      <div class="pinfo">
+        <div class="pname">${escapeHtml(p.nombre)}</div>
+        <div class="pmeta">${descripcionProducto(p)}</div>
+      </div>
+      <span class="chev">›</span>
+    </button>`).join('');
   for (const b of cont.querySelectorAll('button[data-id]'))
     b.onclick = () => abrirProducto(activos.find(p => p.id === b.dataset.id));
 }
