@@ -1053,6 +1053,10 @@ function fmtDate(iso) {
   return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 function fmtKg(n) { return fmt(n) + ' kg'; }
+function todayISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 
 // rango válido para una pesada de "cestas" cestas: en cestas_tara se ajusta
 // proporcional al máximo configurado (así una sola cesta impar de un producto
@@ -1079,19 +1083,53 @@ let recChannel = null, recsChannel = null;
 function unsubRec() { if (recChannel) { sb.removeChannel(recChannel); recChannel = null; } }
 function unsubRecs() { if (recsChannel) { sb.removeChannel(recsChannel); recsChannel = null; } }
 
-/* ---- pantalla: lista de recepciones de un producto ---- */
+async function crearRecepcion(p) {
+  const { data, error } = await sb.from('receptions').insert({ product_id: p.id, fecha: todayISO() }).select('id').single();
+  if (error) {
+    if (error.code === '42501' || /row-level security/i.test(error.message || '')) {
+      toast('Tu prueba gratuita venció — no se pueden crear recepciones nuevas.');
+    } else {
+      console.error(error);
+      toast('No se pudo crear la recepción');
+    }
+    return null;
+  }
+  return data.id;
+}
+
+/* ---- pantalla: lista de recepciones de un producto (el "historial") ---- */
 async function abrirProducto(p) {
   unsubRec();
   unsubRecs();
   state.currentProduct = p;
   $('recs-title').textContent = p.emoji + ' ' + p.nombre;
   $('recs-sub').textContent = descripcionProducto(p);
-  show('recepciones');
-  await cargarRecepciones();
 
   recsChannel = sb.channel('recs-' + p.id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'receptions', filter: `product_id=eq.${p.id}` }, () => cargarRecepciones())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'receptions', filter: `product_id=eq.${p.id}` },
+      () => { if (!$('view-recepciones').classList.contains('hidden')) cargarRecepciones(); })
     .subscribe();
+
+  // 1 solo toque, como en la app clásica: si ya hay una recepción abierta
+  // hoy, entra directo a pesar ahí; si no, crea una y entra igual. El botón
+  // "←" de esa pantalla lleva al historial completo (recepciones pasadas).
+  const { data, error } = await sb.from('receptions')
+    .select('id').eq('product_id', p.id).eq('fecha', todayISO()).eq('status', 'abierta')
+    .order('created_at', { ascending: false }).limit(1);
+
+  if (!error && data && data.length) {
+    await abrirRecepcion(data[0].id);
+    return;
+  }
+  if (!error) {
+    const id = await crearRecepcion(p);
+    if (id) { await abrirRecepcion(id); return; }
+  } else {
+    console.error(error);
+  }
+  // si algo falló, no dejar a la persona sin pantalla: mostrar el historial
+  show('recepciones');
+  await cargarRecepciones();
 }
 
 async function cargarRecepciones() {
@@ -1123,18 +1161,8 @@ function renderRecepcionesList(list) {
 }
 
 $('btn-rec-new').addEventListener('click', async () => {
-  const p = state.currentProduct;
-  const { data, error } = await sb.from('receptions').insert({ product_id: p.id }).select('id').single();
-  if (error) {
-    if (error.code === '42501' || /row-level security/i.test(error.message || '')) {
-      toast('Tu prueba gratuita venció — no se pueden crear recepciones nuevas.');
-    } else {
-      console.error(error);
-      toast('No se pudo crear la recepción');
-    }
-    return;
-  }
-  await abrirRecepcion(data.id);
+  const id = await crearRecepcion(state.currentProduct);
+  if (id) await abrirRecepcion(id);
 });
 
 $('btn-recs-back').addEventListener('click', () => { unsubRecs(); show('home'); });

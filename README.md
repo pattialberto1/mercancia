@@ -34,7 +34,7 @@ de prueba gratis.
   recepciones/pesadas si el trial venció. Envío del resumen por WhatsApp.
 - ⏳ **Reportes, exportación y alertas de discrepancia** — siguiente fase.
 
-Probado con Playwright simulando PostgREST (27 verificaciones): crear
+Probado con Playwright simulando PostgREST (33 verificaciones): crear
 recepción, botones rápidos, selector de cestas, rango proporcional, aviso
 de peso fuera de rango, totales, borrar pesada, terminar/reabrir, WhatsApp,
 producto a granel con decimales, producto de pesada libre (sin tara ni
@@ -45,6 +45,16 @@ real a Supabase que esta caja de desarrollo no tiene) — el código sigue el
 patrón documentado de Supabase Realtime y no genera errores al conectarse/
 desconectarse, pero la prueba con dos teléfonos de verdad la tienen que
 hacer ustedes.
+
+### Navegación en 1 toque
+
+Tocar un producto en el inicio salta directo a la recepción **abierta de
+hoy** de ese producto (o la crea al instante si no hay ninguna) — así queda
+en un solo toque, igual de rápido que la versión clásica de pestañas fijas,
+sin importar cuántos productos tenga el negocio. El botón "←" de esa
+pantalla lleva al historial completo (recepciones de otros días, o
+cerradas), que sigue existiendo pero deja de ser el paso obligatorio de
+en medio.
 
 ### Cómo funciona el rango de peso con menos cestas
 
