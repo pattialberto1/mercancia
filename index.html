@@ -379,14 +379,8 @@
         <h2>Tus productos</h2>
         <button class="btn-link hidden" id="btn-ir-productos">⚙️ Editar</button>
       </div>
+      <p class="sub" style="margin-bottom:10px">Toca un producto para ver o registrar sus recepciones</p>
       <div id="productos-preview"></div>
-    </div>
-
-    <div class="card">
-      <div class="empty">
-        <span class="big">🚧</span>
-        Las recepciones llegan en el próximo paso.
-      </div>
     </div>
   </section>
 
@@ -818,7 +812,7 @@ function renderProductosPreview() {
     return;
   }
   cont.innerHTML = '<div class="chip-row">' +
-    activos.map(p => `<button class="chip-btn on" data-id="${p.id}">${p.emoji} ${escapeHtml(p.nombre)}</button>`).join('') +
+    activos.map(p => `<button class="chip-btn on" data-id="${p.id}">${p.emoji} ${escapeHtml(p.nombre)} ›</button>`).join('') +
     '</div>';
   for (const b of cont.querySelectorAll('button[data-id]'))
     b.onclick = () => abrirProducto(activos.find(p => p.id === b.dataset.id));
