@@ -26,8 +26,36 @@ de prueba gratis.
   eliminar productos; 3 plantillas rápidas (Pollo, a granel, pesada libre) para
   recrear la versión clásica sin escribir todo a mano; borrar un producto con
   historial se bloquea con un aviso claro (sugiere desactivar en su lugar).
-- ⏳ **Recepciones y pesadas en tiempo real** — siguiente fase.
-- ⏳ **Reportes, exportación y alertas de discrepancia** — fases posteriores.
+- ✅ **Recepciones y pesadas** — pantalla de recepciones por producto y de
+  pesadas dentro de cada una, generada automáticamente a partir de cómo esté
+  configurado el producto (cestas, tara, rango, decimales, botones rápidos).
+  Sincronización en tiempo real entre teléfonos del mismo negocio (Supabase
+  Realtime) para las recepciones y las pesadas. Bloqueo real de nuevas
+  recepciones/pesadas si el trial venció. Envío del resumen por WhatsApp.
+- ⏳ **Reportes, exportación y alertas de discrepancia** — siguiente fase.
+
+Probado con Playwright simulando PostgREST (27 verificaciones): crear
+recepción, botones rápidos, selector de cestas, rango proporcional, aviso
+de peso fuera de rango, totales, borrar pesada, terminar/reabrir, WhatsApp,
+producto a granel con decimales, producto de pesada libre (sin tara ni
+cestas), y el bloqueo real por trial vencido tanto al crear una recepción
+como al intentar registrar una pesada. Lo único que **no** se pudo probar
+desde aquí es la sincronización en tiempo real en sí (requiere una conexión
+real a Supabase que esta caja de desarrollo no tiene) — el código sigue el
+patrón documentado de Supabase Realtime y no genera errores al conectarse/
+desconectarse, pero la prueba con dos teléfonos de verdad la tienen que
+hacer ustedes.
+
+### Cómo funciona el rango de peso con menos cestas
+
+Para productos de "varias cestas" (como el Pollo, 2 cestas · 65–75 kg), si
+una pesada se hace con menos cestas de las normales, el rango esperado se
+ajusta **proporcional** al número de cestas de esa pesada (ej. con 1 cesta,
+65–75 kg pasa a 32,5–37,5 kg). Es un cambio de diseño respecto a la versión
+clásica (que guardaba dos rangos totalmente independientes para 2 cestas y
+para 1 cesta) — más simple de configurar (un solo rango por producto) y
+matemáticamente consistente en vez de dos números escritos a mano que se
+podían desincronizar.
 
 ### Qué quedó probado de la parte de login
 
