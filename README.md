@@ -34,7 +34,14 @@ de prueba gratis.
   recepciones/pesadas si el trial venció. Envío del resumen por WhatsApp.
 - ✅ **Clientes y despachos** — además de recibir mercancía de proveedores, el
   negocio puede despachar a sus propios clientes. Ver sección abajo.
-- ⏳ **Reportes, exportación y alertas de discrepancia** — siguiente fase.
+- ✅ **Reportes y exportación** — historial filtrable por tipo (recibido/
+  despachado), producto y rango de fechas (con atajos "esta semana"/"este
+  mes"/"todo"), con totales generales, por producto y por cliente. Exporta a
+  CSV (se abre directo en Excel, con tildes/ñ correctos) o a PDF (imprimir/
+  guardar como PDF desde el navegador), y también arma un resumen para
+  enviar por WhatsApp. Ver sección abajo.
+- ⏳ **Alertas de discrepancia** (faltante/sobrante/mal estado) — siguiente
+  fase; la tabla ya existe en el esquema, falta la pantalla.
 
 ### Clientes y despachos
 
@@ -61,6 +68,22 @@ cero, que aparezca en la lista desplegable la próxima vez, que despachos y
 recepciones normales no se mezclen en los historiales, que reutiliza el
 despacho abierto de hoy para el mismo cliente en vez de duplicarlo, y que
 crea uno nuevo si el anterior ya se cerró.
+
+### Reportes y exportación
+
+Se apoya en la vista `reception_summary` del esquema (ya filtrada por RLS:
+cada negocio solo ve la suya, y ya trae tipo y cliente desde la migración
+de despachos). El ícono 📊 del inicio abre el historial con filtros
+combinables (tipo, producto, rango de fechas) y atajos de rango rápido;
+muestra totales generales, por producto y por cliente (para despachos), y
+exporta a CSV con BOM UTF-8 (para que Excel muestre bien tildes y ñ), a PDF
+usando la función de imprimir del navegador, o arma un resumen para
+WhatsApp.
+
+Probado con Playwright (16 verificaciones): filtros por tipo/producto/fecha
+combinados, atajos de rango, totales generales y por cliente, exportación a
+CSV con nombre de archivo correcto, que el botón de PDF llama a
+`window.print()`, y el contenido del resumen de WhatsApp.
 
 Probado con Playwright simulando PostgREST (33 verificaciones): crear
 recepción, botones rápidos, selector de cestas, rango proporcional, aviso
@@ -125,20 +148,27 @@ error en la función que cambia de pantalla que dejaba la app trabada en
 | Sincronización vía token de GitHub | Supabase (Postgres + Auth + Realtime) |
 | Sin roles | Dueño vs. operador, con permisos distintos |
 | Sin límite de uso | Prueba de 14 días, luego requiere activación manual |
-| — | Reportes filtrables y alertas de discrepancia (faltante/sobrante/mal estado) |
+| Solo recepción de proveedores | Recepción de proveedores **y** despacho a clientes propios (con autocompletado) |
+| — | Reportes filtrables por tipo/producto/fecha, exportables a Excel/PDF/WhatsApp |
+| — | Alertas de discrepancia (faltante/sobrante/mal estado) — pendiente |
 
 ## Cómo seguir
 
-Falta: pantalla de recepciones/pesadas (usando la configuración de cada
-producto para decidir cestas, tara, rango y decimales), tiempo real entre
-teléfonos del mismo negocio, reportes con exportación, y alertas de
-discrepancia destacadas para el dueño.
+Falta: la pantalla de alertas de discrepancia destacadas para el dueño (la
+tabla `discrepancies` ya existe en el esquema, falta la UI), y decidir si
+vale la pena una cola de escritura offline (hoy, si escribes sin conexión,
+esos datos se pierden — el resto de la app carga bien offline gracias al
+service worker).
 
 ## Estructura
 
-- `index.html` — login, registro, marco autenticado y Ajustes de productos.
+- `index.html` — toda la app: login, registro, marco autenticado, Ajustes
+  de productos, recepciones/despachos y pesadas, y Reportes.
 - `vendor/supabase.js` — cliente de Supabase empaquetado en el propio repo
   (no depende de un CDN externo en cada carga; para actualizarlo:
   `npm install @supabase/supabase-js@latest` en cualquier carpeta y copiar
   `node_modules/@supabase/supabase-js/dist/umd/supabase.js` aquí encima).
-- `supabase/schema.sql`, `supabase/SETUP.md` — el esquema y su guía de alta.
+- `supabase/schema.sql` — esquema completo, para un proyecto nuevo desde cero.
+- `supabase/migrations/` — cambios incrementales para un proyecto que ya
+  tiene `schema.sql` aplicado (ver `supabase/SETUP.md`).
+- `supabase/SETUP.md` — guía de alta del proyecto de Supabase.

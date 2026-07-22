@@ -102,6 +102,11 @@
   }
   .field input:focus { border-color: var(--accent); }
   .field .hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .field select {
+    width: 100%; font-size: 16px; padding: 12px; border-radius: 12px; min-height: 44px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); outline: none;
+  }
+  .field select:focus { border-color: var(--accent); }
 
   .choice { display: flex; gap: 8px; margin-bottom: 14px; }
   .choice button {
@@ -323,6 +328,28 @@
     font-size: 15px; font-weight: 700;
   }
   .btn-wa:active { opacity: .85; }
+
+  /* ---- reportes ---- */
+  .rep-total-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 2px; border-bottom: 1px solid var(--line);
+  }
+  .rep-total-row:last-child { border-bottom: none; }
+  .rt-label { font-weight: 700; font-size: 14.5px; }
+  .rt-sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+  .rt-val { font-size: 16px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .rep-mov {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 2px; border-bottom: 1px solid var(--line); font-size: 14px;
+  }
+  .rep-mov:last-child { border-bottom: none; }
+  .rm-kg { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; color: #000; }
+    .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
@@ -389,7 +416,10 @@
           <span class="role-badge" id="home-role">—</span>
         </div>
       </div>
-      <button class="iconbtn" id="btn-logout" aria-label="Cerrar sesión">⎋</button>
+      <div style="display:flex; gap:8px">
+        <button class="iconbtn" id="btn-ir-reportes" aria-label="Reportes">📊</button>
+        <button class="iconbtn" id="btn-logout" aria-label="Cerrar sesión">⎋</button>
+      </div>
     </div>
 
     <div id="trial-banner"></div>
@@ -501,6 +531,54 @@
     </div>
 
     <button class="btn-secondary" id="btn-close-rec">Terminar recepción</button>
+  </section>
+
+  <!-- ================= REPORTES ================= -->
+  <section id="view-reportes" class="hidden">
+    <div class="topbar no-print">
+      <button class="iconbtn" id="btn-rep-back" aria-label="Volver">←</button>
+      <div style="flex:1"><h1>Reportes</h1><p class="sub" id="rep-rango-txt">—</p></div>
+    </div>
+
+    <div class="card no-print">
+      <div class="seg" id="rep-tipo" style="margin-bottom:12px">
+        <button data-tipo="" class="on">Todo</button>
+        <button data-tipo="recepcion">📥 Recibido</button>
+        <button data-tipo="despacho">📤 Despachado</button>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label for="rep-producto">Producto</label>
+        <select id="rep-producto"><option value="">Todos los productos</option></select>
+      </div>
+      <div class="row2" style="margin-bottom:10px">
+        <div class="field" style="margin-bottom:0">
+          <label for="rep-desde">Desde</label>
+          <input id="rep-desde" type="date">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label for="rep-hasta">Hasta</label>
+          <input id="rep-hasta" type="date">
+        </div>
+      </div>
+      <div class="chip-row">
+        <button class="chip-btn" data-rango="semana">Esta semana</button>
+        <button class="chip-btn" data-rango="mes">Este mes</button>
+        <button class="chip-btn" data-rango="todo">Todo</button>
+      </div>
+    </div>
+
+    <div class="card" id="rep-totales"></div>
+
+    <div class="card" id="rep-lista-card">
+      <div class="listhead"><h2>Movimientos</h2></div>
+      <div id="rep-lista"></div>
+    </div>
+
+    <div class="no-print" style="display:flex; flex-direction:column; gap:10px">
+      <button class="btn-wa" id="btn-rep-wa">📲 Enviar resumen por WhatsApp</button>
+      <button class="btn-secondary" id="btn-rep-csv">⬇️ Exportar a Excel (CSV)</button>
+      <button class="btn-secondary" id="btn-rep-pdf">🖨️ Exportar a PDF</button>
+    </div>
   </section>
 
 </main>
@@ -617,7 +695,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = id => document.getElementById(id);
-const VIEWS = ['view-loading', 'view-auth', 'view-home', 'view-productos', 'view-recepciones', 'view-recepcion'];
+const VIEWS = ['view-loading', 'view-auth', 'view-home', 'view-productos', 'view-recepciones', 'view-recepcion', 'view-reportes'];
 function show(view) {
   for (const id of VIEWS) $(id).classList.toggle('hidden', id !== 'view-' + view);
   window.scrollTo(0, 0);
@@ -1566,6 +1644,195 @@ $('btn-rec-wa').addEventListener('click', () => {
 });
 
 $('btn-rec-back').addEventListener('click', async () => { unsubRec(); show('recepciones'); await cargarRecepciones(); });
+
+/* ============ reportes ============ */
+
+function isoDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function fmtDateCorta(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
+
+let repTipo = '';
+
+function poblarSelectProductos() {
+  const sel = $('rep-producto');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todos los productos</option>' +
+    state.productos.map(p => `<option value="${p.id}">${p.emoji} ${escapeHtml(p.nombre)}</option>`).join('');
+  sel.value = actual;
+}
+
+function aplicarRangoRapido(tipo) {
+  const hoy = new Date();
+  if (tipo === 'semana') {
+    const dow = (hoy.getDay() + 6) % 7; // 0 = lunes
+    const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - dow);
+    const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6);
+    $('rep-desde').value = isoDate(lunes);
+    $('rep-hasta').value = isoDate(domingo);
+  } else if (tipo === 'mes') {
+    const primero = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const ultimo = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    $('rep-desde').value = isoDate(primero);
+    $('rep-hasta').value = isoDate(ultimo);
+  } else {
+    $('rep-desde').value = '';
+    $('rep-hasta').value = '';
+  }
+  cargarReporte();
+}
+
+async function abrirReportes() {
+  unsubRec();
+  unsubRecs();
+  poblarSelectProductos();
+  show('reportes');
+  aplicarRangoRapido('semana');
+}
+
+async function cargarReporte() {
+  const desde = $('rep-desde').value, hasta = $('rep-hasta').value, productoId = $('rep-producto').value;
+  $('rep-rango-txt').textContent = desde && hasta
+    ? `${fmtDateCorta(desde)} – ${fmtDateCorta(hasta)}`
+    : (desde ? `Desde ${fmtDateCorta(desde)}` : (hasta ? `Hasta ${fmtDateCorta(hasta)}` : 'Todo el historial'));
+
+  let q = sb.from('reception_summary').select('*').eq('tenant_id', state.tenantId);
+  if (repTipo) q = q.eq('tipo', repTipo);
+  if (productoId) q = q.eq('product_id', productoId);
+  if (desde) q = q.gte('fecha', desde);
+  if (hasta) q = q.lte('fecha', hasta);
+  const { data, error } = await q.order('fecha', { ascending: false });
+  if (error) { console.error(error); toast('No se pudo cargar el reporte'); return; }
+  state.repRows = data || [];
+  renderReporte(state.repRows);
+}
+
+// agrupa: por producto+tipo (para los totales) y por cliente (solo despachos)
+function agruparReporte(rows) {
+  const porProducto = new Map();
+  const porCliente = new Map();
+  let totalRecepcion = 0, totalDespacho = 0;
+  for (const r of rows) {
+    const key = r.product_id + '|' + r.tipo;
+    if (!porProducto.has(key)) porProducto.set(key, { emoji: r.emoji, nombre: r.producto, tipo: r.tipo, kg: 0, movs: 0 });
+    const pp = porProducto.get(key);
+    pp.kg += r.peso_neto; pp.movs++;
+    if (r.tipo === 'despacho') {
+      totalDespacho += r.peso_neto;
+      if (r.cliente) porCliente.set(r.cliente, (porCliente.get(r.cliente) || 0) + r.peso_neto);
+    } else {
+      totalRecepcion += r.peso_neto;
+    }
+  }
+  return { porProducto: [...porProducto.values()], porCliente: [...porCliente.entries()], totalRecepcion, totalDespacho };
+}
+
+function renderReporte(rows) {
+  const { porProducto, porCliente, totalRecepcion, totalDespacho } = agruparReporte(rows);
+  const cont = $('rep-totales');
+
+  if (!rows.length) {
+    cont.innerHTML = '<p class="sub">No hay movimientos en este rango.</p>';
+  } else {
+    let html = '';
+    if (!repTipo || repTipo === 'recepcion') {
+      html += `<div class="rep-total-row"><span class="rt-label">📥 Total recibido</span><span class="rt-val">${fmtKg(totalRecepcion)}</span></div>`;
+    }
+    if (!repTipo || repTipo === 'despacho') {
+      html += `<div class="rep-total-row"><span class="rt-label">📤 Total despachado</span><span class="rt-val">${fmtKg(totalDespacho)}</span></div>`;
+    }
+    for (const pp of porProducto) {
+      html += `<div class="rep-total-row"><div><span class="rt-label">${pp.emoji} ${escapeHtml(pp.nombre)}</span>` +
+        `<div class="rt-sub">${pp.tipo === 'despacho' ? '📤 despachado' : '📥 recibido'} · ${pp.movs} ${pp.movs === 1 ? 'movimiento' : 'movimientos'}</div></div>` +
+        `<span class="rt-val">${fmtKg(pp.kg)}</span></div>`;
+    }
+    if (porCliente.length) {
+      html += '<h2 style="margin:14px 0 4px">Por cliente</h2>';
+      for (const [cliente, kg] of porCliente.sort((a, b) => b[1] - a[1])) {
+        html += `<div class="rep-total-row"><span class="rt-label">${escapeHtml(cliente)}</span><span class="rt-val">${fmtKg(kg)}</span></div>`;
+      }
+    }
+    cont.innerHTML = html;
+  }
+
+  const lista = $('rep-lista');
+  if (!rows.length) {
+    lista.innerHTML = '<p class="sub">Nada que mostrar todavía.</p>';
+  } else {
+    lista.innerHTML = rows.map(r => `
+      <div class="rep-mov">
+        <div>${r.emoji} ${escapeHtml(r.producto)} ${r.tipo === 'despacho' ? '📤' : '📥'}${r.cliente ? ' · ' + escapeHtml(r.cliente) : ''}
+          <div class="sub">${fmtDate(r.fecha)}${r.status === 'abierta' ? ' · en curso' : ''}</div></div>
+        <span class="rm-kg">${fmtKg(r.peso_neto)}</span>
+      </div>`).join('');
+  }
+}
+
+$('rep-tipo').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  repTipo = b.dataset.tipo;
+  for (const x of $('rep-tipo').querySelectorAll('button')) x.classList.toggle('on', x === b);
+  cargarReporte();
+});
+$('rep-producto').addEventListener('change', cargarReporte);
+$('rep-desde').addEventListener('change', cargarReporte);
+$('rep-hasta').addEventListener('change', cargarReporte);
+document.querySelectorAll('#view-reportes .chip-row .chip-btn').forEach(b => {
+  b.addEventListener('click', () => aplicarRangoRapido(b.dataset.rango));
+});
+
+function descargarCSV() {
+  const rows = state.repRows || [];
+  if (!rows.length) { toast('No hay datos para exportar'); return; }
+  const headers = ['Fecha', 'Tipo', 'Producto', 'Cliente', 'Cestas', 'Peso bruto (kg)', 'Tara (kg)', 'Peso neto (kg)', 'Estado'];
+  const lineas = [headers.join(',')];
+  for (const r of rows) {
+    const campos = [
+      r.fecha, r.tipo === 'despacho' ? 'Despacho' : 'Recepción', r.producto, r.cliente || '',
+      r.cestas, r.peso_bruto, r.tara_total, r.peso_neto, r.status === 'cerrada' ? 'Terminada' : 'Abierta'
+    ].map(v => '"' + String(v).replace(/"/g, '""') + '"');
+    lineas.push(campos.join(','));
+  }
+  const csv = '﻿' + lineas.join('\r\n'); // BOM: para que Excel detecte UTF-8 (tildes/ñ) bien
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'reporte-' + todayISO() + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+$('btn-rep-csv').addEventListener('click', descargarCSV);
+$('btn-rep-pdf').addEventListener('click', () => window.print());
+
+$('btn-rep-wa').addEventListener('click', () => {
+  const rows = state.repRows || [];
+  if (!rows.length) { toast('No hay datos para enviar'); return; }
+  const { porProducto, porCliente, totalRecepcion, totalDespacho } = agruparReporte(rows);
+  let txt = `📊 *REPORTE*\n🗓️ ${$('rep-rango-txt').textContent}\n\n`;
+  const recibidos = porProducto.filter(p => p.tipo === 'recepcion');
+  const despachados = porProducto.filter(p => p.tipo === 'despacho');
+  if (recibidos.length) {
+    txt += `📥 *Recibido (${fmtKg(totalRecepcion)}):*\n`;
+    for (const p of recibidos) txt += `• ${p.emoji} ${p.nombre}: ${fmtKg(p.kg)}\n`;
+    txt += '\n';
+  }
+  if (despachados.length) {
+    txt += `📤 *Despachado (${fmtKg(totalDespacho)}):*\n`;
+    for (const p of despachados) txt += `• ${p.emoji} ${p.nombre}: ${fmtKg(p.kg)}\n`;
+    if (porCliente.length) {
+      txt += '\n*A estos clientes:*\n';
+      for (const [cliente, kg] of porCliente.sort((a, b) => b[1] - a[1])) txt += `• ${cliente}: ${fmtKg(kg)}\n`;
+    }
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt.trim()), '_blank');
+});
+
+$('btn-ir-reportes').addEventListener('click', abrirReportes);
+$('btn-rep-back').addEventListener('click', () => show('home'));
 
 /* ============ arranque ============ */
 renderAuthForm();
