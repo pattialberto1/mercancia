@@ -40,8 +40,11 @@ de prueba gratis.
   CSV (se abre directo en Excel, con tildes/ñ correctos) o a PDF (imprimir/
   guardar como PDF desde el navegador), y también arma un resumen para
   enviar por WhatsApp. Ver sección abajo.
-- ⏳ **Alertas de discrepancia** (faltante/sobrante/mal estado) — siguiente
-  fase; la tabla ya existe en el esquema, falta la pantalla.
+- ✅ **Alertas de discrepancia** — al pesar, cualquiera del equipo puede
+  reportar un faltante, sobrante o mercancía en mal estado (con kg y nota
+  opcionales) sin salir de la recepción/despacho. Un ícono ⚠️ con contador en
+  el inicio lleva a la pantalla de Alertas, con las pendientes primero;
+  resolverlas la puede el dueño o quien la reportó. Ver sección abajo.
 
 ### Clientes y despachos
 
@@ -84,6 +87,30 @@ Probado con Playwright (16 verificaciones): filtros por tipo/producto/fecha
 combinados, atajos de rango, totales generales y por cliente, exportación a
 CSV con nombre de archivo correcto, que el botón de PDF llama a
 `window.print()`, y el contenido del resumen de WhatsApp.
+
+### Alertas de discrepancia
+
+Reutiliza la tabla `discrepancies` que ya existía en el esquema desde la
+fase 1 (no hizo falta ninguna migración). Desde cualquier recepción o
+despacho, el ícono ⚠️ abre un formulario corto: tipo (faltante / sobrante /
+mal estado), kg de diferencia y una nota, ambos opcionales. Cualquiera del
+equipo puede reportar una (igual que cualquiera puede registrar una
+pesada); resolverla la puede el dueño o quien la reportó — está protegido
+también a nivel de base de datos (RLS), no solo escondiendo el botón.
+
+En el inicio, el ícono ⚠️ lleva un contador rojo con las discrepancias sin
+resolver (para que no se pierdan en el historial general) y abre la
+pantalla de Alertas, que lista las pendientes primero, con el producto, la
+fecha, los kg y la nota de cada una, y un botón para marcarla resuelta (o
+reabrirla si fue un error).
+
+Probado contra Postgres real (6 verificaciones de RLS): un operador puede
+reportar y resolver la suya, pero no puede borrarla (solo el dueño puede);
+aislamiento total entre negocios, incluyendo que un negocio no puede
+resolver una discrepancia ajena aunque lo intente directo por la API.
+Probado con Playwright (18 verificaciones): reportar desde una recepción,
+el contador del inicio aparece/desaparece según haya pendientes, la lista
+de Alertas muestra tipo/producto/kg/nota, y marcar resuelta / reabrir.
 
 Probado con Playwright simulando PostgREST (33 verificaciones): crear
 recepción, botones rápidos, selector de cestas, rango proporcional, aviso
@@ -150,20 +177,20 @@ error en la función que cambia de pantalla que dejaba la app trabada en
 | Sin límite de uso | Prueba de 14 días, luego requiere activación manual |
 | Solo recepción de proveedores | Recepción de proveedores **y** despacho a clientes propios (con autocompletado) |
 | — | Reportes filtrables por tipo/producto/fecha, exportables a Excel/PDF/WhatsApp |
-| — | Alertas de discrepancia (faltante/sobrante/mal estado) — pendiente |
+| — | Alertas de discrepancia (faltante/sobrante/mal estado), visibles para todo el equipo |
 
 ## Cómo seguir
 
-Falta: la pantalla de alertas de discrepancia destacadas para el dueño (la
-tabla `discrepancies` ya existe en el esquema, falta la UI), y decidir si
-vale la pena una cola de escritura offline (hoy, si escribes sin conexión,
-esos datos se pierden — el resto de la app carga bien offline gracias al
-service worker).
+Con esto quedan cubiertas las 7 fases planeadas originalmente. Lo único que
+queda abierto es decidir si vale la pena una cola de escritura offline (hoy,
+si escribes sin conexión, esos datos se pierden — el resto de la app carga
+bien offline gracias al service worker); es opcional y depende de si el
+equipo trabaja en zonas sin señal.
 
 ## Estructura
 
 - `index.html` — toda la app: login, registro, marco autenticado, Ajustes
-  de productos, recepciones/despachos y pesadas, y Reportes.
+  de productos, recepciones/despachos y pesadas, Reportes, y Alertas.
 - `vendor/supabase.js` — cliente de Supabase empaquetado en el propio repo
   (no depende de un CDN externo en cada carga; para actualizarlo:
   `npm install @supabase/supabase-js@latest` en cualquier carpeta y copiar

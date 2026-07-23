@@ -345,6 +345,20 @@
   .rep-mov:last-child { border-bottom: none; }
   .rm-kg { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
+  /* ---- alertas de discrepancia ---- */
+  .badge-dot {
+    position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px;
+    border-radius: 99px; background: var(--bad); color: #fff; font-size: 10.5px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .disc-row.resuelta { opacity: .6; }
+  .disc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .disc-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+  .disc-badge.bad { background: var(--bad-soft); color: var(--bad); }
+  .disc-badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .disc-prod { font-weight: 700; font-size: 15px; }
+  .disc-nota { font-size: 14px; margin-top: 6px; }
+
   @media print {
     .no-print { display: none !important; }
     body { background: #fff; color: #000; }
@@ -417,6 +431,7 @@
         </div>
       </div>
       <div style="display:flex; gap:8px">
+        <button class="iconbtn" id="btn-ir-alertas" aria-label="Alertas" style="position:relative">⚠️<span class="badge-dot hidden" id="alertas-badge"></span></button>
         <button class="iconbtn" id="btn-ir-reportes" aria-label="Reportes">📊</button>
         <button class="iconbtn" id="btn-logout" aria-label="Cerrar sesión">⎋</button>
       </div>
@@ -492,7 +507,10 @@
         <h1 id="rec-title">—</h1>
         <p class="sub" id="rec-sub"></p>
       </div>
-      <button class="iconbtn" id="btn-rec-wa" aria-label="Enviar por WhatsApp">📲</button>
+      <div style="display:flex; gap:8px">
+        <button class="iconbtn" id="btn-rec-disc" aria-label="Reportar discrepancia">⚠️</button>
+        <button class="iconbtn" id="btn-rec-wa" aria-label="Enviar por WhatsApp">📲</button>
+      </div>
     </div>
 
     <div class="card" id="entry-card">
@@ -581,6 +599,15 @@
     </div>
   </section>
 
+  <!-- ================= ALERTAS DE DISCREPANCIA ================= -->
+  <section id="view-alertas" class="hidden">
+    <div class="topbar">
+      <button class="iconbtn" id="btn-alertas-back" aria-label="Volver">←</button>
+      <div style="flex:1"><h1>Alertas</h1><p class="sub">Faltantes, sobrantes y mercancía en mal estado</p></div>
+    </div>
+    <div id="alertas-lista"></div>
+  </section>
+
 </main>
 
 <!-- ================= MODAL: crear/editar producto ================= -->
@@ -667,6 +694,33 @@
   </div>
 </div>
 
+<!-- ================= MODAL: reportar discrepancia ================= -->
+<div class="modal-back" id="modal-discrepancia">
+  <div class="modal">
+    <h2>Reportar discrepancia</h2>
+    <div class="field">
+      <label>Tipo</label>
+      <div class="choice" id="disc-tipo">
+        <button type="button" data-tipo="faltante" class="on">📉 Faltante</button>
+        <button type="button" data-tipo="sobrante">📈 Sobrante</button>
+        <button type="button" data-tipo="mal_estado">🚫 Mal estado</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="disc-kg">Kg de diferencia (opcional)</label>
+      <input id="disc-kg" type="text" inputmode="decimal" placeholder="Ej. 3.5">
+    </div>
+    <div class="field">
+      <label for="disc-nota">Nota (opcional)</label>
+      <input id="disc-nota" type="text" placeholder="Ej. faltaron 2 cestas, llegó mojado…">
+    </div>
+    <div class="actions">
+      <button class="btn-secondary" id="disc-cancel">Cancelar</button>
+      <button class="btn-primary" id="disc-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= MODAL: confirmar ================= -->
 <div class="modal-back" id="modal-confirm">
   <div class="modal">
@@ -695,7 +749,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = id => document.getElementById(id);
-const VIEWS = ['view-loading', 'view-auth', 'view-home', 'view-productos', 'view-recepciones', 'view-recepcion', 'view-reportes'];
+const VIEWS = ['view-loading', 'view-auth', 'view-home', 'view-productos', 'view-recepciones', 'view-recepcion', 'view-reportes', 'view-alertas'];
 function show(view) {
   for (const id of VIEWS) $(id).classList.toggle('hidden', id !== 'view-' + view);
   window.scrollTo(0, 0);
@@ -876,6 +930,7 @@ async function cargarNegocio(user) {
   state.userId = user.id;
   await cargarProductos();
   await cargarClientes();
+  await cargarDiscrepancias();
 }
 
 $('btn-copy-invite').addEventListener('click', async () => {
@@ -1193,7 +1248,7 @@ $('plantillas-card').addEventListener('click', e => {
 $('btn-ir-productos').addEventListener('click', () => { unsubRec(); unsubRecs(); renderProductosList(); show('productos'); });
 $('btn-prod-back').addEventListener('click', () => show('home'));
 
-for (const id of ['modal-producto', 'modal-confirm', 'modal-cliente']) {
+for (const id of ['modal-producto', 'modal-confirm', 'modal-cliente', 'modal-discrepancia']) {
   $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
 }
 
@@ -1833,6 +1888,107 @@ $('btn-rep-wa').addEventListener('click', () => {
 
 $('btn-ir-reportes').addEventListener('click', abrirReportes);
 $('btn-rep-back').addEventListener('click', () => show('home'));
+
+/* ============ alertas de discrepancia ============ */
+
+const DISC_LABEL = { faltante: '📉 Faltante', sobrante: '📈 Sobrante', mal_estado: '🚫 Mal estado' };
+const DISC_CLASS = { faltante: 'bad', sobrante: 'warn', mal_estado: 'bad' };
+
+async function cargarDiscrepancias() {
+  const { data, error } = await sb.from('discrepancies')
+    .select('*, receptions(fecha, tipo, product_id, products(nombre, emoji))')
+    .eq('tenant_id', state.tenantId)
+    .order('resuelto', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) { console.error(error); return; }
+  state.discrepancias = data || [];
+  actualizarBadgeAlertas();
+  if (!$('view-alertas').classList.contains('hidden')) renderAlertas();
+}
+
+function actualizarBadgeAlertas() {
+  const n = (state.discrepancias || []).filter(d => !d.resuelto).length;
+  const badge = $('alertas-badge');
+  badge.textContent = n > 9 ? '9+' : n;
+  badge.classList.toggle('hidden', n === 0);
+}
+
+function renderAlertas() {
+  const cont = $('alertas-lista');
+  const list = state.discrepancias || [];
+  if (!list.length) {
+    cont.innerHTML = '<div class="empty"><span class="big">✅</span>No hay discrepancias reportadas.</div>';
+    return;
+  }
+  cont.innerHTML = list.map(d => {
+    const r = d.receptions, p = r && r.products;
+    const puedoResolver = state.esDueno || d.created_by === state.userId;
+    return `<div class="card disc-row ${d.resuelto ? 'resuelta' : ''}">
+      <div class="disc-top">
+        <span class="disc-badge ${DISC_CLASS[d.tipo]}">${DISC_LABEL[d.tipo]}</span>
+        ${d.resuelto ? '<span class="badge">resuelta</span>' : ''}
+      </div>
+      <div class="disc-prod">${p ? p.emoji + ' ' + escapeHtml(p.nombre) : ''}${r && r.tipo === 'despacho' ? ' · despacho' : ''}</div>
+      <div class="sub">${r ? fmtDate(r.fecha) : ''}${d.kg != null ? ' · ' + fmt(d.kg) + ' kg' : ''}</div>
+      ${d.nota ? `<p class="disc-nota">${escapeHtml(d.nota)}</p>` : ''}
+      ${puedoResolver ? `<button class="btn-secondary disc-toggle" data-id="${d.id}" style="margin-top:10px">${d.resuelto ? 'Reabrir' : 'Marcar resuelta'}</button>` : ''}
+    </div>`;
+  }).join('');
+  for (const b of cont.querySelectorAll('.disc-toggle')) {
+    b.onclick = () => toggleResuelta(b.dataset.id);
+  }
+}
+
+async function toggleResuelta(id) {
+  const d = state.discrepancias.find(x => x.id === id);
+  if (!d) return;
+  const { error } = await sb.from('discrepancies').update({ resuelto: !d.resuelto }).eq('id', id);
+  if (error) { toast('No se pudo actualizar'); return; }
+  await cargarDiscrepancias();
+}
+
+$('btn-ir-alertas').addEventListener('click', () => { renderAlertas(); show('alertas'); });
+$('btn-alertas-back').addEventListener('click', () => show('home'));
+
+let discTipo = 'faltante';
+function renderDiscForm() {
+  for (const b of $('disc-tipo').querySelectorAll('button')) b.classList.toggle('on', b.dataset.tipo === discTipo);
+}
+$('disc-tipo').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  discTipo = b.dataset.tipo;
+  renderDiscForm();
+});
+$('btn-rec-disc').addEventListener('click', () => {
+  discTipo = 'faltante';
+  $('disc-kg').value = '';
+  $('disc-nota').value = '';
+  renderDiscForm();
+  $('modal-discrepancia').classList.add('show');
+});
+$('disc-cancel').addEventListener('click', () => $('modal-discrepancia').classList.remove('show'));
+$('disc-save').addEventListener('click', async () => {
+  const kgRaw = $('disc-kg').value.trim();
+  const kg = kgRaw ? parseNum(kgRaw) : NaN;
+  const nota = $('disc-nota').value.trim();
+  const btn = $('disc-save');
+  btn.disabled = true;
+  try {
+    const { error } = await sb.from('discrepancies').insert({
+      reception_id: state.currentReceptionId,
+      tipo: discTipo,
+      kg: isNaN(kg) ? null : kg,
+      nota: nota || null,
+    });
+    if (error) { console.error(error); toast('No se pudo guardar la discrepancia'); return; }
+    $('modal-discrepancia').classList.remove('show');
+    toast('Discrepancia reportada');
+    await cargarDiscrepancias();
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 /* ============ arranque ============ */
 renderAuthForm();
