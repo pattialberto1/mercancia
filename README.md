@@ -33,7 +33,8 @@ de prueba gratis.
   Realtime) para las recepciones y las pesadas. Bloqueo real de nuevas
   recepciones/pesadas si el trial venció. Envío del resumen por WhatsApp.
 - ✅ **Clientes y despachos** — además de recibir mercancía de proveedores, el
-  negocio puede despachar a sus propios clientes. Ver sección abajo.
+  negocio puede despachar a sus propios clientes, con precio por kg opcional
+  y total a cobrar calculado solo. Ver sección abajo.
 - ✅ **Reportes y exportación** — historial filtrable por tipo (recibido/
   despachado), producto y rango de fechas (con atajos "esta semana"/"este
   mes"/"todo"), con totales generales, por producto y por cliente. Exporta a
@@ -72,13 +73,38 @@ recepciones normales no se mezclen en los historiales, que reutiliza el
 despacho abierto de hoy para el mismo cliente en vez de duplicarlo, y que
 crea uno nuevo si el anterior ya se cerró.
 
+### Precio por kg en los despachos
+
+Dentro de un despacho (no aplica a recepciones) hay una tarjeta opcional
+**💰 Precio** con un campo de precio por kg. En cuanto se llena, aparece el
+**total a cobrar** (peso neto × precio), y se recalcula solo si se agregan,
+corrigen o borran pesadas — no hay que volver a escribir nada. El precio lo
+puede poner o corregir quien creó el despacho o el dueño (misma regla que
+ya protegía las recepciones, reutilizada tal cual). El total aparece
+también en el resumen de WhatsApp, y los reportes suman el monto
+facturado por producto y por cliente, además de los kg.
+
+No hace falta ninguna migración de esquema para el precio en sí — el
+cálculo del total (`monto`) vive en la vista `reception_summary`, para que
+nunca quede desactualizado si se corrige una pesada después. Ver
+[`supabase/migrations/0003_precio_despacho.sql`](./supabase/migrations/0003_precio_despacho.sql).
+
+Probado contra Postgres real (7 verificaciones): el monto se calcula bien
+y se recalcula solo con pesadas nuevas, y que solo quien creó el despacho
+(o el dueño) puede cambiarle el precio — otro operador del mismo negocio
+no puede, verificado a nivel de RLS. Probado con Playwright (13
+verificaciones): la tarjeta de precio solo aparece en despachos, el total
+se calcula y recalcula en vivo, se puede quitar el precio, y el resumen de
+WhatsApp y los Reportes lo reflejan correctamente.
+
 ### Reportes y exportación
 
 Se apoya en la vista `reception_summary` del esquema (ya filtrada por RLS:
 cada negocio solo ve la suya, y ya trae tipo y cliente desde la migración
 de despachos). El ícono 📊 del inicio abre el historial con filtros
 combinables (tipo, producto, rango de fechas) y atajos de rango rápido;
-muestra totales generales, por producto y por cliente (para despachos), y
+muestra totales generales, por producto y por cliente (para despachos, con
+el monto facturado cuando se cargó precio por kg), y
 exporta a CSV con BOM UTF-8 (para que Excel muestre bien tildes y ñ), a PDF
 usando la función de imprimir del navegador, o arma un resumen para
 WhatsApp.
@@ -175,7 +201,7 @@ error en la función que cambia de pantalla que dejaba la app trabada en
 | Sincronización vía token de GitHub | Supabase (Postgres + Auth + Realtime) |
 | Sin roles | Dueño vs. operador, con permisos distintos |
 | Sin límite de uso | Prueba de 14 días, luego requiere activación manual |
-| Solo recepción de proveedores | Recepción de proveedores **y** despacho a clientes propios (con autocompletado) |
+| Solo recepción de proveedores | Recepción de proveedores **y** despacho a clientes propios (con autocompletado y precio por kg opcional) |
 | — | Reportes filtrables por tipo/producto/fecha, exportables a Excel/PDF/WhatsApp |
 | — | Alertas de discrepancia (faltante/sobrante/mal estado), visibles para todo el equipo |
 

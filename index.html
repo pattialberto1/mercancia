@@ -533,6 +533,15 @@
       </div>
     </div>
 
+    <div class="card hidden" id="precio-card">
+      <h2>💰 Precio</h2>
+      <div class="field" style="margin:12px 0 0">
+        <label for="precio-kg-input">Precio por kg (opcional)</label>
+        <input id="precio-kg-input" type="text" inputmode="decimal" placeholder="Ej. 3.50">
+      </div>
+      <div class="net" style="margin-top:12px"><span class="lbl">TOTAL A COBRAR</span><span class="val" id="precio-total">—</span></div>
+    </div>
+
     <div class="card" id="entries-card">
       <div class="listhead"><h2>Pesadas</h2></div>
       <div id="entries-list"></div>
@@ -1259,6 +1268,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 function fmtKg(n) { return fmt(n) + ' kg'; }
+function fmtMoney(n) { return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function todayISO() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -1552,6 +1562,14 @@ function renderRecepcion() {
   $('emp-minus').disabled = !abierta;
   $('emp-plus').disabled = !abierta;
 
+  $('precio-card').classList.toggle('hidden', !esDespacho);
+  if (esDespacho) {
+    if (document.activeElement !== $('precio-kg-input')) {
+      $('precio-kg-input').value = r.precio_kg != null ? fmt(r.precio_kg) : '';
+    }
+    $('precio-total').textContent = r.precio_kg != null ? fmtMoney(t.neto * r.precio_kg) : '—';
+  }
+
   const list = $('entries-list');
   if (!state.pesadas.length) {
     list.innerHTML = '<div class="sub" style="padding:6px 0">Aquí aparecerá cada pesada que registres.</div>';
@@ -1646,6 +1664,21 @@ $('emp-input').addEventListener('change', e => {
   setVacias(/^\d+$/.test(s) ? parseInt(s, 10) : 0);
 });
 
+async function setPrecioKg(raw) {
+  const s = raw.trim();
+  let valor = null;
+  if (s) {
+    const v = parseNum(s);
+    if (isNaN(v) || v < 0) { toast('Escribe un precio válido'); renderRecepcion(); return; }
+    valor = Math.round(v * 100) / 100;
+  }
+  const { error } = await sb.from('receptions').update({ precio_kg: valor }).eq('id', state.currentReceptionId);
+  if (error) { toast('No se pudo guardar el precio'); return; }
+  state.currentReception.precio_kg = valor;
+  renderRecepcion();
+}
+$('precio-kg-input').addEventListener('change', e => setPrecioKg(e.target.value));
+
 $('btn-close-rec').addEventListener('click', () => {
   const r = state.currentReception, abierta = r.status === 'abierta';
   const hacer = async () => {
@@ -1691,6 +1724,7 @@ function buildResumenRecepcion() {
   txt += `\nCestas: ${t.cestas}\nPeso bruto: ${fmtKg(t.bruto)}\n`;
   if (p.weigh_type !== 'libre') txt += `Tara (${t.cestas} × ${fmt(p.tara_kg)} kg): −${fmtKg(t.tara)}\n`;
   txt += esDespacho ? `✅ *${p.nombre.toUpperCase()} DESPACHADO: ${fmtKg(t.neto)}*` : `✅ *${p.nombre.toUpperCase()} NETO: ${fmtKg(t.neto)}*`;
+  if (esDespacho && r.precio_kg != null) txt += `\n💰 Precio: ${fmtMoney(r.precio_kg)}/kg\n💵 *Total a cobrar: ${fmtMoney(t.neto * r.precio_kg)}*`;
   if (!esDespacho && p.weigh_type !== 'libre' && r.cestas_vacias) txt += `\n🧺 Cestas vacías que se lleva el proveedor: ${r.cestas_vacias}`;
   return txt;
 }
@@ -1769,7 +1803,7 @@ async function cargarReporte() {
 function agruparReporte(rows) {
   const porProducto = new Map();
   const porCliente = new Map();
-  let totalRecepcion = 0, totalDespacho = 0;
+  let totalRecepcion = 0, totalDespacho = 0, totalMonto = 0;
   for (const r of rows) {
     const key = r.product_id + '|' + r.tipo;
     if (!porProducto.has(key)) porProducto.set(key, { emoji: r.emoji, nombre: r.producto, tipo: r.tipo, kg: 0, movs: 0 });
@@ -1777,16 +1811,22 @@ function agruparReporte(rows) {
     pp.kg += r.peso_neto; pp.movs++;
     if (r.tipo === 'despacho') {
       totalDespacho += r.peso_neto;
-      if (r.cliente) porCliente.set(r.cliente, (porCliente.get(r.cliente) || 0) + r.peso_neto);
+      if (r.monto != null) totalMonto += r.monto;
+      if (r.cliente) {
+        const c = porCliente.get(r.cliente) || { kg: 0, monto: 0 };
+        c.kg += r.peso_neto;
+        if (r.monto != null) c.monto += r.monto;
+        porCliente.set(r.cliente, c);
+      }
     } else {
       totalRecepcion += r.peso_neto;
     }
   }
-  return { porProducto: [...porProducto.values()], porCliente: [...porCliente.entries()], totalRecepcion, totalDespacho };
+  return { porProducto: [...porProducto.values()], porCliente: [...porCliente.entries()], totalRecepcion, totalDespacho, totalMonto };
 }
 
 function renderReporte(rows) {
-  const { porProducto, porCliente, totalRecepcion, totalDespacho } = agruparReporte(rows);
+  const { porProducto, porCliente, totalRecepcion, totalDespacho, totalMonto } = agruparReporte(rows);
   const cont = $('rep-totales');
 
   if (!rows.length) {
@@ -1798,6 +1838,9 @@ function renderReporte(rows) {
     }
     if (!repTipo || repTipo === 'despacho') {
       html += `<div class="rep-total-row"><span class="rt-label">📤 Total despachado</span><span class="rt-val">${fmtKg(totalDespacho)}</span></div>`;
+      if (totalMonto > 0) {
+        html += `<div class="rep-total-row"><span class="rt-label">💰 Total facturado</span><span class="rt-val">${fmtMoney(totalMonto)}</span></div>`;
+      }
     }
     for (const pp of porProducto) {
       html += `<div class="rep-total-row"><div><span class="rt-label">${pp.emoji} ${escapeHtml(pp.nombre)}</span>` +
@@ -1806,8 +1849,8 @@ function renderReporte(rows) {
     }
     if (porCliente.length) {
       html += '<h2 style="margin:14px 0 4px">Por cliente</h2>';
-      for (const [cliente, kg] of porCliente.sort((a, b) => b[1] - a[1])) {
-        html += `<div class="rep-total-row"><span class="rt-label">${escapeHtml(cliente)}</span><span class="rt-val">${fmtKg(kg)}</span></div>`;
+      for (const [cliente, c] of porCliente.sort((a, b) => b[1].kg - a[1].kg)) {
+        html += `<div class="rep-total-row"><span class="rt-label">${escapeHtml(cliente)}</span><div style="text-align:right"><span class="rt-val">${fmtKg(c.kg)}</span>${c.monto > 0 ? `<div class="rt-sub">${fmtMoney(c.monto)}</div>` : ''}</div></div>`;
       }
     }
     cont.innerHTML = html;
@@ -1821,7 +1864,7 @@ function renderReporte(rows) {
       <div class="rep-mov">
         <div>${r.emoji} ${escapeHtml(r.producto)} ${r.tipo === 'despacho' ? '📤' : '📥'}${r.cliente ? ' · ' + escapeHtml(r.cliente) : ''}
           <div class="sub">${fmtDate(r.fecha)}${r.status === 'abierta' ? ' · en curso' : ''}</div></div>
-        <span class="rm-kg">${fmtKg(r.peso_neto)}</span>
+        <div style="text-align:right"><span class="rm-kg">${fmtKg(r.peso_neto)}</span>${r.monto != null ? `<div class="sub">${fmtMoney(r.monto)}</div>` : ''}</div>
       </div>`).join('');
   }
 }
@@ -1843,12 +1886,12 @@ document.querySelectorAll('#view-reportes .chip-row .chip-btn').forEach(b => {
 function descargarCSV() {
   const rows = state.repRows || [];
   if (!rows.length) { toast('No hay datos para exportar'); return; }
-  const headers = ['Fecha', 'Tipo', 'Producto', 'Cliente', 'Cestas', 'Peso bruto (kg)', 'Tara (kg)', 'Peso neto (kg)', 'Estado'];
+  const headers = ['Fecha', 'Tipo', 'Producto', 'Cliente', 'Cestas', 'Peso bruto (kg)', 'Tara (kg)', 'Peso neto (kg)', 'Precio/kg', 'Total', 'Estado'];
   const lineas = [headers.join(',')];
   for (const r of rows) {
     const campos = [
       r.fecha, r.tipo === 'despacho' ? 'Despacho' : 'Recepción', r.producto, r.cliente || '',
-      r.cestas, r.peso_bruto, r.tara_total, r.peso_neto, r.status === 'cerrada' ? 'Terminada' : 'Abierta'
+      r.cestas, r.peso_bruto, r.tara_total, r.peso_neto, r.precio_kg ?? '', r.monto ?? '', r.status === 'cerrada' ? 'Terminada' : 'Abierta'
     ].map(v => '"' + String(v).replace(/"/g, '""') + '"');
     lineas.push(campos.join(','));
   }
@@ -1866,7 +1909,7 @@ $('btn-rep-pdf').addEventListener('click', () => window.print());
 $('btn-rep-wa').addEventListener('click', () => {
   const rows = state.repRows || [];
   if (!rows.length) { toast('No hay datos para enviar'); return; }
-  const { porProducto, porCliente, totalRecepcion, totalDespacho } = agruparReporte(rows);
+  const { porProducto, porCliente, totalRecepcion, totalDespacho, totalMonto } = agruparReporte(rows);
   let txt = `📊 *REPORTE*\n🗓️ ${$('rep-rango-txt').textContent}\n\n`;
   const recibidos = porProducto.filter(p => p.tipo === 'recepcion');
   const despachados = porProducto.filter(p => p.tipo === 'despacho');
@@ -1876,11 +1919,11 @@ $('btn-rep-wa').addEventListener('click', () => {
     txt += '\n';
   }
   if (despachados.length) {
-    txt += `📤 *Despachado (${fmtKg(totalDespacho)}):*\n`;
+    txt += `📤 *Despachado (${fmtKg(totalDespacho)}${totalMonto > 0 ? ' · ' + fmtMoney(totalMonto) : ''}):*\n`;
     for (const p of despachados) txt += `• ${p.emoji} ${p.nombre}: ${fmtKg(p.kg)}\n`;
     if (porCliente.length) {
       txt += '\n*A estos clientes:*\n';
-      for (const [cliente, kg] of porCliente.sort((a, b) => b[1] - a[1])) txt += `• ${cliente}: ${fmtKg(kg)}\n`;
+      for (const [cliente, c] of porCliente.sort((a, b) => b[1].kg - a[1].kg)) txt += `• ${cliente}: ${fmtKg(c.kg)}${c.monto > 0 ? ' · ' + fmtMoney(c.monto) : ''}\n`;
     }
   }
   window.open('https://wa.me/?text=' + encodeURIComponent(txt.trim()), '_blank');
