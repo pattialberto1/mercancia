@@ -47,6 +47,10 @@ de prueba gratis.
   opcionales) sin salir de la recepción/despacho. Un ícono ⚠️ con contador en
   el inicio lleva a la pantalla de Alertas, con las pendientes primero;
   resolverlas la puede el dueño o quien la reportó. Ver sección abajo.
+- ✅ **Funciona sin conexión** — la app abre y deja trabajar aunque el
+  teléfono no tenga señal: no pide volver a iniciar sesión, se ven los
+  productos, clientes e historial guardados, y todo lo que se registre se
+  sube solo en cuanto vuelve internet. Ver sección abajo.
 
 ### Clientes y despachos
 
@@ -161,6 +165,52 @@ Probado con Playwright (18 verificaciones): reportar desde una recepción,
 el contador del inicio aparece/desaparece según haya pendientes, la lista
 de Alertas muestra tipo/producto/kg/nota, y marcar resuelta / reabrir.
 
+### Funciona sin conexión
+
+En un depósito o en la calle la señal se cae, y la app tiene que seguir
+sirviendo igual. Hay dos piezas:
+
+**No te saca la sesión.** Antes, sin señal la app mandaba al login y no
+dejaba entrar — pero la persona nunca había cerrado sesión: lo que pasaba
+es que sin internet Supabase no puede renovar el token de acceso (vence
+cada hora) y avisaba como si la sesión no existiera. Ahora, si el teléfono
+ya tiene los datos del negocio guardados y no hay red, la app entra
+directo al inicio con ellos. Solo se va al login si de verdad se cierra
+sesión (y ahí sí avisa antes si queda algo sin subir).
+
+**No se pierde nada de lo que registres.** Todo lo que se ve del servidor
+queda guardado en el propio teléfono (negocio, productos, clientes,
+historial), y lo que se registre sin señal se guarda en una cola y se sube
+solo en cuanto vuelve internet — sin tener que apretar nada. Una barra
+arriba avisa si no hay conexión y cuántos registros quedan por subir, y
+las filas que todavía no se subieron salen marcadas «sin subir».
+
+Sin señal funcionan: entrar, ver el negocio y los productos, crear
+recepciones y despachos, pesar, borrar pesadas, terminar/reabrir, anotar
+clientes nuevos, poner precio, reportar discrepancias y ver los reportes
+(que se calculan con el historial guardado). Lo único que **sí** necesita
+conexión es cambiar el catálogo de productos —es configuración del dueño,
+no trabajo del día— y ahí la app lo dice claro en vez de fallar raro.
+
+Lo delicado de esto es que algo creado sin señal (por ejemplo un cliente
+nuevo) todavía no tiene su identificador real del servidor. La app le
+pone uno temporal y, al sincronizar, lo cambia por el definitivo en todo
+lo que dependía de él, para que un despacho hecho offline quede ligado a
+su cliente correcto y sus pesadas a su despacho correcto.
+
+**La tasa BCV también se guarda.** Se consulta una vez al día al abrir la
+app con señal (no en cada despacho), y queda guardada indefinidamente: si
+mañana no hay internet, se sigue usando la última conocida, avisando de
+qué día es por si conviene corregirla a mano.
+
+Probado con Playwright simulando una desconexión real —red caída de
+verdad, no solo un aviso— con 36 verificaciones: recargar la app sin señal
+no manda al login y conserva negocio/productos/historial; se puede crear un
+despacho completo offline (cliente nuevo incluido), pesarlo y ponerle
+precio; los reportes se arman con el historial local; y al volver la señal
+se sube todo solo, quedando cada cosa ligada a lo que corresponde (se
+verifica que no quede ningún identificador temporal en el servidor).
+
 Probado con Playwright simulando PostgREST (33 verificaciones): crear
 recepción, botones rápidos, selector de cestas, rango proporcional, aviso
 de peso fuera de rango, totales, borrar pesada, terminar/reabrir, WhatsApp,
@@ -227,17 +277,25 @@ error en la función que cambia de pantalla que dejaba la app trabada en
 | Solo recepción de proveedores | Recepción de proveedores **y** despacho a clientes propios (con autocompletado, precio por kg en USD y total en USD/Bs a la tasa BCV del día) |
 | — | Reportes filtrables por tipo/producto/fecha, exportables a Excel/PDF/WhatsApp |
 | — | Alertas de discrepancia (faltante/sobrante/mal estado), visibles para todo el equipo |
+| — | Funciona sin señal: no saca la sesión y sube solo lo registrado al volver internet |
 
 ## Cómo seguir
 
-Con esto quedan cubiertas las 7 fases planeadas originalmente, más el
-precio en USD/Bs de los despachos. Lo único que queda abierto es decidir
-si vale la pena una cola de escritura offline (hoy, si escribes sin
-conexión, esos datos se pierden — el resto de la app carga bien offline
-gracias al service worker); es opcional y depende de si el equipo trabaja
-en zonas sin señal. La consulta de la tasa BCV también depende de
-internet — si falla, la app avisa y deja escribir la tasa a mano, así que
-nunca bloquea el despacho.
+Están cubiertas las 7 fases planeadas originalmente, más el precio en
+USD/Bs de los despachos y el modo sin conexión. Con eso el producto está
+completo para usarse a diario.
+
+Lo que queda son mejoras, no huecos:
+
+- **Registrarse (cuenta nueva) sí necesita internet** — solo la primera
+  vez; después la app abre sin señal. No hay forma de evitarlo: crear la
+  cuenta la hace el servidor.
+- **El catálogo de productos requiere conexión** para cambiarlo. Se dejó
+  así a propósito (evita conflictos de configuración entre teléfonos); si
+  algún día estorba, se puede sumar a la cola igual que lo demás.
+- **Cobros dentro de la app** (pagar la suscripción desde el teléfono) —
+  hoy la activación pasado el trial la haces tú a mano en Supabase, como
+  se planeó desde el principio.
 
 ## Estructura
 

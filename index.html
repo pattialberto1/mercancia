@@ -345,6 +345,16 @@
   .rep-mov:last-child { border-bottom: none; }
   .rm-kg { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
+  /* ---- aviso de conexión / cosas pendientes de subir ---- */
+  .offline-bar {
+    position: sticky; top: 0; z-index: 40; text-align: center;
+    font-size: 13px; font-weight: 700; padding: 9px 14px;
+    padding-top: calc(9px + env(safe-area-inset-top));
+  }
+  .offline-bar.sin-red { background: var(--bad-soft); color: var(--bad); }
+  .offline-bar.pendiente { background: var(--warn-soft); color: var(--warn); }
+  .badge.pendiente { background: var(--warn-soft); color: var(--warn); }
+
   /* ---- alertas de discrepancia ---- */
   .badge-dot {
     position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px;
@@ -367,6 +377,7 @@
 </style>
 </head>
 <body>
+<div id="offline-bar" class="offline-bar hidden"></div>
 <main>
 
   <!-- ================= CARGANDO ================= -->
@@ -780,7 +791,7 @@ function fmt(n) {
 }
 
 /* estado del negocio ya cargado */
-const state = { tenantId: null, esDueno: false, productos: [], clientes: [], homeModo: 'recepcion' };
+const state = { tenantId: null, esDueno: false, productos: [], clientes: [], discrepancias: [], movs: [], homeModo: 'recepcion' };
 
 let confirmCb = null;
 function askConfirm(title, msg, cb) {
@@ -802,6 +813,209 @@ function toast(msg) {
   clearTimeout(toast._h);
   toast._h = setTimeout(() => t.classList.remove('show'), 2600);
 }
+
+/* ============================================================
+   MODO OFFLINE
+   La app tiene que seguir sirviendo sin señal: el celular en un
+   depósito o en la calle pierde datos todo el tiempo. Dos piezas:
+
+   1) CACHÉ DE LECTURA — todo lo que se carga del servidor se guarda
+      también en el propio teléfono, así al abrir sin señal se ve el
+      negocio, los productos, los clientes y el historial igual que
+      siempre (en vez de una pantalla vacía o el login).
+
+   2) COLA DE ESCRITURA — lo que se registre sin señal no se pierde:
+      se guarda en una cola y se sube solo en cuanto vuelve internet.
+      Las cosas creadas offline llevan un id temporal ("local-…") que
+      al sincronizar se cambia por el id real del servidor, para que
+      una pesada hecha offline quede colgando de su recepción correcta.
+   ============================================================ */
+
+function lsGet(k, def) {
+  try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch { return def; }
+}
+function lsSet(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+}
+function lsDel(k) { try { localStorage.removeItem(k); } catch {} }
+
+function hayRed() { return navigator.onLine !== false; }
+
+// distingue "se cayó la red" (reintentable, se encola) de un error real del
+// servidor (permiso, dato inválido…), que reintentar no va a arreglar
+function esErrorDeRed(err) {
+  if (!err) return false;
+  if (!hayRed()) return true;
+  if (err.code === '42501' || err.code === '23505' || err.code === '23503') return false;
+  const m = String(err.message || '');
+  return /failed to fetch|networkerror|load failed|network request failed|fetch failed|timeout|net::/i.test(m);
+}
+
+const COLA_KEY = 'mercancia_cola';
+const IDMAP_KEY = 'mercancia_idmap';
+let cola = lsGet(COLA_KEY, []);
+let idMap = lsGet(IDMAP_KEY, {});
+let sincronizando = false;
+
+function guardarCola() { lsSet(COLA_KEY, cola); renderEstadoRed(); }
+function guardarIdMap() { lsSet(IDMAP_KEY, idMap); }
+
+function nuevoIdLocal() { return 'local-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function esIdLocal(id) { return typeof id === 'string' && id.startsWith('local-'); }
+// un id temporal ya sincronizado se traduce al id real que le dio el servidor
+function resolverId(id) { return (esIdLocal(id) && idMap[id]) || id; }
+
+const CAMPOS_REF = ['product_id', 'client_id', 'reception_id', 'tenant_id'];
+
+function encolarInsert(tabla, payload, localId) {
+  cola.push({ tabla, accion: 'insert', payload, localId });
+  guardarCola();
+}
+function encolarUpdate(tabla, id, payload) {
+  // si el registro todavía ni existe en el servidor (se creó offline hace un
+  // momento), no hace falta un update aparte: se mete el cambio en el insert
+  const ins = cola.find(o => o.accion === 'insert' && o.localId === id);
+  if (ins) { Object.assign(ins.payload, payload); guardarCola(); return; }
+  cola.push({ tabla, accion: 'update', id, payload });
+  guardarCola();
+}
+function encolarDelete(tabla, id) {
+  // borrar algo que aún no se subió = simplemente sacarlo de la cola
+  const i = cola.findIndex(o => o.accion === 'insert' && o.localId === id);
+  if (i >= 0) {
+    cola.splice(i, 1);
+    cola = cola.filter(o => o.id !== id);
+    guardarCola();
+    return;
+  }
+  cola.push({ tabla, accion: 'delete', id });
+  guardarCola();
+}
+
+/* Escribe en el servidor si hay señal; si no (o si se cae en el intento),
+   lo deja en la cola y devuelve un id temporal para que la pantalla siga
+   funcionando igual. */
+async function escribir(tabla, accion, { payload, id, localId } = {}) {
+  if (hayRed()) {
+    try {
+      if (accion === 'insert') {
+        const { data, error } = await sb.from(tabla).insert(payload).select('id').single();
+        if (error) throw error;
+        return { ok: true, id: data.id, offline: false };
+      }
+      if (accion === 'update') {
+        const { error } = await sb.from(tabla).update(payload).eq('id', resolverId(id));
+        if (error) throw error;
+        return { ok: true, offline: false };
+      }
+      const { error } = await sb.from(tabla).delete().eq('id', resolverId(id));
+      if (error) throw error;
+      return { ok: true, offline: false };
+    } catch (err) {
+      if (!esErrorDeRed(err)) return { ok: false, error: err };
+      // se cayó la señal justo ahora: sigue de largo y se encola
+    }
+  }
+  if (accion === 'insert') {
+    const lid = localId || nuevoIdLocal();
+    encolarInsert(tabla, payload, lid);
+    return { ok: true, id: lid, offline: true };
+  }
+  if (accion === 'update') { encolarUpdate(tabla, id, payload); return { ok: true, offline: true }; }
+  encolarDelete(tabla, id);
+  return { ok: true, offline: true };
+}
+
+async function ejecutarOp(op) {
+  const payload = { ...(op.payload || {}) };
+  for (const k of CAMPOS_REF) if (payload[k]) payload[k] = resolverId(payload[k]);
+  const idReal = op.id ? resolverId(op.id) : null;
+
+  // si algo sigue apuntando a un id temporal es que su insert falló antes;
+  // se descarta para no dejar la cola trabada para siempre
+  if ((op.id && esIdLocal(idReal)) || CAMPOS_REF.some(k => esIdLocal(payload[k]))) {
+    return { ok: false, permanente: true };
+  }
+  try {
+    if (op.accion === 'insert') {
+      const { data, error } = await sb.from(op.tabla).insert(payload).select('id').single();
+      if (error) throw error;
+      if (op.localId) { idMap[op.localId] = data.id; guardarIdMap(); }
+      return { ok: true };
+    }
+    if (op.accion === 'update') {
+      const { error } = await sb.from(op.tabla).update(payload).eq('id', idReal);
+      if (error) throw error;
+      return { ok: true };
+    }
+    const { error } = await sb.from(op.tabla).delete().eq('id', idReal);
+    if (error) throw error;
+    return { ok: true };
+  } catch (err) {
+    if (esErrorDeRed(err)) return { ok: false, permanente: false };
+    console.error('Operación rechazada por el servidor, se descarta:', op, err);
+    return { ok: false, permanente: true };
+  }
+}
+
+async function sincronizar() {
+  if (sincronizando || !cola.length || !hayRed() || !state.tenantId) return;
+  sincronizando = true;
+  renderEstadoRed();
+  let subidas = 0, descartadas = 0;
+  while (cola.length) {
+    const r = await ejecutarOp(cola[0]);
+    if (!r.ok && !r.permanente) break;          // sin señal otra vez: se reintenta después
+    if (r.ok) subidas++; else descartadas++;
+    cola.shift();
+    guardarCola();
+  }
+  sincronizando = false;
+  renderEstadoRed();
+  if (subidas) {
+    toast(subidas === 1 ? 'Se subió 1 registro pendiente' : `Se subieron ${subidas} registros pendientes`);
+    await refrescarTrasSincronizar();
+  }
+  if (descartadas) toast(`${descartadas} ${descartadas === 1 ? 'registro no se pudo subir' : 'registros no se pudieron subir'}`);
+}
+
+async function refrescarTrasSincronizar() {
+  idMap = {}; guardarIdMap();                    // ya no hacen falta las equivalencias viejas
+  await cargarProductos();
+  await cargarClientes();
+  await cargarDiscrepancias();
+  if (!$('view-recepciones').classList.contains('hidden')) await cargarRecepciones();
+  if (!$('view-reportes').classList.contains('hidden')) await cargarReporte();
+}
+
+function renderEstadoRed() {
+  const bar = $('offline-bar');
+  if (!bar) return;
+  const pend = cola.length;
+  if (!hayRed()) {
+    bar.className = 'offline-bar sin-red';
+    bar.textContent = pend
+      ? `📴 Sin conexión · ${pend} ${pend === 1 ? 'registro guardado' : 'registros guardados'} en el teléfono`
+      : '📴 Sin conexión · puedes seguir trabajando';
+  } else if (sincronizando) {
+    bar.className = 'offline-bar pendiente';
+    bar.textContent = '⏳ Subiendo lo que quedó pendiente…';
+  } else if (pend) {
+    bar.className = 'offline-bar pendiente';
+    bar.textContent = `⏳ ${pend} ${pend === 1 ? 'registro pendiente' : 'registros pendientes'} de subir`;
+  } else {
+    bar.className = 'offline-bar hidden';
+    bar.textContent = '';
+  }
+}
+
+window.addEventListener('online', () => { renderEstadoRed(); sincronizar(); });
+window.addEventListener('offline', renderEstadoRed);
+
+/* ---- caché de lectura, separada por negocio ---- */
+function claveCache(nombre) { return `mercancia_c_${state.tenantId || 'x'}_${nombre}`; }
+function guardarCache(nombre, datos) { if (state.tenantId) lsSet(claveCache(nombre), datos); }
+function leerCache(nombre, def) { return state.tenantId ? lsGet(claveCache(nombre), def) : def; }
 
 /* ============ estado del formulario de acceso ============ */
 let authMode = 'login';   // 'login' | 'signup'
@@ -909,32 +1123,25 @@ $('form-auth').addEventListener('submit', async e => {
 });
 
 /* ============ cargar datos del negocio tras iniciar sesión ============ */
-async function cargarNegocio(user) {
-  const { data, error } = await sb
-    .from('memberships')
-    .select('role, tenant_id, tenants(trial_ends_at, is_paid, invite_code, tenant_profile(nombre_negocio))')
-    .eq('user_id', user.id)
-    .single();
 
-  if (error || !data) {
-    console.error(error);
-    toast('No se pudo cargar tu negocio. Intenta de nuevo.');
-    return;
-  }
+// lo mínimo para poder abrir la app sin señal: qué negocio es, qué rol
+// tiene esta persona y cómo va su prueba. Se guarda fuera de la caché
+// por-negocio porque hace falta ANTES de saber a qué negocio pertenece.
+const SESION_KEY = 'mercancia_sesion';
 
-  const t = data.tenants;
-  const nombre = (t.tenant_profile && t.tenant_profile.nombre_negocio) || 'Tu negocio';
-  state.tenantId = data.tenant_id;
-  state.esDueno = data.role === 'dueno';
+function pintarNegocio(info) {
+  state.tenantId = info.tenantId;
+  state.esDueno = info.esDueno;
+  state.userId = info.userId;
 
-  $('home-negocio').textContent = nombre;
-  $('home-role').textContent = state.esDueno ? 'Dueño' : 'Operador';
+  $('home-negocio').textContent = info.nombre;
+  $('home-role').textContent = info.esDueno ? 'Dueño' : 'Operador';
 
   // banner de la prueba de 14 días
-  const vence = new Date(t.trial_ends_at);
-  const activo = t.is_paid || vence > new Date();
+  const vence = new Date(info.trialEndsAt);
+  const activo = info.isPaid || vence > new Date();
   const banner = $('trial-banner');
-  if (t.is_paid) {
+  if (info.isPaid) {
     banner.innerHTML = '';
   } else if (activo) {
     const dias = Math.max(1, Math.ceil((vence - new Date()) / 86400000));
@@ -945,13 +1152,59 @@ async function cargarNegocio(user) {
 
   // el código de invitación y el catálogo de productos solo los administra el dueño
   $('invite-card').classList.toggle('hidden', !state.esDueno);
-  if (state.esDueno) $('invite-code').textContent = t.invite_code;
+  if (state.esDueno) $('invite-code').textContent = info.inviteCode || '--------';
   $('btn-ir-productos').classList.toggle('hidden', !state.esDueno);
+}
 
-  state.userId = user.id;
+// arranca desde lo guardado en el teléfono (sin tocar la red)
+function cargarNegocioDeCache() {
+  const info = lsGet(SESION_KEY, null);
+  if (!info) return false;
+  pintarNegocio(info);
+  state.productos = leerCache('productos', []);
+  state.clientes = leerCache('clientes', []);
+  state.discrepancias = leerCache('discrepancias', []);
+  state.movs = leerCache('movs', []);
+  renderProductosPreview();
+  actualizarBadgeAlertas();
+  renderEstadoRed();
+  return true;
+}
+
+async function cargarNegocio(user) {
+  const { data, error } = await sb
+    .from('memberships')
+    .select('role, tenant_id, tenants(trial_ends_at, is_paid, invite_code, tenant_profile(nombre_negocio))')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error || !data) {
+    // sin señal no es un error: se sigue con lo último que se sabía
+    if (cargarNegocioDeCache()) { renderEstadoRed(); sincronizar(); return; }
+    console.error(error);
+    toast(hayRed() ? 'No se pudo cargar tu negocio. Intenta de nuevo.' : 'Sin conexión y sin datos guardados todavía.');
+    return;
+  }
+
+  const t = data.tenants;
+  const info = {
+    userId: user.id,
+    tenantId: data.tenant_id,
+    esDueno: data.role === 'dueno',
+    nombre: (t.tenant_profile && t.tenant_profile.nombre_negocio) || 'Tu negocio',
+    trialEndsAt: t.trial_ends_at,
+    isPaid: t.is_paid,
+    inviteCode: t.invite_code,
+  };
+  pintarNegocio(info);
+  lsSet(SESION_KEY, info);
+
   await cargarProductos();
   await cargarClientes();
   await cargarDiscrepancias();
+  renderEstadoRed();
+  asegurarTasaDelDia();
+  sincronizar();
 }
 
 $('btn-copy-invite').addEventListener('click', async () => {
@@ -963,24 +1216,64 @@ $('btn-copy-invite').addEventListener('click', async () => {
   }
 });
 
+let cerrandoSesion = false;
+
+function limpiarDatosLocales() {
+  const t = state.tenantId;
+  lsDel(SESION_KEY);
+  if (t) for (const n of ['productos', 'clientes', 'discrepancias', 'movs']) lsDel(`mercancia_c_${t}_${n}`);
+  state.productos = []; state.clientes = []; state.discrepancias = []; state.movs = [];
+  state.tenantId = null;
+}
+
 $('btn-logout').addEventListener('click', async () => {
+  if (cola.length) {
+    askConfirm('Hay registros sin subir',
+      `Todavía ${cola.length === 1 ? 'queda 1 registro guardado' : `quedan ${cola.length} registros guardados`} en este teléfono sin subir. Si cierras sesión ahora se pierden. ¿Cerrar de todas formas?`,
+      () => hacerLogout(true));
+    return;
+  }
+  hacerLogout(false);
+});
+
+async function hacerLogout(descartarCola) {
+  cerrandoSesion = true;
   unsubRec();
   unsubRecs();
-  await sb.auth.signOut();
-});
+  if (descartarCola) { cola = []; guardarCola(); }
+  idMap = {}; guardarIdMap();
+  limpiarDatosLocales();
+  try { await sb.auth.signOut(); } catch {}
+  mostrarLogin();
+  cerrandoSesion = false;
+}
+
+function mostrarLogin() {
+  show('auth');
+  $('form-auth').reset();
+  authMode = 'login';
+  signupTipo = 'dueno';
+  renderAuthForm();
+  renderEstadoRed();
+}
 
 /* ============ enrutamiento según la sesión ============ */
 sb.auth.onAuthStateChange((_event, session) => {
   if (session) {
     show('home');
     cargarNegocio(session.user);
-  } else {
-    show('auth');
-    $('form-auth').reset();
-    authMode = 'login';
-    signupTipo = 'dueno';
-    renderAuthForm();
+    return;
   }
+  // Sin sesión válida. Ojo: sin señal, Supabase no puede renovar el token y
+  // avisa como si la sesión no existiera — pero la persona NO cerró sesión.
+  // Antes eso la sacaba al login y la dejaba sin poder trabajar; ahora, si
+  // hay datos guardados y no hay red, se sigue trabajando offline.
+  if (!cerrandoSesion && !hayRed() && lsGet(SESION_KEY, null)) {
+    show('home');
+    cargarNegocioDeCache();
+    return;
+  }
+  mostrarLogin();
 });
 
 /* ============ productos ============ */
@@ -1001,9 +1294,16 @@ function descripcionProducto(p) {
 }
 
 async function cargarProductos() {
-  const { data, error } = await sb.from('products').select('*').eq('tenant_id', state.tenantId).order('orden');
-  if (error) { console.error(error); toast('No se pudieron cargar los productos'); return; }
-  state.productos = data || [];
+  const { data, error } = hayRed()
+    ? await sb.from('products').select('*').eq('tenant_id', state.tenantId).order('orden')
+    : { data: null, error: { message: 'sin conexión' } };
+  if (error) {
+    state.productos = leerCache('productos', state.productos);   // seguimos con lo último conocido
+    if (hayRed()) { console.error(error); toast('No se pudieron cargar los productos'); }
+  } else {
+    state.productos = data || [];
+    guardarCache('productos', state.productos);
+  }
   renderProductosPreview();
   if (!$('view-productos').classList.contains('hidden')) renderProductosList();
 }
@@ -1081,13 +1381,25 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/* El catálogo de productos es configuración del dueño, no trabajo del día:
+   se deja solo con conexión (a diferencia de recepciones, despachos y
+   pesadas, que sí funcionan sin señal). Así se evita el lío de resolver
+   conflictos de configuración entre teléfonos. */
+function exigeRed() {
+  if (hayRed()) return true;
+  toast('Necesitas conexión para cambiar los productos');
+  return false;
+}
+
 async function toggleActivo(p) {
+  if (!exigeRed()) return;
   const { error } = await sb.from('products').update({ activo: !p.activo }).eq('id', p.id);
   if (error) { toast('No se pudo actualizar'); return; }
   await cargarProductos();
 }
 
 async function moverProducto(idx, dir) {
+  if (!exigeRed()) return;
   const otro = state.productos[idx + dir];
   const yo = state.productos[idx];
   if (!otro) return;
@@ -1097,6 +1409,7 @@ async function moverProducto(idx, dir) {
 }
 
 async function eliminarProducto(p) {
+  if (!exigeRed()) return;
   askConfirm('Eliminar producto', `Se borrará «${p.nombre}» de tu catálogo. Si ya tiene recepciones registradas, no se podrá borrar — mejor desactívalo.`, async () => {
     const { error } = await sb.from('products').delete().eq('id', p.id);
     if (error) {
@@ -1182,6 +1495,7 @@ function parseNum(s) {
 }
 
 $('pf-save').addEventListener('click', async () => {
+  if (!hayRed()) { $('pf-msg').innerHTML = '<div class="msg error">Necesitas conexión para guardar productos.</div>'; return; }
   const nombre = $('pf-nombre').value.trim();
   if (!nombre) { $('pf-msg').innerHTML = '<div class="msg error">Escribe un nombre.</div>'; return; }
 
@@ -1323,27 +1637,35 @@ function unsubRecs() { if (recsChannel) { sb.removeChannel(recsChannel); recsCha
    tasa suba o baje. */
 const BCV_ENDPOINT = 'https://ve.dolarapi.com/v1/dolares/oficial';
 
-function tasaCacheKey() { return 'mercancia_tasa_bcv_' + todayISO(); }
-function leerTasaCache() {
-  try {
-    const raw = localStorage.getItem(tasaCacheKey());
-    if (!raw) return null;
-    const v = Number(JSON.parse(raw).valor);
-    return isNaN(v) ? null : v;
-  } catch { return null; }
+/* La última tasa conocida se guarda para siempre (no por día): si hoy no hay
+   señal, se sigue usando la del último día que sí hubo, avisando de qué día
+   es, en vez de dejar el despacho sin poder calcular el total en bolívares. */
+const TASA_KEY = 'mercancia_tasa_bcv';
+function leerTasaGuardada() {
+  const t = lsGet(TASA_KEY, null);
+  if (!t || !t.valor) return null;
+  const v = Number(t.valor);
+  return isNaN(v) ? null : { valor: v, fecha: t.fecha };
 }
-function guardarTasaCache(valor) {
-  try { localStorage.setItem(tasaCacheKey(), JSON.stringify({ valor })); } catch {}
+function guardarTasa(valor) { lsSet(TASA_KEY, { valor, fecha: todayISO() }); }
+
+/* Se busca la tasa apenas se abre la app con señal, no solo al entrar a un
+   despacho: así, si más tarde se va la señal, ya hay una tasa guardada para
+   poder cobrar igual. Si la guardada ya es de hoy, no se vuelve a pedir. */
+function asegurarTasaDelDia() {
+  const g = leerTasaGuardada();
+  if (hayRed() && (!g || g.fecha !== todayISO())) obtenerTasaBCV();
 }
 
 async function obtenerTasaBCV() {
+  if (!hayRed()) return null;
   try {
     const res = await fetch(BCV_ENDPOINT, { cache: 'no-store' });
     if (!res.ok) throw new Error('http ' + res.status);
     const data = await res.json();
     const valor = Number(data.promedio ?? data.venta ?? data.compra);
     if (!valor || isNaN(valor) || valor <= 0) throw new Error('sin tasa válida en la respuesta');
-    guardarTasaCache(valor);
+    guardarTasa(valor);
     return valor;
   } catch (err) {
     console.error('No se pudo obtener la tasa BCV', err);
@@ -1363,26 +1685,49 @@ async function actualizarTasaHoy(mostrarToast) {
     await guardarPrecioYTasa();
   } else {
     state.tasaFetchFallo = true;
-    $('tasa-bcv-hint').textContent = 'No se pudo consultar la tasa — escríbela tú.';
-    if (mostrarToast) toast('No se pudo consultar la tasa BCV');
+    renderRecepcion();
+    if (mostrarToast) toast(hayRed() ? 'No se pudo consultar la tasa BCV' : 'Sin conexión — se usa la última tasa guardada');
   }
 }
 $('btn-tasa-refresh').addEventListener('click', () => actualizarTasaHoy(true));
 
+/* ---- historial local de recepciones y despachos ----
+   Todo lo que se ve del servidor queda guardado en el teléfono, y lo que se
+   crea sin señal se agrega aquí igual, para que la pantalla no note la
+   diferencia entre "ya está en el servidor" y "está esperando para subir". */
+function guardarMovs() { guardarCache('movs', state.movs); }
+function buscarMov(id) { return state.movs.find(m => m.id === id); }
+function upsertMov(row) {
+  const i = state.movs.findIndex(m => m.id === row.id);
+  if (i >= 0) state.movs[i] = { ...state.movs[i], ...row };
+  else state.movs.unshift(row);
+  guardarMovs();
+}
+
 async function crearMovimiento(p, tipo, clientId) {
   const payload = { product_id: p.id, fecha: todayISO(), tipo };
   if (tipo === 'despacho') payload.client_id = clientId;
-  const { data, error } = await sb.from('receptions').insert(payload).select('id').single();
-  if (error) {
-    if (error.code === '42501' || /row-level security/i.test(error.message || '')) {
+
+  const r = await escribir('receptions', 'insert', { payload });
+  if (!r.ok) {
+    const err = r.error || {};
+    if (err.code === '42501' || /row-level security/i.test(err.message || '')) {
       toast('Tu prueba gratuita venció — no se pueden crear ' + (tipo === 'despacho' ? 'despachos' : 'recepciones') + ' nuevos.');
     } else {
-      console.error(error);
+      console.error(err);
       toast('No se pudo crear ' + (tipo === 'despacho' ? 'el despacho' : 'la recepción'));
     }
     return null;
   }
-  return data.id;
+  const cli = clientId ? state.clientes.find(c => c.id === clientId) : null;
+  upsertMov({
+    id: r.id, tenant_id: state.tenantId, product_id: p.id, tipo, client_id: clientId || null,
+    fecha: todayISO(), status: 'abierta', cestas_vacias: 0, precio_kg: null, tasa_bcv: null,
+    created_by: state.userId, created_at: new Date().toISOString(), closed_at: null,
+    weighings: [], clients: cli ? { nombre: cli.nombre } : null,
+  });
+  if (r.offline) toast('Guardado en el teléfono — se sube al volver la señal');
+  return r.id;
 }
 
 /* ---- pantalla: lista de recepciones o despachos de un producto (el "historial") ---- */
@@ -1395,30 +1740,41 @@ async function abrirCatalogoProducto(p, tipo, clientId) {
   $('recs-sub').textContent = (tipo === 'despacho' ? 'Despachos · ' : '') + descripcionProducto(p);
   $('btn-rec-new').textContent = tipo === 'despacho' ? '+ Nuevo despacho' : '+ Nueva recepción';
 
-  recsChannel = sb.channel(tipo + '-' + p.id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'receptions', filter: `product_id=eq.${p.id}` },
-      () => { if (!$('view-recepciones').classList.contains('hidden')) cargarRecepciones(); })
-    .subscribe();
+  if (hayRed()) {
+    recsChannel = sb.channel(tipo + '-' + p.id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'receptions', filter: `product_id=eq.${p.id}` },
+        () => { if (!$('view-recepciones').classList.contains('hidden')) cargarRecepciones(); })
+      .subscribe();
+  }
 
   // 1 solo toque, como en la app clásica: si ya hay una recepción/despacho
   // abierto hoy (con el mismo cliente, si aplica), entra directo a pesar
   // ahí; si no, lo crea y entra igual. El botón "←" de esa pantalla lleva
   // al historial completo.
-  let q = sb.from('receptions').select('id')
-    .eq('product_id', p.id).eq('tipo', tipo).eq('fecha', todayISO()).eq('status', 'abierta');
-  if (tipo === 'despacho') q = q.eq('client_id', clientId);
-  const { data, error } = await q.order('created_at', { ascending: false }).limit(1);
+  let abierta = null;
+  if (hayRed()) {
+    let q = sb.from('receptions').select('id')
+      .eq('product_id', p.id).eq('tipo', tipo).eq('fecha', todayISO()).eq('status', 'abierta');
+    if (tipo === 'despacho') q = q.eq('client_id', clientId);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(1);
+    if (error) {
+      console.error(error);
+      if (!esErrorDeRed(error)) { show('recepciones'); await cargarRecepciones(); return; }
+    } else if (data && data.length) {
+      abierta = data[0].id;
+    }
+  }
+  if (!abierta) {
+    // sin señal (o sin resultado en el servidor): buscar en el historial local
+    const local = state.movs.find(m => m.product_id === p.id && m.tipo === tipo &&
+      m.fecha === todayISO() && m.status === 'abierta' &&
+      (tipo !== 'despacho' || m.client_id === clientId));
+    if (local) abierta = local.id;
+  }
+  if (abierta) { await abrirRecepcion(abierta); return; }
 
-  if (!error && data && data.length) {
-    await abrirRecepcion(data[0].id);
-    return;
-  }
-  if (!error) {
-    const id = await crearMovimiento(p, tipo, clientId);
-    if (id) { await abrirRecepcion(id); return; }
-  } else {
-    console.error(error);
-  }
+  const id = await crearMovimiento(p, tipo, clientId);
+  if (id) { await abrirRecepcion(id); return; }
   // si algo falló, no dejar a la persona sin pantalla: mostrar el historial
   show('recepciones');
   await cargarRecepciones();
@@ -1426,12 +1782,21 @@ async function abrirCatalogoProducto(p, tipo, clientId) {
 
 async function cargarRecepciones() {
   const p = state.currentProduct;
-  const { data, error } = await sb.from('receptions')
-    .select('*, weighings(peso, cestas), clients(nombre)')
-    .eq('product_id', p.id).eq('tipo', state.currentTipo)
-    .order('created_at', { ascending: false });
-  if (error) { console.error(error); toast('No se pudieron cargar las recepciones'); return; }
-  renderRecepcionesList(data || []);
+  if (hayRed()) {
+    const { data, error } = await sb.from('receptions')
+      .select('*, weighings(peso, cestas), clients(nombre)')
+      .eq('product_id', p.id).eq('tipo', state.currentTipo)
+      .order('created_at', { ascending: false });
+    if (error) {
+      if (!esErrorDeRed(error)) { console.error(error); toast('No se pudieron cargar las recepciones'); }
+    } else {
+      for (const r of data || []) upsertMov(r);
+    }
+  }
+  const lista = state.movs
+    .filter(m => m.product_id === p.id && m.tipo === state.currentTipo)
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  renderRecepcionesList(lista);
 }
 
 function renderRecepcionesList(list) {
@@ -1451,6 +1816,7 @@ function renderRecepcionesList(list) {
     btn.className = 'rec-item';
     btn.innerHTML = `<div><div style="font-weight:700">${cliente ? escapeHtml(cliente) + ' · ' : ''}${fmtDate(r.fecha)}` +
       (r.status === 'cerrada' ? '<span class="badge">terminada</span>' : '<span class="badge open">abierta</span>') +
+      (esIdLocal(r.id) ? '<span class="badge pendiente">sin subir</span>' : '') +
       `</div><div class="sub">${t.pesadas} pesadas · ${t.cestas} cestas</div></div>` +
       `<div style="display:flex;align-items:center;gap:8px"><span class="kg">${fmtKg(t.neto)}</span><span class="chev">›</span></div>`;
     btn.onclick = () => abrirRecepcion(r.id);
@@ -1468,9 +1834,13 @@ $('btn-recs-back').addEventListener('click', () => { unsubRecs(); show('home'); 
 
 /* ---- elegir cliente (para despachos) ---- */
 async function cargarClientes() {
+  if (!hayRed()) { state.clientes = leerCache('clientes', state.clientes); return; }
   const { data, error } = await sb.from('clients').select('*').eq('tenant_id', state.tenantId).order('nombre');
-  if (error) { console.error(error); return; }
-  state.clientes = data || [];
+  if (error) { console.error(error); state.clientes = leerCache('clientes', state.clientes); return; }
+  // los clientes creados sin señal que aún no se han subido no deben desaparecer
+  const pendientes = state.clientes.filter(c => esIdLocal(c.id) && !idMap[c.id]);
+  state.clientes = [...(data || []), ...pendientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  guardarCache('clientes', state.clientes);
 }
 
 function pedirClienteYAbrir(p) {
@@ -1511,8 +1881,9 @@ $('cli-cancel').addEventListener('click', () => { $('modal-cliente').classList.r
 
 async function crearYElegirCliente(nombre) {
   if (!nombre) return;
-  const { data, error } = await sb.from('clients').insert({ tenant_id: state.tenantId, nombre }).select('id').single();
-  if (error) {
+  const r = await escribir('clients', 'insert', { payload: { tenant_id: state.tenantId, nombre } });
+  if (!r.ok) {
+    const error = r.error || {};
     if (error.code === '23505') {
       // alguien más lo agregó justo antes (choque de nombres) — usar el que ya existe
       const existente = state.clientes.find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
@@ -1522,8 +1893,10 @@ async function crearYElegirCliente(nombre) {
     toast('No se pudo agregar el cliente');
     return;
   }
-  state.clientes.push({ id: data.id, nombre, tenant_id: state.tenantId });
-  elegirCliente(data.id, nombre);
+  state.clientes.push({ id: r.id, nombre, tenant_id: state.tenantId });
+  state.clientes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  guardarCache('clientes', state.clientes);
+  elegirCliente(r.id, nombre);
 }
 
 function elegirCliente(clientId, nombre) {
@@ -1537,8 +1910,16 @@ function elegirCliente(clientId, nombre) {
 /* ---- pantalla: una recepción (registrar pesadas) ---- */
 async function abrirRecepcion(id) {
   unsubRec();
-  const { data, error } = await sb.from('receptions').select('*, weighings(*), clients(nombre)').eq('id', id).single();
-  if (error || !data) { console.error(error); toast('No se pudo abrir la recepción'); return; }
+  let data = null;
+  // los movimientos creados sin señal solo existen aquí, no en el servidor
+  if (hayRed() && !esIdLocal(id)) {
+    const res = await sb.from('receptions').select('*, weighings(*), clients(nombre)').eq('id', id).single();
+    if (res.data) { data = res.data; upsertMov(data); }
+    else if (res.error && !esErrorDeRed(res.error)) console.error(res.error);
+  }
+  if (!data) data = buscarMov(id);
+  if (!data) { toast('No se pudo abrir la recepción'); return; }
+
   state.currentReceptionId = id;
   state.currentReception = data;
   state.currentTipo = data.tipo;
@@ -1549,22 +1930,27 @@ async function abrirRecepcion(id) {
   renderRecepcion();
   show('recepcion');
 
-  recChannel = sb.channel('weighings-' + id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'weighings', filter: `reception_id=eq.${id}` }, () => recargarPesadas())
-    .subscribe();
+  if (hayRed() && !esIdLocal(id)) {
+    recChannel = sb.channel('weighings-' + id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'weighings', filter: `reception_id=eq.${id}` }, () => recargarPesadas())
+      .subscribe();
+  }
 
-  // si es un despacho sin tasa todavía fijada, sugerir la de hoy (de la
-  // caché si ya se consultó hoy, o de lo contrario consultarla ahora)
+  // si es un despacho sin tasa todavía fijada, proponer la última guardada
+  // (al instante, sin esperar a la red) y solo consultar una nueva si la
+  // guardada no es de hoy y además hay señal
   if (data.tipo === 'despacho' && data.tasa_bcv == null) {
-    const cache = leerTasaCache();
-    if (cache != null) {
-      state.tasaSugerida = cache;
+    const guardada = leerTasaGuardada();
+    if (guardada) {
+      state.tasaSugerida = guardada.valor;
+      state.tasaFechaSugerida = guardada.fecha;
       renderRecepcion();
-    } else {
+    }
+    if (!guardada || guardada.fecha !== todayISO()) {
       obtenerTasaBCV().then(v => {
         if (state.currentReceptionId !== id) return;
-        if (v != null) state.tasaSugerida = v;
-        else state.tasaFetchFallo = true;
+        if (v != null) { state.tasaSugerida = v; state.tasaFechaSugerida = todayISO(); }
+        else if (!guardada) state.tasaFetchFallo = true;
         renderRecepcion();
       });
     }
@@ -1572,9 +1958,18 @@ async function abrirRecepcion(id) {
 }
 
 async function recargarPesadas() {
-  const { data, error } = await sb.from('weighings').select('*').eq('reception_id', state.currentReceptionId);
-  if (error) return;
-  state.pesadas = (data || []).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const id = state.currentReceptionId;
+  if (hayRed() && !esIdLocal(id)) {
+    const { data, error } = await sb.from('weighings').select('*').eq('reception_id', id);
+    if (!error) {
+      // no perder de vista las pesadas hechas sin señal que aún no se subieron
+      const pendientes = state.pesadas.filter(w => esIdLocal(w.id) && !idMap[w.id]);
+      state.pesadas = [...(data || []), ...pendientes];
+    }
+  }
+  state.pesadas = state.pesadas.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const mov = buscarMov(id);
+  if (mov) { mov.weighings = state.pesadas; guardarMovs(); }
   renderRecepcion();
 }
 
@@ -1662,7 +2057,10 @@ function renderRecepcion() {
     }
     $('tasa-bcv-hint').textContent = r.tasa_bcv != null
       ? 'Tasa usada en este despacho.'
-      : (state.tasaSugerida != null ? 'Tasa BCV de hoy (se guarda junto con el precio).'
+      : (state.tasaSugerida != null
+        ? (state.tasaFechaSugerida === todayISO()
+          ? 'Tasa BCV de hoy (se guarda junto con el precio).'
+          : `Última tasa guardada (${fmtDateCorta(state.tasaFechaSugerida)}) — revísala si cambió.`)
         : (state.tasaFetchFallo ? 'No se pudo consultar la tasa — escríbela tú.' : 'Consultando tasa BCV…'));
     const totalUsd = r.precio_kg != null ? t.neto * r.precio_kg : null;
     $('precio-total').textContent = totalUsd != null ? fmtUSD(totalUsd) : '—';
@@ -1693,8 +2091,11 @@ function renderRecepcion() {
 function addEntry(peso, cestas) {
   const p = state.currentProduct;
   const doAdd = async () => {
-    const { error } = await sb.from('weighings').insert({ reception_id: state.currentReceptionId, peso, cestas });
-    if (error) {
+    const r = await escribir('weighings', 'insert', {
+      payload: { reception_id: state.currentReceptionId, peso, cestas },
+    });
+    if (!r.ok) {
+      const error = r.error || {};
       if (error.code === '42501' || /row-level security/i.test(error.message || '')) {
         toast('Tu prueba gratuita venció — no se pueden registrar pesadas nuevas.');
       } else {
@@ -1703,8 +2104,12 @@ function addEntry(peso, cestas) {
       }
       return;
     }
+    state.pesadas.push({
+      id: r.id, reception_id: state.currentReceptionId, peso, cestas,
+      created_by: state.userId, created_at: new Date().toISOString(),
+    });
     $('weight-input').value = '';
-    toast('✓ ' + fmt(peso) + ' kg añadidos');
+    toast('✓ ' + fmt(peso) + ' kg añadidos' + (r.offline ? ' (sin señal, se sube luego)' : ''));
     if (navigator.vibrate) navigator.vibrate(15);
     await recargarPesadas();
   };
@@ -1744,16 +2149,18 @@ $('btn-add').addEventListener('click', () => {
 $('weight-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-add').click(); });
 
 async function borrarPesada(id) {
-  const { error } = await sb.from('weighings').delete().eq('id', id);
-  if (error) { toast('No se pudo borrar'); return; }
+  const r = await escribir('weighings', 'delete', { id });
+  if (!r.ok) { toast('No se pudo borrar'); return; }
+  state.pesadas = state.pesadas.filter(w => w.id !== id);
   await recargarPesadas();
 }
 
 async function setVacias(n) {
   n = Math.max(0, Math.min(999, n));
-  const { error } = await sb.from('receptions').update({ cestas_vacias: n }).eq('id', state.currentReceptionId);
-  if (error) { toast('No se pudo actualizar'); return; }
+  const r = await escribir('receptions', 'update', { id: state.currentReceptionId, payload: { cestas_vacias: n } });
+  if (!r.ok) { toast('No se pudo actualizar'); return; }
   state.currentReception.cestas_vacias = n;
+  upsertMov({ id: state.currentReceptionId, cestas_vacias: n });
   renderRecepcion();
 }
 $('emp-minus').addEventListener('click', () => setVacias((state.currentReception.cestas_vacias || 0) - 1));
@@ -1777,10 +2184,13 @@ async function guardarPrecioYTasa() {
     if (isNaN(v) || v < 0) { toast('Escribe una tasa válida'); renderRecepcion(); return; }
     tasa = Math.round(v * 10000) / 10000;
   }
-  const { error } = await sb.from('receptions').update({ precio_kg: precio, tasa_bcv: tasa }).eq('id', state.currentReceptionId);
-  if (error) { toast('No se pudo guardar'); return; }
+  const r = await escribir('receptions', 'update', {
+    id: state.currentReceptionId, payload: { precio_kg: precio, tasa_bcv: tasa },
+  });
+  if (!r.ok) { toast('No se pudo guardar'); return; }
   state.currentReception.precio_kg = precio;
   state.currentReception.tasa_bcv = tasa;
+  upsertMov({ id: state.currentReceptionId, precio_kg: precio, tasa_bcv: tasa });
   renderRecepcion();
 }
 $('precio-kg-input').addEventListener('change', () => guardarPrecioYTasa());
@@ -1790,11 +2200,13 @@ $('btn-close-rec').addEventListener('click', () => {
   const r = state.currentReception, abierta = r.status === 'abierta';
   const hacer = async () => {
     const nuevoEstado = abierta ? 'cerrada' : 'abierta';
-    const { error } = await sb.from('receptions')
-      .update({ status: nuevoEstado, closed_at: abierta ? new Date().toISOString() : null })
-      .eq('id', r.id);
-    if (error) { toast('No se pudo actualizar'); return; }
+    const closedAt = abierta ? new Date().toISOString() : null;
+    const res = await escribir('receptions', 'update', {
+      id: r.id, payload: { status: nuevoEstado, closed_at: closedAt },
+    });
+    if (!res.ok) { toast('No se pudo actualizar'); return; }
     r.status = nuevoEstado;
+    upsertMov({ id: r.id, status: nuevoEstado, closed_at: closedAt });
     toast(abierta ? (esDespacho ? 'Despacho terminado' : 'Recepción terminada') : (esDespacho ? 'Despacho reabierto' : 'Recepción reabierta'));
     renderRecepcion();
   };
@@ -1899,15 +2311,43 @@ async function cargarReporte() {
     ? `${fmtDateCorta(desde)} – ${fmtDateCorta(hasta)}`
     : (desde ? `Desde ${fmtDateCorta(desde)}` : (hasta ? `Hasta ${fmtDateCorta(hasta)}` : 'Todo el historial'));
 
-  let q = sb.from('reception_summary').select('*').eq('tenant_id', state.tenantId);
-  if (repTipo) q = q.eq('tipo', repTipo);
-  if (productoId) q = q.eq('product_id', productoId);
-  if (desde) q = q.gte('fecha', desde);
-  if (hasta) q = q.lte('fecha', hasta);
-  const { data, error } = await q.order('fecha', { ascending: false });
-  if (error) { console.error(error); toast('No se pudo cargar el reporte'); return; }
-  state.repRows = data || [];
+  if (hayRed()) {
+    let q = sb.from('reception_summary').select('*').eq('tenant_id', state.tenantId);
+    if (repTipo) q = q.eq('tipo', repTipo);
+    if (productoId) q = q.eq('product_id', productoId);
+    if (desde) q = q.gte('fecha', desde);
+    if (hasta) q = q.lte('fecha', hasta);
+    const { data, error } = await q.order('fecha', { ascending: false });
+    if (!error) { state.repRows = data || []; renderReporte(state.repRows); return; }
+    if (!esErrorDeRed(error)) { console.error(error); toast('No se pudo cargar el reporte'); return; }
+  }
+  // sin señal: se arma el mismo reporte con el historial guardado en el
+  // teléfono (mismos cálculos que hace la vista reception_summary)
+  state.repRows = reporteLocal({ repTipo, productoId, desde, hasta });
   renderReporte(state.repRows);
+}
+
+function reporteLocal({ repTipo, productoId, desde, hasta }) {
+  return state.movs
+    .filter(m => (!repTipo || m.tipo === repTipo)
+      && (!productoId || m.product_id === productoId)
+      && (!desde || m.fecha >= desde) && (!hasta || m.fecha <= hasta))
+    .map(m => {
+      const p = state.productos.find(x => x.id === m.product_id) || {};
+      const t = totalesRecepcion(m.weighings || [], p);
+      const monto = m.precio_kg != null ? Math.round(t.neto * m.precio_kg * 100) / 100 : null;
+      return {
+        reception_id: m.id, tenant_id: m.tenant_id, product_id: m.product_id,
+        producto: p.nombre || '—', emoji: p.emoji || '📦',
+        tipo: m.tipo, client_id: m.client_id, cliente: m.clients ? m.clients.nombre : null,
+        fecha: m.fecha, status: m.status, cestas_vacias: m.cestas_vacias,
+        precio_kg: m.precio_kg, tasa_bcv: m.tasa_bcv,
+        cestas: t.cestas, peso_bruto: t.bruto, tara_total: t.tara, peso_neto: t.neto,
+        monto,
+        monto_bs: (monto != null && m.tasa_bcv != null) ? Math.round(monto * m.tasa_bcv * 100) / 100 : null,
+      };
+    })
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
 }
 
 // agrupa: por producto+tipo (para los totales) y por cliente (solo despachos)
@@ -2055,13 +2495,24 @@ const DISC_LABEL = { faltante: '📉 Faltante', sobrante: '📈 Sobrante', mal_e
 const DISC_CLASS = { faltante: 'bad', sobrante: 'warn', mal_estado: 'bad' };
 
 async function cargarDiscrepancias() {
-  const { data, error } = await sb.from('discrepancies')
-    .select('*, receptions(fecha, tipo, product_id, products(nombre, emoji))')
-    .eq('tenant_id', state.tenantId)
-    .order('resuelto', { ascending: true })
-    .order('created_at', { ascending: false });
-  if (error) { console.error(error); return; }
-  state.discrepancias = data || [];
+  if (!hayRed()) {
+    state.discrepancias = leerCache('discrepancias', state.discrepancias);
+  } else {
+    const { data, error } = await sb.from('discrepancies')
+      .select('*, receptions(fecha, tipo, product_id, products(nombre, emoji))')
+      .eq('tenant_id', state.tenantId)
+      .order('resuelto', { ascending: true })
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error(error);
+      state.discrepancias = leerCache('discrepancias', state.discrepancias);
+    } else {
+      // conservar las reportadas sin señal que todavía no se han subido
+      const pendientes = (state.discrepancias || []).filter(d => esIdLocal(d.id) && !idMap[d.id]);
+      state.discrepancias = [...pendientes, ...(data || [])];
+      guardarCache('discrepancias', state.discrepancias);
+    }
+  }
   actualizarBadgeAlertas();
   if (!$('view-alertas').classList.contains('hidden')) renderAlertas();
 }
@@ -2102,8 +2553,10 @@ function renderAlertas() {
 async function toggleResuelta(id) {
   const d = state.discrepancias.find(x => x.id === id);
   if (!d) return;
-  const { error } = await sb.from('discrepancies').update({ resuelto: !d.resuelto }).eq('id', id);
-  if (error) { toast('No se pudo actualizar'); return; }
+  const r = await escribir('discrepancies', 'update', { id, payload: { resuelto: !d.resuelto } });
+  if (!r.ok) { toast('No se pudo actualizar'); return; }
+  d.resuelto = !d.resuelto;
+  guardarCache('discrepancias', state.discrepancias);
   await cargarDiscrepancias();
 }
 
@@ -2135,15 +2588,26 @@ $('disc-save').addEventListener('click', async () => {
   const btn = $('disc-save');
   btn.disabled = true;
   try {
-    const { error } = await sb.from('discrepancies').insert({
+    const payload = {
       reception_id: state.currentReceptionId,
       tipo: discTipo,
       kg: isNaN(kg) ? null : kg,
       nota: nota || null,
+    };
+    const r = await escribir('discrepancies', 'insert', { payload });
+    if (!r.ok) { console.error(r.error); toast('No se pudo guardar la discrepancia'); return; }
+    // mostrarla al instante, esté subida o no
+    const rec = buscarMov(state.currentReceptionId);
+    const prod = rec && state.productos.find(p => p.id === rec.product_id);
+    state.discrepancias.unshift({
+      ...payload, id: r.id, tenant_id: state.tenantId, resuelto: false,
+      created_by: state.userId, created_at: new Date().toISOString(),
+      receptions: rec ? { fecha: rec.fecha, tipo: rec.tipo, product_id: rec.product_id,
+        products: prod ? { nombre: prod.nombre, emoji: prod.emoji } : null } : null,
     });
-    if (error) { console.error(error); toast('No se pudo guardar la discrepancia'); return; }
+    guardarCache('discrepancias', state.discrepancias);
     $('modal-discrepancia').classList.remove('show');
-    toast('Discrepancia reportada');
+    toast('Discrepancia reportada' + (r.offline ? ' (se sube al volver la señal)' : ''));
     await cargarDiscrepancias();
   } finally {
     btn.disabled = false;
@@ -2152,6 +2616,20 @@ $('disc-save').addEventListener('click', async () => {
 
 /* ============ arranque ============ */
 renderAuthForm();
+renderEstadoRed();
+
+// Sin señal, Supabase puede tardar (o no llegar) a avisar que hay sesión.
+// Si el teléfono ya tiene los datos del negocio guardados, se entra de una
+// vez con ellos en vez de dejar la pantalla de "Cargando…" o mandar al
+// login a alguien que nunca cerró sesión.
+if (!hayRed() && lsGet(SESION_KEY, null)) {
+  show('home');
+  cargarNegocioDeCache();
+}
+
+// por si quedó algo sin subir de la última vez que se usó la app
+window.addEventListener('load', () => setTimeout(sincronizar, 1500));
+
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
