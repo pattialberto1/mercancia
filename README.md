@@ -34,7 +34,8 @@ de prueba gratis.
   recepciones/pesadas si el trial venció. Envío del resumen por WhatsApp.
 - ✅ **Clientes y despachos** — además de recibir mercancía de proveedores, el
   negocio puede despachar a sus propios clientes, con precio por kg opcional
-  y total a cobrar calculado solo. Ver sección abajo.
+  en USD, tasa BCV del día (consultada sola, corregible a mano) y total a
+  cobrar calculado solo en dólares y en bolívares. Ver sección abajo.
 - ✅ **Reportes y exportación** — historial filtrable por tipo (recibido/
   despachado), producto y rango de fechas (con atajos "esta semana"/"este
   mes"/"todo"), con totales generales, por producto y por cliente. Exporta a
@@ -73,16 +74,17 @@ recepciones normales no se mezclen en los historiales, que reutiliza el
 despacho abierto de hoy para el mismo cliente en vez de duplicarlo, y que
 crea uno nuevo si el anterior ya se cerró.
 
-### Precio por kg en los despachos
+### Precio por kg en los despachos (USD y bolívares)
 
 Dentro de un despacho (no aplica a recepciones) hay una tarjeta opcional
-**💰 Precio** con un campo de precio por kg. En cuanto se llena, aparece el
-**total a cobrar** (peso neto × precio), y se recalcula solo si se agregan,
-corrigen o borran pesadas — no hay que volver a escribir nada. El precio lo
-puede poner o corregir quien creó el despacho o el dueño (misma regla que
-ya protegía las recepciones, reutilizada tal cual). El total aparece
-también en el resumen de WhatsApp, y los reportes suman el monto
-facturado por producto y por cliente, además de los kg.
+**💰 Precio** con un campo de precio por kg **en dólares**. En cuanto se
+llena, aparece el **total a cobrar en USD** (peso neto × precio), y se
+recalcula solo si se agregan, corrigen o borran pesadas — no hay que
+volver a escribir nada. El precio lo puede poner o corregir quien creó el
+despacho o el dueño (misma regla que ya protegía las recepciones,
+reutilizada tal cual). El total aparece también en el resumen de
+WhatsApp, y los reportes suman el monto facturado por producto y por
+cliente, además de los kg.
 
 No hace falta ninguna migración de esquema para el precio en sí — el
 cálculo del total (`monto`) vive en la vista `reception_summary`, para que
@@ -97,6 +99,27 @@ verificaciones): la tarjeta de precio solo aparece en despachos, el total
 se calcula y recalcula en vivo, se puede quitar el precio, y el resumen de
 WhatsApp y los Reportes lo reflejan correctamente.
 
+Junto al precio en USD, la app trae **sola** la tasa BCV del día (desde
+[dolarapi.com](https://dolarapi.com), fuente pública) y muestra también el
+**total en bolívares**. La tasa se consulta una vez por día (se guarda en
+caché en el propio teléfono para no volver a pedirla en cada pantalla) y
+se puede corregir a mano en cualquier momento con el botón "🔄 Actualizar
+tasa" — si la consulta automática falla por lo que sea, la app avisa
+claramente y deja escribirla a mano, nunca deja a la persona sin poder
+cobrar. La tasa que quede guardada en cada despacho es la que estaba
+vigente en ese momento (no se recalcula sola después), para que el
+histórico de reportes en bolívares no cambie si la tasa sube o baja más
+adelante. Ver
+[`supabase/migrations/0004_tasa_bcv.sql`](./supabase/migrations/0004_tasa_bcv.sql).
+
+Probado contra Postgres real (3 verificaciones): el monto en bolívares se
+calcula bien y queda `null` si falta el precio o la tasa. Probado con
+Playwright (16 verificaciones): la tasa se consulta sola al abrir un
+despacho nuevo, se guarda en caché para no volver a pedirla el mismo día,
+un despacho que ya tiene tasa fijada no la vuelve a consultar al
+reabrirlo, el botón de actualizar funciona, y si la consulta falla la app
+avisa y deja escribirla a mano sin romper nada.
+
 ### Reportes y exportación
 
 Se apoya en la vista `reception_summary` del esquema (ya filtrada por RLS:
@@ -104,7 +127,7 @@ cada negocio solo ve la suya, y ya trae tipo y cliente desde la migración
 de despachos). El ícono 📊 del inicio abre el historial con filtros
 combinables (tipo, producto, rango de fechas) y atajos de rango rápido;
 muestra totales generales, por producto y por cliente (para despachos, con
-el monto facturado cuando se cargó precio por kg), y
+el monto facturado en USD y en Bs cuando se cargó precio por kg), y
 exporta a CSV con BOM UTF-8 (para que Excel muestre bien tildes y ñ), a PDF
 usando la función de imprimir del navegador, o arma un resumen para
 WhatsApp.
@@ -201,17 +224,20 @@ error en la función que cambia de pantalla que dejaba la app trabada en
 | Sincronización vía token de GitHub | Supabase (Postgres + Auth + Realtime) |
 | Sin roles | Dueño vs. operador, con permisos distintos |
 | Sin límite de uso | Prueba de 14 días, luego requiere activación manual |
-| Solo recepción de proveedores | Recepción de proveedores **y** despacho a clientes propios (con autocompletado y precio por kg opcional) |
+| Solo recepción de proveedores | Recepción de proveedores **y** despacho a clientes propios (con autocompletado, precio por kg en USD y total en USD/Bs a la tasa BCV del día) |
 | — | Reportes filtrables por tipo/producto/fecha, exportables a Excel/PDF/WhatsApp |
 | — | Alertas de discrepancia (faltante/sobrante/mal estado), visibles para todo el equipo |
 
 ## Cómo seguir
 
-Con esto quedan cubiertas las 7 fases planeadas originalmente. Lo único que
-queda abierto es decidir si vale la pena una cola de escritura offline (hoy,
-si escribes sin conexión, esos datos se pierden — el resto de la app carga
-bien offline gracias al service worker); es opcional y depende de si el
-equipo trabaja en zonas sin señal.
+Con esto quedan cubiertas las 7 fases planeadas originalmente, más el
+precio en USD/Bs de los despachos. Lo único que queda abierto es decidir
+si vale la pena una cola de escritura offline (hoy, si escribes sin
+conexión, esos datos se pierden — el resto de la app carga bien offline
+gracias al service worker); es opcional y depende de si el equipo trabaja
+en zonas sin señal. La consulta de la tasa BCV también depende de
+internet — si falla, la app avisa y deja escribir la tasa a mano, así que
+nunca bloquea el despacho.
 
 ## Estructura
 

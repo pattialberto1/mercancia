@@ -534,12 +534,24 @@
     </div>
 
     <div class="card hidden" id="precio-card">
-      <h2>💰 Precio</h2>
+      <div class="listhead">
+        <h2>💰 Precio</h2>
+        <button class="btn-link" id="btn-tasa-refresh">🔄 Actualizar tasa</button>
+      </div>
       <div class="field" style="margin:12px 0 0">
-        <label for="precio-kg-input">Precio por kg (opcional)</label>
+        <label for="precio-kg-input">Precio por kg (USD, opcional)</label>
         <input id="precio-kg-input" type="text" inputmode="decimal" placeholder="Ej. 3.50">
       </div>
-      <div class="net" style="margin-top:12px"><span class="lbl">TOTAL A COBRAR</span><span class="val" id="precio-total">—</span></div>
+      <div class="field" style="margin:12px 0 0">
+        <label for="tasa-bcv-input">Tasa BCV (Bs por USD)</label>
+        <input id="tasa-bcv-input" type="text" inputmode="decimal" placeholder="Ej. 40,25">
+        <div class="hint" id="tasa-bcv-hint"></div>
+      </div>
+      <div class="net" style="margin-top:12px"><span class="lbl">TOTAL USD</span><span class="val" id="precio-total">—</span></div>
+      <div class="net" style="margin-top:8px; background:var(--accent-soft)">
+        <span class="lbl" style="color:var(--accent)">TOTAL BS</span>
+        <span class="val" id="precio-total-bs" style="color:var(--accent)">—</span>
+      </div>
     </div>
 
     <div class="card" id="entries-card">
@@ -1269,6 +1281,8 @@ function fmtDate(iso) {
 }
 function fmtKg(n) { return fmt(n) + ' kg'; }
 function fmtMoney(n) { return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtUSD(n) { return '$' + fmtMoney(n); }
+function fmtBs(n) { return fmtMoney(n) + ' Bs'; }
 function todayISO() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -1298,6 +1312,62 @@ function totalesRecepcion(pesadas, p) {
 let recChannel = null, recsChannel = null;
 function unsubRec() { if (recChannel) { sb.removeChannel(recChannel); recChannel = null; } }
 function unsubRecs() { if (recsChannel) { sb.removeChannel(recsChannel); recsChannel = null; } }
+
+/* ============ tasa BCV (para convertir a bolívares el precio de un
+   despacho, cargado en dólares) ============
+   Se consulta sola desde una fuente pública, se guarda en caché por día
+   (para no pedirla de nuevo en cada pantalla) y siempre se puede corregir
+   a mano si la consulta falla o si el negocio usa otra tasa. La tasa que
+   quede guardada en cada despacho es la que estaba vigente en ese momento
+   — así el histórico de reportes en bolívares no cambia después aunque la
+   tasa suba o baje. */
+const BCV_ENDPOINT = 'https://ve.dolarapi.com/v1/dolares/oficial';
+
+function tasaCacheKey() { return 'mercancia_tasa_bcv_' + todayISO(); }
+function leerTasaCache() {
+  try {
+    const raw = localStorage.getItem(tasaCacheKey());
+    if (!raw) return null;
+    const v = Number(JSON.parse(raw).valor);
+    return isNaN(v) ? null : v;
+  } catch { return null; }
+}
+function guardarTasaCache(valor) {
+  try { localStorage.setItem(tasaCacheKey(), JSON.stringify({ valor })); } catch {}
+}
+
+async function obtenerTasaBCV() {
+  try {
+    const res = await fetch(BCV_ENDPOINT, { cache: 'no-store' });
+    if (!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    const valor = Number(data.promedio ?? data.venta ?? data.compra);
+    if (!valor || isNaN(valor) || valor <= 0) throw new Error('sin tasa válida en la respuesta');
+    guardarTasaCache(valor);
+    return valor;
+  } catch (err) {
+    console.error('No se pudo obtener la tasa BCV', err);
+    return null;
+  }
+}
+
+async function actualizarTasaHoy(mostrarToast) {
+  $('tasa-bcv-hint').textContent = 'Consultando tasa BCV…';
+  const valor = await obtenerTasaBCV();
+  if (state.currentReception && state.currentReception.tipo !== 'despacho') return;
+  if (valor != null) {
+    state.tasaSugerida = valor;
+    state.tasaFetchFallo = false;
+    if (document.activeElement !== $('tasa-bcv-input')) $('tasa-bcv-input').value = fmt(valor);
+    if (mostrarToast) toast('Tasa BCV actualizada');
+    await guardarPrecioYTasa();
+  } else {
+    state.tasaFetchFallo = true;
+    $('tasa-bcv-hint').textContent = 'No se pudo consultar la tasa — escríbela tú.';
+    if (mostrarToast) toast('No se pudo consultar la tasa BCV');
+  }
+}
+$('btn-tasa-refresh').addEventListener('click', () => actualizarTasaHoy(true));
 
 async function crearMovimiento(p, tipo, clientId) {
   const payload = { product_id: p.id, fecha: todayISO(), tipo };
@@ -1474,12 +1544,31 @@ async function abrirRecepcion(id) {
   state.currentTipo = data.tipo;
   state.pesadas = (data.weighings || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   state.cestasSel = null;
+  state.tasaSugerida = null;
+  state.tasaFetchFallo = false;
   renderRecepcion();
   show('recepcion');
 
   recChannel = sb.channel('weighings-' + id)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'weighings', filter: `reception_id=eq.${id}` }, () => recargarPesadas())
     .subscribe();
+
+  // si es un despacho sin tasa todavía fijada, sugerir la de hoy (de la
+  // caché si ya se consultó hoy, o de lo contrario consultarla ahora)
+  if (data.tipo === 'despacho' && data.tasa_bcv == null) {
+    const cache = leerTasaCache();
+    if (cache != null) {
+      state.tasaSugerida = cache;
+      renderRecepcion();
+    } else {
+      obtenerTasaBCV().then(v => {
+        if (state.currentReceptionId !== id) return;
+        if (v != null) state.tasaSugerida = v;
+        else state.tasaFetchFallo = true;
+        renderRecepcion();
+      });
+    }
+  }
 }
 
 async function recargarPesadas() {
@@ -1567,7 +1656,17 @@ function renderRecepcion() {
     if (document.activeElement !== $('precio-kg-input')) {
       $('precio-kg-input').value = r.precio_kg != null ? fmt(r.precio_kg) : '';
     }
-    $('precio-total').textContent = r.precio_kg != null ? fmtMoney(t.neto * r.precio_kg) : '—';
+    const tasaMostrar = r.tasa_bcv != null ? r.tasa_bcv : state.tasaSugerida;
+    if (document.activeElement !== $('tasa-bcv-input')) {
+      $('tasa-bcv-input').value = tasaMostrar != null ? fmt(tasaMostrar) : '';
+    }
+    $('tasa-bcv-hint').textContent = r.tasa_bcv != null
+      ? 'Tasa usada en este despacho.'
+      : (state.tasaSugerida != null ? 'Tasa BCV de hoy (se guarda junto con el precio).'
+        : (state.tasaFetchFallo ? 'No se pudo consultar la tasa — escríbela tú.' : 'Consultando tasa BCV…'));
+    const totalUsd = r.precio_kg != null ? t.neto * r.precio_kg : null;
+    $('precio-total').textContent = totalUsd != null ? fmtUSD(totalUsd) : '—';
+    $('precio-total-bs').textContent = (totalUsd != null && tasaMostrar != null) ? fmtBs(totalUsd * tasaMostrar) : '—';
   }
 
   const list = $('entries-list');
@@ -1664,20 +1763,28 @@ $('emp-input').addEventListener('change', e => {
   setVacias(/^\d+$/.test(s) ? parseInt(s, 10) : 0);
 });
 
-async function setPrecioKg(raw) {
-  const s = raw.trim();
-  let valor = null;
-  if (s) {
-    const v = parseNum(s);
+async function guardarPrecioYTasa() {
+  const precioRaw = $('precio-kg-input').value.trim();
+  const tasaRaw = $('tasa-bcv-input').value.trim();
+  let precio = null, tasa = null;
+  if (precioRaw) {
+    const v = parseNum(precioRaw);
     if (isNaN(v) || v < 0) { toast('Escribe un precio válido'); renderRecepcion(); return; }
-    valor = Math.round(v * 100) / 100;
+    precio = Math.round(v * 100) / 100;
   }
-  const { error } = await sb.from('receptions').update({ precio_kg: valor }).eq('id', state.currentReceptionId);
-  if (error) { toast('No se pudo guardar el precio'); return; }
-  state.currentReception.precio_kg = valor;
+  if (tasaRaw) {
+    const v = parseNum(tasaRaw);
+    if (isNaN(v) || v < 0) { toast('Escribe una tasa válida'); renderRecepcion(); return; }
+    tasa = Math.round(v * 10000) / 10000;
+  }
+  const { error } = await sb.from('receptions').update({ precio_kg: precio, tasa_bcv: tasa }).eq('id', state.currentReceptionId);
+  if (error) { toast('No se pudo guardar'); return; }
+  state.currentReception.precio_kg = precio;
+  state.currentReception.tasa_bcv = tasa;
   renderRecepcion();
 }
-$('precio-kg-input').addEventListener('change', e => setPrecioKg(e.target.value));
+$('precio-kg-input').addEventListener('change', () => guardarPrecioYTasa());
+$('tasa-bcv-input').addEventListener('change', () => guardarPrecioYTasa());
 
 $('btn-close-rec').addEventListener('click', () => {
   const r = state.currentReception, abierta = r.status === 'abierta';
@@ -1724,7 +1831,11 @@ function buildResumenRecepcion() {
   txt += `\nCestas: ${t.cestas}\nPeso bruto: ${fmtKg(t.bruto)}\n`;
   if (p.weigh_type !== 'libre') txt += `Tara (${t.cestas} × ${fmt(p.tara_kg)} kg): −${fmtKg(t.tara)}\n`;
   txt += esDespacho ? `✅ *${p.nombre.toUpperCase()} DESPACHADO: ${fmtKg(t.neto)}*` : `✅ *${p.nombre.toUpperCase()} NETO: ${fmtKg(t.neto)}*`;
-  if (esDespacho && r.precio_kg != null) txt += `\n💰 Precio: ${fmtMoney(r.precio_kg)}/kg\n💵 *Total a cobrar: ${fmtMoney(t.neto * r.precio_kg)}*`;
+  if (esDespacho && r.precio_kg != null) {
+    const totalUsd = t.neto * r.precio_kg;
+    txt += `\n💰 Precio: ${fmtUSD(r.precio_kg)}/kg\n💵 *Total a cobrar: ${fmtUSD(totalUsd)}*`;
+    if (r.tasa_bcv != null) txt += ` (≈ ${fmtBs(totalUsd * r.tasa_bcv)}, tasa ${fmtMoney(r.tasa_bcv)})`;
+  }
   if (!esDespacho && p.weigh_type !== 'libre' && r.cestas_vacias) txt += `\n🧺 Cestas vacías que se lleva el proveedor: ${r.cestas_vacias}`;
   return txt;
 }
@@ -1803,7 +1914,7 @@ async function cargarReporte() {
 function agruparReporte(rows) {
   const porProducto = new Map();
   const porCliente = new Map();
-  let totalRecepcion = 0, totalDespacho = 0, totalMonto = 0;
+  let totalRecepcion = 0, totalDespacho = 0, totalMonto = 0, totalMontoBs = 0;
   for (const r of rows) {
     const key = r.product_id + '|' + r.tipo;
     if (!porProducto.has(key)) porProducto.set(key, { emoji: r.emoji, nombre: r.producto, tipo: r.tipo, kg: 0, movs: 0 });
@@ -1812,21 +1923,23 @@ function agruparReporte(rows) {
     if (r.tipo === 'despacho') {
       totalDespacho += r.peso_neto;
       if (r.monto != null) totalMonto += r.monto;
+      if (r.monto_bs != null) totalMontoBs += r.monto_bs;
       if (r.cliente) {
-        const c = porCliente.get(r.cliente) || { kg: 0, monto: 0 };
+        const c = porCliente.get(r.cliente) || { kg: 0, monto: 0, montoBs: 0 };
         c.kg += r.peso_neto;
         if (r.monto != null) c.monto += r.monto;
+        if (r.monto_bs != null) c.montoBs += r.monto_bs;
         porCliente.set(r.cliente, c);
       }
     } else {
       totalRecepcion += r.peso_neto;
     }
   }
-  return { porProducto: [...porProducto.values()], porCliente: [...porCliente.entries()], totalRecepcion, totalDespacho, totalMonto };
+  return { porProducto: [...porProducto.values()], porCliente: [...porCliente.entries()], totalRecepcion, totalDespacho, totalMonto, totalMontoBs };
 }
 
 function renderReporte(rows) {
-  const { porProducto, porCliente, totalRecepcion, totalDespacho, totalMonto } = agruparReporte(rows);
+  const { porProducto, porCliente, totalRecepcion, totalDespacho, totalMonto, totalMontoBs } = agruparReporte(rows);
   const cont = $('rep-totales');
 
   if (!rows.length) {
@@ -1839,7 +1952,7 @@ function renderReporte(rows) {
     if (!repTipo || repTipo === 'despacho') {
       html += `<div class="rep-total-row"><span class="rt-label">📤 Total despachado</span><span class="rt-val">${fmtKg(totalDespacho)}</span></div>`;
       if (totalMonto > 0) {
-        html += `<div class="rep-total-row"><span class="rt-label">💰 Total facturado</span><span class="rt-val">${fmtMoney(totalMonto)}</span></div>`;
+        html += `<div class="rep-total-row"><span class="rt-label">💰 Total facturado</span><div style="text-align:right"><span class="rt-val">${fmtUSD(totalMonto)}</span>${totalMontoBs > 0 ? `<div class="rt-sub">${fmtBs(totalMontoBs)}</div>` : ''}</div></div>`;
       }
     }
     for (const pp of porProducto) {
@@ -1850,7 +1963,7 @@ function renderReporte(rows) {
     if (porCliente.length) {
       html += '<h2 style="margin:14px 0 4px">Por cliente</h2>';
       for (const [cliente, c] of porCliente.sort((a, b) => b[1].kg - a[1].kg)) {
-        html += `<div class="rep-total-row"><span class="rt-label">${escapeHtml(cliente)}</span><div style="text-align:right"><span class="rt-val">${fmtKg(c.kg)}</span>${c.monto > 0 ? `<div class="rt-sub">${fmtMoney(c.monto)}</div>` : ''}</div></div>`;
+        html += `<div class="rep-total-row"><span class="rt-label">${escapeHtml(cliente)}</span><div style="text-align:right"><span class="rt-val">${fmtKg(c.kg)}</span>${c.monto > 0 ? `<div class="rt-sub">${fmtUSD(c.monto)}${c.montoBs > 0 ? ' · ' + fmtBs(c.montoBs) : ''}</div>` : ''}</div></div>`;
       }
     }
     cont.innerHTML = html;
@@ -1864,7 +1977,7 @@ function renderReporte(rows) {
       <div class="rep-mov">
         <div>${r.emoji} ${escapeHtml(r.producto)} ${r.tipo === 'despacho' ? '📤' : '📥'}${r.cliente ? ' · ' + escapeHtml(r.cliente) : ''}
           <div class="sub">${fmtDate(r.fecha)}${r.status === 'abierta' ? ' · en curso' : ''}</div></div>
-        <div style="text-align:right"><span class="rm-kg">${fmtKg(r.peso_neto)}</span>${r.monto != null ? `<div class="sub">${fmtMoney(r.monto)}</div>` : ''}</div>
+        <div style="text-align:right"><span class="rm-kg">${fmtKg(r.peso_neto)}</span>${r.monto != null ? `<div class="sub">${fmtUSD(r.monto)}${r.monto_bs != null ? ' · ' + fmtBs(r.monto_bs) : ''}</div>` : ''}</div>
       </div>`).join('');
   }
 }
@@ -1886,12 +1999,12 @@ document.querySelectorAll('#view-reportes .chip-row .chip-btn').forEach(b => {
 function descargarCSV() {
   const rows = state.repRows || [];
   if (!rows.length) { toast('No hay datos para exportar'); return; }
-  const headers = ['Fecha', 'Tipo', 'Producto', 'Cliente', 'Cestas', 'Peso bruto (kg)', 'Tara (kg)', 'Peso neto (kg)', 'Precio/kg', 'Total', 'Estado'];
+  const headers = ['Fecha', 'Tipo', 'Producto', 'Cliente', 'Cestas', 'Peso bruto (kg)', 'Tara (kg)', 'Peso neto (kg)', 'Precio/kg (USD)', 'Total (USD)', 'Tasa BCV', 'Total (Bs)', 'Estado'];
   const lineas = [headers.join(',')];
   for (const r of rows) {
     const campos = [
       r.fecha, r.tipo === 'despacho' ? 'Despacho' : 'Recepción', r.producto, r.cliente || '',
-      r.cestas, r.peso_bruto, r.tara_total, r.peso_neto, r.precio_kg ?? '', r.monto ?? '', r.status === 'cerrada' ? 'Terminada' : 'Abierta'
+      r.cestas, r.peso_bruto, r.tara_total, r.peso_neto, r.precio_kg ?? '', r.monto ?? '', r.tasa_bcv ?? '', r.monto_bs ?? '', r.status === 'cerrada' ? 'Terminada' : 'Abierta'
     ].map(v => '"' + String(v).replace(/"/g, '""') + '"');
     lineas.push(campos.join(','));
   }
@@ -1909,7 +2022,7 @@ $('btn-rep-pdf').addEventListener('click', () => window.print());
 $('btn-rep-wa').addEventListener('click', () => {
   const rows = state.repRows || [];
   if (!rows.length) { toast('No hay datos para enviar'); return; }
-  const { porProducto, porCliente, totalRecepcion, totalDespacho, totalMonto } = agruparReporte(rows);
+  const { porProducto, porCliente, totalRecepcion, totalDespacho, totalMonto, totalMontoBs } = agruparReporte(rows);
   let txt = `📊 *REPORTE*\n🗓️ ${$('rep-rango-txt').textContent}\n\n`;
   const recibidos = porProducto.filter(p => p.tipo === 'recepcion');
   const despachados = porProducto.filter(p => p.tipo === 'despacho');
@@ -1919,11 +2032,15 @@ $('btn-rep-wa').addEventListener('click', () => {
     txt += '\n';
   }
   if (despachados.length) {
-    txt += `📤 *Despachado (${fmtKg(totalDespacho)}${totalMonto > 0 ? ' · ' + fmtMoney(totalMonto) : ''}):*\n`;
+    const facturado = totalMonto > 0 ? ' · ' + fmtUSD(totalMonto) + (totalMontoBs > 0 ? ' · ' + fmtBs(totalMontoBs) : '') : '';
+    txt += `📤 *Despachado (${fmtKg(totalDespacho)}${facturado}):*\n`;
     for (const p of despachados) txt += `• ${p.emoji} ${p.nombre}: ${fmtKg(p.kg)}\n`;
     if (porCliente.length) {
       txt += '\n*A estos clientes:*\n';
-      for (const [cliente, c] of porCliente.sort((a, b) => b[1].kg - a[1].kg)) txt += `• ${cliente}: ${fmtKg(c.kg)}${c.monto > 0 ? ' · ' + fmtMoney(c.monto) : ''}\n`;
+      for (const [cliente, c] of porCliente.sort((a, b) => b[1].kg - a[1].kg)) {
+        const montoTxt = c.monto > 0 ? ' · ' + fmtUSD(c.monto) + (c.montoBs > 0 ? ' · ' + fmtBs(c.montoBs) : '') : '';
+        txt += `• ${cliente}: ${fmtKg(c.kg)}${montoTxt}\n`;
+      }
     }
   }
   window.open('https://wa.me/?text=' + encodeURIComponent(txt.trim()), '_blank');

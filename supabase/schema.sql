@@ -87,6 +87,7 @@ create table receptions (
   status text not null default 'abierta' check (status in ('abierta', 'cerrada')),
   cestas_vacias int not null default 0,
   precio_kg numeric(10,2),                                  -- opcional, solo aplica a despachos
+  tasa_bcv numeric(12,4),                                   -- tasa vigente cuando se cargó el precio
   created_by uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
   closed_at timestamptz,
@@ -366,13 +367,17 @@ select
   r.status,
   r.cestas_vacias,
   r.precio_kg,
+  r.tasa_bcv,
   coalesce(sum(w.cestas), 0) as cestas,
   coalesce(sum(w.peso), 0) as peso_bruto,
   coalesce(sum(w.cestas), 0) * coalesce(p.tara_kg, 0) as tara_total,
   coalesce(sum(w.peso), 0) - coalesce(sum(w.cestas), 0) * coalesce(p.tara_kg, 0) as peso_neto,
   case when r.precio_kg is not null
     then round((coalesce(sum(w.peso), 0) - coalesce(sum(w.cestas), 0) * coalesce(p.tara_kg, 0)) * r.precio_kg, 2)
-    else null end as monto
+    else null end as monto,
+  case when r.precio_kg is not null and r.tasa_bcv is not null
+    then round((coalesce(sum(w.peso), 0) - coalesce(sum(w.cestas), 0) * coalesce(p.tara_kg, 0)) * r.precio_kg * r.tasa_bcv, 2)
+    else null end as monto_bs
 from receptions r
 join products p on p.id = r.product_id
 left join clients c on c.id = r.client_id
