@@ -418,8 +418,9 @@
       </div>
 
       <div class="field">
-        <label for="in-email">Correo</label>
-        <input id="in-email" type="email" autocomplete="email" inputmode="email" placeholder="tu@correo.com" required>
+        <label for="in-email" id="lbl-identidad">Correo o usuario</label>
+        <input id="in-email" type="text" autocomplete="username" placeholder="tu@correo.com o tu usuario" required>
+        <div class="hint" id="identidad-hint"></div>
       </div>
       <div class="field">
         <label for="in-pass">Contraseña</label>
@@ -439,6 +440,7 @@
         <div>
           <div style="font-weight:800" id="home-negocio">—</div>
           <span class="role-badge" id="home-role">—</span>
+          <span class="sub" id="home-usuario" style="font-size:12px"></span>
         </div>
       </div>
       <div style="display:flex; gap:8px">
@@ -452,7 +454,7 @@
 
     <div class="card hidden" id="invite-card">
       <h2>Invita a tu equipo</h2>
-      <p class="sub" style="margin-bottom:12px">Comparte este código con tus repartidores o encargados de sitio para que se unan a tu negocio.</p>
+      <p class="sub" style="margin-bottom:12px">Comparte este código con tus repartidores o encargados de sitio. Ellos entran a la app, eligen «Crear cuenta» → «Tengo un código», y se inventan un <strong>usuario y una contraseña</strong>. No necesitan correo electrónico.</p>
       <div class="invite-row">
         <span class="code" id="invite-code">--------</span>
         <button class="btn-link" id="btn-copy-invite">Copiar</button>
@@ -1021,6 +1023,26 @@ function leerCache(nombre, def) { return state.tenantId ? lsGet(claveCache(nombr
 let authMode = 'login';   // 'login' | 'signup'
 let signupTipo = 'dueno'; // 'dueno' | 'operador'
 
+/* Muchos repartidores y encargados de sitio no tienen correo electrónico, y
+   pedírselo era una traba para entrar. Por eso el operador se registra con
+   un simple NOMBRE DE USUARIO. Por debajo Supabase igual necesita un correo
+   para identificar la cuenta, así que se le arma uno interno con este
+   dominio: nunca se le manda nada ni existe de verdad, solo sirve de
+   identificador. El dueño sí usa correo real, porque es el único que puede
+   recuperar su contraseña por su cuenta. */
+const DOMINIO_USUARIOS = 'mercancia.local';
+
+function esCorreo(s) { return s.includes('@'); }
+function aCorreo(entrada) {
+  const s = entrada.trim().toLowerCase();
+  return esCorreo(s) ? s : s + '@' + DOMINIO_USUARIOS;
+}
+// se muestra el usuario tal cual lo escribió, sin el dominio interno
+function soloUsuario(correo) {
+  return String(correo || '').replace('@' + DOMINIO_USUARIOS, '');
+}
+function usuarioValido(s) { return /^[a-z0-9][a-z0-9._-]{2,29}$/i.test(s); }
+
 function renderMsg(text, kind) {
   $('msg-area').innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : '';
 }
@@ -1035,6 +1057,25 @@ function renderAuthForm() {
   $('field-invite').classList.toggle('hidden', !isSignup || signupTipo !== 'operador');
   $('in-pass').setAttribute('autocomplete', isSignup ? 'new-password' : 'current-password');
   $('pass-hint').classList.toggle('hidden', !isSignup);
+
+  // el operador se identifica con usuario; el dueño con correo real
+  const usaUsuario = isSignup && signupTipo === 'operador';
+  const ident = $('in-email');
+  $('lbl-identidad').textContent = isSignup ? (usaUsuario ? 'Usuario' : 'Correo') : 'Correo o usuario';
+  // siempre type=text: con type=email el navegador bloquea el envío con su
+  // propio aviso (a veces en otro idioma) antes de que podamos explicar el
+  // problema nosotros. El inputmode igual saca el teclado correcto.
+  ident.type = 'text';
+  ident.setAttribute('inputmode', (isSignup && !usaUsuario) ? 'email' : 'text');
+  ident.placeholder = isSignup
+    ? (usaUsuario ? 'Ej. juan' : 'tu@correo.com')
+    : 'tu@correo.com o tu usuario';
+  $('identidad-hint').textContent = isSignup
+    ? (usaUsuario
+      ? 'Elige un usuario y una contraseña. No hace falta correo.'
+      : 'Con tu correo puedes recuperar la contraseña si se te olvida.')
+    : '';
+  $('identidad-hint').classList.toggle('hidden', !isSignup);
 
   for (const b of $('signup-choice').querySelectorAll('button'))
     b.classList.toggle('on', b.dataset.tipo === signupTipo);
@@ -1070,10 +1111,18 @@ function traducirError(err, contexto) {
     if (contexto === 'operador') return 'No se pudo crear la cuenta. Verifica que el código de invitación sea correcto.';
     return 'No se pudo completar. Inténtalo de nuevo en un momento.';
   }
-  if (/invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
-  if (/already registered|already exists/i.test(m)) return 'Ese correo ya tiene una cuenta. Prueba «Iniciar sesión».';
+  if (/invalid login credentials/i.test(m)) return 'Usuario o contraseña incorrectos.';
+  if (/already registered|already exists/i.test(m)) {
+    return contexto === 'operador'
+      ? 'Ese usuario ya está en uso. Prueba con otro (por ejemplo, agrégale tu apellido).'
+      : 'Ese correo ya tiene una cuenta. Prueba «Iniciar sesión».';
+  }
   if (/password.*(least|short|weak)/i.test(m)) return 'La contraseña es muy corta o muy débil (mínimo 6 caracteres).';
-  if (/invalid email/i.test(m)) return 'Ese correo no parece válido.';
+  if (/invalid email|email.*invalid/i.test(m)) {
+    return contexto === 'operador'
+      ? 'Ese usuario no se pudo usar. Prueba con solo letras y números, sin espacios.'
+      : 'Ese correo no parece válido.';
+  }
   if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Sin conexión a internet. Intenta de nuevo cuando tengas señal.';
   return m || 'Algo salió mal. Intenta de nuevo.';
 }
@@ -1081,10 +1130,30 @@ function traducirError(err, contexto) {
 $('form-auth').addEventListener('submit', async e => {
   e.preventDefault();
   renderMsg('');
-  const email = $('in-email').value.trim();
+  const identidad = $('in-email').value.trim();
   const password = $('in-pass').value;
   const btn = $('btn-auth-submit');
   const textoOriginal = btn.textContent;
+
+  // validaciones antes de tocar la red, para dar un mensaje claro de una vez
+  if (!identidad) {
+    renderMsg(authMode === 'login' ? 'Escribe tu correo o usuario.'
+      : (signupTipo === 'operador' ? 'Escribe el usuario que vas a usar.' : 'Escribe tu correo.'), 'error');
+    return;
+  }
+  if (authMode === 'signup' && signupTipo === 'operador') {
+    if (esCorreo(identidad)) { renderMsg('Aquí va un usuario, no un correo (por ejemplo: juan).', 'error'); return; }
+    if (!usuarioValido(identidad)) {
+      renderMsg('El usuario debe tener al menos 3 caracteres, sin espacios ni símbolos raros.', 'error');
+      return;
+    }
+  }
+  if (authMode === 'signup' && signupTipo === 'dueno' && !esCorreo(identidad)) {
+    renderMsg('Escribe un correo válido — te sirve para recuperar la contraseña.', 'error');
+    return;
+  }
+
+  const email = aCorreo(identidad);
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Un momento…';
 
@@ -1103,6 +1172,7 @@ $('form-auth').addEventListener('submit', async e => {
         const codigo = $('in-invite').value.trim().toLowerCase();
         if (!codigo) { renderMsg('Escribe el código de invitación.', 'error'); return; }
         meta.invite_code = codigo;
+        meta.usuario = identidad.toLowerCase();
       }
       const { data, error } = await sb.auth.signUp({ email, password, options: { data: meta } });
       if (error) throw error;
@@ -1136,6 +1206,7 @@ function pintarNegocio(info) {
 
   $('home-negocio').textContent = info.nombre;
   $('home-role').textContent = info.esDueno ? 'Dueño' : 'Operador';
+  $('home-usuario').textContent = info.usuario ? ' · ' + info.usuario : '';
 
   // banner de la prueba de 14 días
   const vence = new Date(info.trialEndsAt);
@@ -1189,6 +1260,7 @@ async function cargarNegocio(user) {
   const t = data.tenants;
   const info = {
     userId: user.id,
+    usuario: soloUsuario(user.email),
     tenantId: data.tenant_id,
     esDueno: data.role === 'dueno',
     nombre: (t.tenant_profile && t.tenant_profile.nombre_negocio) || 'Tu negocio',

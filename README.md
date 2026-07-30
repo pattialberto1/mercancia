@@ -22,6 +22,9 @@ de prueba gratis.
   iniciar/cerrar sesión, sesión persistente entre recargas, banner de prueba de
   14 días, código de invitación visible para el dueño. Probado en vivo por el
   dueño contra el proyecto real.
+- ✅ **El equipo entra sin correo electrónico** — los repartidores y encargados
+  de sitio se registran con un **usuario y una contraseña**, nada más. Ver
+  sección abajo.
 - ✅ **Ajustes de productos** — crear, editar, activar/desactivar, reordenar y
   eliminar productos; 3 plantillas rápidas (Pollo, a granel, pesada libre) para
   recrear la versión clásica sin escribir todo a mano; borrar un producto con
@@ -51,6 +54,42 @@ de prueba gratis.
   teléfono no tenga señal: no pide volver a iniciar sesión, se ven los
   productos, clientes e historial guardados, y todo lo que se registre se
   sube solo en cuanto vuelve internet. Ver sección abajo.
+
+### El equipo entra sin correo electrónico
+
+Pedir correo era una traba real: muchos repartidores y encargados de sitio
+simplemente no tienen uno. Ahora:
+
+- **El dueño** se registra con **correo** real. Es el único que lo necesita,
+  y le sirve para recuperar su contraseña solo si se le olvida.
+- **El equipo** (operadores) se registra con el código de invitación, un
+  **usuario** y una **contraseña**. Nada más. La app lo dice explícitamente
+  en el formulario y en la tarjeta de invitación del dueño.
+- **Al iniciar sesión** el campo acepta las dos cosas: si lleva arroba se
+  toma como correo, si no, como usuario.
+
+Por debajo Supabase igual necesita un correo para identificar cada cuenta,
+así que a los usuarios se les arma uno interno (`juan@mercancia.local`) que
+no existe, nunca recibe nada y no se muestra en pantalla — la persona solo
+ve su usuario. Por eso **"Confirm email" tiene que quedar desactivado** en
+Supabase: si no, esas cuentas esperarían una confirmación imposible (está
+avisado en [`supabase/SETUP.md`](./supabase/SETUP.md)).
+
+Los usuarios son únicos entre todos los negocios, así que si alguien elige
+uno ya tomado la app lo dice claro y sugiere agregarle el apellido. Las
+cuentas viejas creadas con correo siguen funcionando igual.
+
+Lo que **no** se puede es recuperar la contraseña de un operador desde la
+app (no hay a dónde mandarla): eso lo resuelve el dueño desde el panel de
+Supabase, cambiándole la clave o borrando la cuenta para que se registre de
+nuevo con el mismo código. Está explicado en `supabase/SETUP.md`.
+
+Probado con Playwright (25 verificaciones): que el formulario cambie según
+quién se registre, que se rechace un correo donde va un usuario (y al
+revés), usuarios muy cortos o con espacios, que por debajo se arme el
+correo interno correcto, que se pueda iniciar sesión escribiendo solo el
+usuario, que el dominio interno no se muestre nunca en pantalla, y los
+mensajes de usuario repetido y contraseña incorrecta.
 
 ### Clientes y despachos
 
@@ -270,7 +309,7 @@ error en la función que cambia de pantalla que dejaba la app trabada en
 |---|---|
 | Un solo negocio | Muchos negocios (tenants), cada uno con sus datos separados |
 | 3 pestañas fijas (Pollo, Papas, Verduras) | Productos configurables por cada negocio |
-| PIN compartido (`7070`) | Login real con correo y contraseña, por persona |
+| PIN compartido (`7070`) | Cuenta propia por persona: el dueño con correo, el equipo con usuario y contraseña (sin correo) |
 | Sincronización vía token de GitHub | Supabase (Postgres + Auth + Realtime) |
 | Sin roles | Dueño vs. operador, con permisos distintos |
 | Sin límite de uso | Prueba de 14 días, luego requiere activación manual |
@@ -290,6 +329,9 @@ Lo que queda son mejoras, no huecos:
 - **Registrarse (cuenta nueva) sí necesita internet** — solo la primera
   vez; después la app abre sin señal. No hay forma de evitarlo: crear la
   cuenta la hace el servidor.
+- **Recuperar la contraseña de un operador** hay que hacerlo desde el panel
+  de Supabase (no tienen correo a dónde mandarla). Si llega a pasar seguido,
+  se le puede dar al dueño una pantalla para resetearla desde la app.
 - **El catálogo de productos requiere conexión** para cambiarlo. Se dejó
   así a propósito (evita conflictos de configuración entre teléfonos); si
   algún día estorba, se puede sumar a la cola igual que lo demás.

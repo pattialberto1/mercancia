@@ -36,10 +36,18 @@ para no perder información.
 2. **Authentication → URL Configuration**: en *Site URL* pon la dirección donde vaya a
    vivir la app (por ejemplo `https://pattialberto1.github.io/mercancia-saas/` cuando
    exista) — esto es lo que usan los enlaces de recuperación de contraseña.
-3. Opcional pero recomendado para no complicar el alta de nuevos negocios: en
-   **Authentication → Providers → Email**, puedes desactivar "Confirm email" durante
-   la etapa de pruebas, para que una cuenta nueva quede activa al instante sin tener
-   que revisar el correo. Se puede volver a activar más adelante sin romper nada.
+3. ⚠️ **Importante — "Confirm email" tiene que estar DESACTIVADO**: en
+   **Authentication → Providers → Email**, desactiva *Confirm email*.
+
+   No es solo por comodidad: los repartidores y encargados de sitio se registran
+   con un **nombre de usuario, sin correo** (muchos no tienen). Por debajo la app
+   les arma un correo interno tipo `juan@mercancia.local` que no existe de verdad
+   y solo sirve de identificador. Si "Confirm email" queda activado, esas cuentas
+   quedarían esperando una confirmación que nunca puede llegar y esas personas
+   no podrían entrar.
+
+   El dueño del negocio sí usa un correo real (es el único que puede recuperar su
+   contraseña solo), pero eso no cambia este ajuste.
 
 ## 4. Copiar las llaves para la app
 
@@ -64,9 +72,20 @@ de inicio de sesión de la app.
   su negocio. Automáticamente se le crean 14 días de prueba y un código de invitación
   propio.
 - **Un repartidor o encargado de sitio (operador):** el dueño le pasa el código de
-  invitación de su negocio (desde Ajustes) y esa persona se registra con ese código
-  en vez de crear un negocio nuevo — queda ligado al mismo negocio, con permisos
-  más limitados (puede registrar recepciones, pero no tocar el catálogo de productos).
+  invitación de su negocio (sale en su pantalla de inicio) y esa persona se registra
+  con ese código, **un usuario y una contraseña — sin correo electrónico**. Queda
+  ligado al mismo negocio, con permisos más limitados (puede registrar recepciones,
+  despachos y pesadas, pero no tocar el catálogo de productos).
+
+  En el panel de Supabase esas cuentas se ven con un correo tipo
+  `juan@mercancia.local`: es interno, no existe y nunca se le manda nada — es solo
+  la forma en que Supabase identifica la cuenta. El usuario real es lo que va antes
+  de la arroba.
+
+  **Si un operador olvida su contraseña**, como no hay correo no puede recuperarla
+  solo. Lo práctico: en Supabase → **Authentication → Users**, busca su cuenta y
+  usa *Reset password* para ponerle una nueva, o bórrala para que se registre otra
+  vez con el mismo código de invitación.
 - **Activar el pago pasado el trial:** esto lo haces tú manualmente, sin pantallas
   especiales — en Supabase → **Table Editor → tenants** → busca el negocio → columna
   `is_paid` → marca `true`. Ningún usuario de la app puede tocar esa columna aunque
