@@ -1482,18 +1482,41 @@ $('fac-del').onclick = () => {
     });
 };
 
-/* ---- resumen para WhatsApp ---- */
+/* ---- resumen para WhatsApp ----
+   En la app el nombre se guarda tal como está impreso en la factura; para el
+   mensaje se limpia, que en mayúsculas y con el "KG" repetido se lee fatal. */
+const UNIDADES_SOBRANTES = ['KG', 'KGS', 'KILO', 'KILOS', 'UN', 'UND', 'UNID', 'UNIDAD', 'UNIDADES',
+  'GR', 'GRS', 'LT', 'LTS', 'LTR', 'PZA', 'PZ', 'C/U'];
+const MINUSCULAS = ['DE', 'DEL', 'LA', 'LAS', 'EL', 'LOS', 'Y', 'CON', 'SIN', 'EN', 'PARA', 'AL', 'A'];
+
+function nombreBonito(nombre) {
+  let n = String(nombre || '').trim().replace(/\s+/g, ' ');
+  if (!n) return '(sin nombre)';
+  // solo se retoca lo que viene gritado; si alguien lo escribió a mano, se respeta
+  if (n !== n.toUpperCase()) return n;
+  let palabras = n.split(' ');
+  // "QUESO MERIDEÑO KG" → la unidad ya sale al lado de la cantidad
+  while (palabras.length > 1 && UNIDADES_SOBRANTES.includes(palabras[palabras.length - 1])) palabras.pop();
+  return palabras.map((p, i) => {
+    if (/[0-9.]/.test(p)) return p;                       // marcas y medidas: P.A.N., 1L, 2X
+    if (i > 0 && MINUSCULAS.includes(p)) return p.toLowerCase();
+    return p.charAt(0) + p.slice(1).toLowerCase();
+  }).join(' ');
+}
+
 function buildResumenFactura(fac) {
   const total = facTotal(fac);
-  let txt = '🧾 *FACTURA · ' + fac.proveedor.toUpperCase() + '*\n📅 ' + fmtDate(fac.fecha) + '\n';
-  if (fac.numero) txt += '🔖 Nº ' + fac.numero + '\n';
-  txt += '\n*Productos:*\n';
+  let txt = '🧾 *' + fac.proveedor.toUpperCase() + '*\n📅 ' + fmtDate(fac.fecha) +
+    (fac.numero ? ' · Nº ' + fac.numero : '') + '\n\n';
   if (!fac.lineas.length) {
     txt += '• (sin productos)\n';
   } else {
     for (const l of fac.lineas) {
-      txt += '• ' + l.nombre + ': ' + fmt(Number(l.cantidad) || 0) + ' ' + (l.unidad || 'un') +
-        ' × ' + fmtDinero(l.precio, fac.moneda) + ' = ' + fmtDinero(l.importe, fac.moneda) + '\n';
+      const cant = Number(l.cantidad) || 0;
+      // "1 un" no aporta nada: en esos renglones solo va el nombre y el importe
+      const medida = (cant && !(cant === 1 && (l.unidad || 'un') === 'un'))
+        ? ' · ' + fmt(cant) + ' ' + (l.unidad || 'un') : '';
+      txt += '• ' + nombreBonito(l.nombre) + medida + ' · ' + fmtDinero(l.importe, fac.moneda) + '\n';
     }
   }
   txt += '\n📦 ' + fac.lineas.length + (fac.lineas.length === 1 ? ' renglón' : ' renglones') + '\n';
@@ -1501,7 +1524,7 @@ function buildResumenFactura(fac) {
   const dif = fac.totalFactura == null ? 0 : round2(total - fac.totalFactura);
   if (Math.abs(dif) > 0.01)
     txt += '⚠️ La factura dice ' + fmtDinero(fac.totalFactura, fac.moneda) + ' — hay que revisarla.\n';
-  txt += fac.pagada ? '✅ *Pagada*' : '⏳ *Pendiente por pagar: ' + fmtDinero(total, fac.moneda) + '*';
+  txt += fac.pagada ? '✅ *Pagada*' : '⏳ *Por pagar*';
   return txt;
 }
 

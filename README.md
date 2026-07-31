@@ -50,8 +50,15 @@ renglones (producto, cantidad, unidad, precio e importe).
 4. Si el total impreso en la factura no cuadra con la suma de los renglones,
    la app avisa en rojo y dice cuánto falta o sobra.
 5. **📲 Enviar por WhatsApp**: manda el parte con todo lo que llegó, el total y
-   lo que queda por pagar. Con **✅ Marcar como pagada** el mensaje deja de
+   si queda por pagar. Con **✅ Marcar como pagada** el mensaje deja de
    reclamar el pago.
+
+El mensaje va en una línea por producto (*«Queso Merideño · 5,24 kg · $38,99»*)
+para que no se parta en el teléfono, y los nombres se limpian: los que vienen
+en mayúsculas de la factura salen legibles y sin el «KG» repetido, que ya sale
+en la cantidad. Dentro de la app el nombre se sigue guardando tal como está
+impreso en la factura. El precio por unidad no va en el mensaje: está en la app
+y en la propia factura.
 
 La factura se puede llevar en **dólares o en bolívares** (selector de moneda).
 
