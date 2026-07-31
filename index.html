@@ -1123,7 +1123,17 @@ function traducirError(err, contexto) {
       ? 'Ese usuario no se pudo usar. Prueba con solo letras y números, sin espacios.'
       : 'Ese correo no parece válido.';
   }
-  if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Sin conexión a internet. Intenta de nuevo cuando tengas señal.';
+  // Una llamada que no llega puede ser por dos motivos muy distintos, y decir
+  // siempre "no tienes internet" confunde: si el teléfono sí tiene señal, el
+  // problema está del lado del servidor (caído, en pausa o mal configurado) y
+  // no hay nada que la persona pueda arreglar reintentando.
+  const esFalloDeRed = /failed to fetch|networkerror|load failed|network request failed|fetch failed|net::/i.test(m)
+    || /retryablefetch/i.test((err && err.name) || '');
+  if (esFalloDeRed) {
+    return hayRed()
+      ? 'No se pudo conectar con el servidor de la app. Tu teléfono sí tiene internet, así que el problema está del lado del servidor — avísale al dueño.'
+      : 'Sin conexión a internet. Intenta de nuevo cuando tengas señal.';
+  }
   return m || 'Algo salió mal. Intenta de nuevo.';
 }
 
