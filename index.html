@@ -200,6 +200,26 @@
   }
   .btn-wa:active { opacity: .85; }
 
+  /* ---- facturas (Tierra Santa) ---- */
+  .fac-foto {
+    display: block; width: 100%; border-radius: 12px; border: 1px solid var(--line);
+    margin-bottom: 10px; background: var(--bg);
+    max-height: 230px; object-fit: cover; object-position: top;
+  }
+  .fac-foto.ampliada { max-height: none; object-fit: contain; }
+  .linea {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; text-align: left; padding: 12px 2px; border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums; background: none;
+  }
+  .linea:last-child { border-bottom: none; }
+  .linea:active { background: var(--accent-soft); }
+  .linea .nom { font-size: 15px; font-weight: 700; }
+  .linea .det { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .linea .imp { font-size: 16px; font-weight: 800; white-space: nowrap; }
+  .linea .flag { color: var(--bad); font-weight: 700; }
+  .working { color: var(--accent); font-weight: 600; }
+
   /* ---- formularios / ajustes ---- */
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
@@ -331,6 +351,66 @@
     <button class="btn-secondary" id="btn-share" style="margin-bottom:10px">📋 Copiar resumen</button>
     <button class="btn-secondary" id="btn-close-rec">Terminar recepción</button>
   </section>
+
+  <!-- ================= FACTURA (TIERRA SANTA) ================= -->
+  <section id="view-fac" class="hidden">
+    <div class="topbar">
+      <button class="iconbtn" id="fac-back" aria-label="Volver">←</button>
+      <div style="flex:1">
+        <h1 id="fac-title">Factura</h1>
+        <div class="sub" id="fac-sub"></div>
+      </div>
+      <button class="iconbtn btn-danger" id="fac-del" aria-label="Eliminar">🗑️</button>
+    </div>
+
+    <div class="card">
+      <h2>📷 Foto de la factura</h2>
+      <div class="sub" style="margin:2px 0 12px">Tómala de frente y con buena luz, que se lean todos los renglones.</div>
+      <img id="fac-img" class="fac-foto hidden" alt="Foto de la factura">
+      <input type="file" id="fac-file" accept="image/*" hidden>
+      <button class="btn-secondary" id="fac-foto-btn" style="margin-bottom:10px">📷 Tomar o elegir foto</button>
+      <button class="btn-primary" id="fac-leer">✨ Leer la factura</button>
+      <div class="hint" id="fac-estado"></div>
+    </div>
+
+    <div class="card">
+      <div class="listhead"><h2>Datos de la factura</h2></div>
+      <div class="row2">
+        <div class="field"><label>Nº de factura</label><input id="fac-num" type="text" autocomplete="off" placeholder="—"></div>
+        <div class="field"><label>Fecha</label><input id="fac-fecha" type="date"></div>
+      </div>
+      <div class="field">
+        <label>Total que dice la factura (opcional)</label>
+        <input id="fac-total" type="text" inputmode="decimal" autocomplete="off" placeholder="Para comprobar la suma">
+      </div>
+      <div class="seg-label">Moneda</div>
+      <div class="seg" id="fac-moneda">
+        <button data-m="USD" class="on">$ Dólares</button>
+        <button data-m="Bs">Bs Bolívares</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="listhead">
+        <h2>Productos</h2>
+        <button class="toggle" id="fac-add">+ Añadir</button>
+      </div>
+      <div id="fac-lineas"></div>
+    </div>
+
+    <div class="card">
+      <div class="totals">
+        <div class="tot"><div class="lbl">Renglones</div><div class="val" id="fac-t-lineas">0</div></div>
+        <div class="tot"><div class="lbl">Según la factura</div><div class="val" id="fac-t-factura">—</div></div>
+        <div class="net"><span class="lbl">TOTAL</span><span class="val" id="fac-t-total">—</span></div>
+      </div>
+      <div class="hint" id="fac-aviso" style="color:var(--bad);text-align:left"></div>
+    </div>
+
+    <button class="btn-secondary" id="fac-pagada" style="margin-bottom:10px">Marcar como pagada</button>
+    <button class="btn-wa" id="fac-wa" style="margin-bottom:10px">📲 Enviar por WhatsApp</button>
+    <button class="btn-secondary" id="fac-copiar">📋 Copiar resumen</button>
+  </section>
 </main>
 
 <!-- ================= MODAL AJUSTES ================= -->
@@ -366,6 +446,11 @@
       <input id="set-token" type="password" placeholder="github_pat_…" autocomplete="off">
       <div class="sub" style="margin-top:6px">Pega el mismo código en cada teléfono para compartir los datos entre todos. Vacío = solo este teléfono.</div>
     </div>
+    <div class="field">
+      <label>Clave para leer facturas (Tierra Santa)</label>
+      <input id="set-apikey" type="password" placeholder="sk-ant-…" autocomplete="off">
+      <div class="sub" style="margin-top:6px">Se queda guardada solo en este teléfono, nunca se sube al repositorio. Hace falta para que la app lea la foto de la factura; cada foto leída tiene un pequeño costo.</div>
+    </div>
     <div class="actions">
       <button class="btn-secondary" id="set-cancel">Cancelar</button>
       <button class="btn-primary" id="set-save">Guardar</button>
@@ -381,6 +466,30 @@
     <div class="actions">
       <button class="btn-secondary" id="producto-cancel">Cancelar</button>
     </div>
+  </div>
+</div>
+
+<!-- ================= MODAL RENGLÓN DE FACTURA ================= -->
+<div class="modal-back" id="modal-linea">
+  <div class="modal">
+    <h2 id="linea-title">Producto</h2>
+    <div class="field">
+      <label>Producto</label>
+      <input id="ln-nombre" type="text" autocomplete="off" placeholder="Nombre tal como sale en la factura">
+    </div>
+    <div class="row2">
+      <div class="field"><label>Cantidad</label><input id="ln-cant" type="text" inputmode="decimal" autocomplete="off"></div>
+      <div class="field"><label>Unidad</label><input id="ln-unidad" type="text" autocomplete="off" placeholder="kg, un, caja…"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Precio por unidad</label><input id="ln-precio" type="text" inputmode="decimal" autocomplete="off"></div>
+      <div class="field"><label>Importe</label><input id="ln-importe" type="text" inputmode="decimal" autocomplete="off"></div>
+    </div>
+    <div class="actions">
+      <button class="btn-secondary btn-danger" id="ln-del">Borrar</button>
+      <button class="btn-primary" id="ln-save">Guardar</button>
+    </div>
+    <button class="btn-secondary" id="ln-cancel" style="margin-top:10px">Cancelar</button>
   </div>
 </div>
 
@@ -413,7 +522,10 @@
 'use strict';
 /* ============ almacenamiento ============ */
 const STORE_KEY = 'mercancia.v1';
-const defaults = { settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '' }, recepciones: [], borradas: {} };
+const defaults = {
+  settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '' },
+  recepciones: [], facturas: [], borradas: {}
+};
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
 
 /* Catálogo de productos.
@@ -428,12 +540,15 @@ const PRODUCTOS = {
   cebollin:       { emoji: '🌿', nombre: 'Cebollín',       neto: 'CEBOLLÍN NETO', cestas: 5 }
 };
 
-/* Pestañas del inicio: una puede agrupar varios productos */
+/* Pestañas del inicio: una puede agrupar varios productos.
+   La pestaña de Tierra Santa no lleva pesadas: son facturas del proveedor. */
 const TABS = {
-  pollo:    { emoji: '🐔', nombre: 'Pollo',    tipos: ['pollo'] },
-  papas:    { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
-  verduras: { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] }
+  pollo:       { emoji: '🐔', nombre: 'Pollo',    tipos: ['pollo'] },
+  papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
+  verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
+  tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true }
 };
+const PROVEEDOR_TS = 'Tierra Santa';
 
 function load() {
   try {
@@ -442,6 +557,7 @@ function load() {
     const d = JSON.parse(raw);
     d.settings = Object.assign({}, defaults.settings, d.settings);
     d.recepciones = d.recepciones || [];
+    d.facturas = d.facturas || [];
     d.borradas = d.borradas || {};
     for (const r of d.recepciones) if (!r.tipo) r.tipo = 'pollo';
     // v2: el rango de 2 cestas pasó de 68-71 a 65-75 (solo si no se había personalizado)
@@ -455,7 +571,20 @@ function load() {
 }
 // pushChanges=false cuando el cambio viene de la propia sincronización
 function save(pushChanges) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(db));
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(db));
+  } catch (e) {
+    // sin espacio en el teléfono: lo primero que se suelta son las fotos de
+    // las facturas más viejas (los datos leídos de ellas se conservan)
+    const viejas = db.facturas.filter(f => f.foto).sort((a, b) => (a.creada || 0) - (b.creada || 0));
+    let sitio = false;
+    for (const f of viejas) {
+      delete f.foto;
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); sitio = true; break; } catch {}
+    }
+    if (!sitio) { toast('No hay espacio en el teléfono'); return; }
+    toast('Se soltaron fotos viejas para hacer sitio');
+  }
   if (pushChanges !== false) schedulePush();
 }
 // marca una recepción como modificada, para que gane al sincronizar
@@ -463,6 +592,7 @@ function touch(rec) { rec.mod = Date.now(); }
 
 let db = load();
 let current = null;        // recepción abierta en pantalla
+let currentFac = null;     // factura abierta en pantalla
 let mode = 2;              // cestas por pesada (pollo: 2 o 1 · granel: 1 a 5)
 let showAllEntries = false;
 let homeTab = 'pollo';     // pestaña activa en inicio
@@ -480,6 +610,11 @@ function fmt(n, dec) {
   return n.toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: Math.max(d, 2) });
 }
 function fmtKg(n) { return fmt(round2(n)) + ' kg'; }
+// dinero: siempre 2 decimales, con el símbolo de la moneda de la factura
+function fmtDinero(n, moneda) {
+  const s = (Number(n) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return moneda === 'Bs' ? s + ' Bs' : '$' + s;
+}
 // dos decimales: solo corrige el error flotante de las sumas, no redondea el peso
 function round2(n) { return Math.round(n * 100) / 100; }
 function fmtDate(iso) {
@@ -527,6 +662,7 @@ function inRange(peso, cestas, rec) {
 function show(view) {
   $('view-home').classList.toggle('hidden', view !== 'home');
   $('view-rec').classList.toggle('hidden', view !== 'rec');
+  $('view-fac').classList.toggle('hidden', view !== 'fac');
   window.scrollTo(0, 0);
 }
 
@@ -545,8 +681,11 @@ function renderHome() {
   const T = TABS[homeTab];
   for (const b of $('home-tabs').querySelectorAll('button'))
     b.classList.toggle('on', b.dataset.t === homeTab);
-  $('btn-new').textContent = T.emoji + ' Nueva recepción de ' + T.nombre.toLowerCase();
+  $('btn-new').textContent = T.facturas
+    ? T.emoji + ' Nueva factura'
+    : T.emoji + ' Nueva recepción de ' + T.nombre.toLowerCase();
   $('btn-wa-dia').classList.toggle('hidden', homeTab !== 'verduras');
+  if (T.facturas) return renderHomeFacturas();
 
   const list = $('home-list');
   const recs = db.recepciones.filter(r => T.tipos.includes(r.tipo || 'pollo')).sort((a, b) => b.creada - a.creada);
@@ -728,6 +867,7 @@ function nuevaRecepcion(tipo) {
 }
 $('btn-new').onclick = () => {
   const T = TABS[homeTab];
+  if (T.facturas) { nuevaFactura(); return; }
   if (T.tipos.length === 1) { nuevaRecepcion(T.tipos[0]); return; }
   // la pestaña agrupa varios productos: preguntar cuál llega
   const cont = $('producto-btns');
@@ -920,6 +1060,463 @@ $('emp-input').addEventListener('change', e => {
   setEmpties(/^\d+$/.test(s) ? parseInt(s, 10) : 0);
 });
 
+/* ================================================================
+   TIERRA SANTA · facturas del proveedor
+   Se sube la foto de la factura, la IA saca los renglones y quedan
+   editables antes de enviar el resumen por WhatsApp.
+   ================================================================ */
+
+function facTotal(fac) {
+  let n = 0;
+  for (const l of fac.lineas) n += Number(l.importe) || 0;
+  return round2(n);
+}
+
+function nuevaFactura() {
+  const fac = {
+    id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    proveedor: PROVEEDOR_TS,
+    numero: '',
+    fecha: todayISO(),
+    moneda: 'USD',
+    creada: Date.now(),
+    pagada: false,
+    totalFactura: null,   // el total que dice el papel, para comprobar la suma
+    lineas: [],
+    foto: ''              // solo en este teléfono: nunca se sincroniza
+  };
+  touch(fac);
+  db.facturas.push(fac);
+  save();
+  openFac(fac.id);
+}
+
+function openFac(id) {
+  currentFac = db.facturas.find(f => f.id === id);
+  if (!currentFac) return;
+  $('fac-estado').textContent = '';
+  $('fac-estado').className = 'hint';
+  renderFac();
+  show('fac');
+}
+
+function renderHomeFacturas() {
+  const list = $('home-list');
+  const facs = [...db.facturas].sort((a, b) => b.creada - a.creada);
+  if (!facs.length) {
+    list.innerHTML = '<div class="empty"><span class="big">🧾</span>Todavía no hay facturas de ' + PROVEEDOR_TS +
+      '.<br>Pulsa «Nueva factura» y súbele la foto.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const fac of facs) {
+    const btn = document.createElement('button');
+    btn.className = 'rec-item';
+    btn.innerHTML =
+      '<div><div style="font-weight:700">🧾 ' + fmtDate(fac.fecha) +
+      (fac.numero ? ' · Nº ' + esc(fac.numero) : '') +
+      (fac.pagada ? '<span class="badge">pagada</span>' : '<span class="badge open">por pagar</span>') +
+      '</div><div class="meta sub">' + fac.lineas.length +
+      (fac.lineas.length === 1 ? ' renglón' : ' renglones') + '</div></div>' +
+      '<div style="display:flex;align-items:center;gap:8px"><span class="kg">' +
+      fmtDinero(facTotal(fac), fac.moneda) + '</span><span class="chev">›</span></div>';
+    btn.onclick = () => openFac(fac.id);
+    list.appendChild(btn);
+  }
+}
+
+// los nombres vienen de una foto: nunca se meten crudos en el HTML
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderFac() {
+  const fac = currentFac;
+  const total = facTotal(fac);
+  $('fac-title').textContent = fac.proveedor;
+  $('fac-sub').textContent = fmtDate(fac.fecha) + (fac.pagada ? ' · pagada' : ' · por pagar');
+
+  // foto
+  const img = $('fac-img');
+  img.classList.toggle('hidden', !fac.foto);
+  if (fac.foto && img.src !== fac.foto) { img.src = fac.foto; img.classList.remove('ampliada'); }
+  $('fac-foto-btn').textContent = fac.foto ? '📷 Cambiar la foto' : '📷 Tomar o elegir foto';
+  $('fac-leer').classList.toggle('hidden', !fac.foto);
+
+  // datos
+  $('fac-num').value = fac.numero || '';
+  $('fac-fecha').value = fac.fecha;
+  $('fac-total').value = fac.totalFactura == null ? '' : String(fac.totalFactura).replace('.', ',');
+  for (const b of $('fac-moneda').querySelectorAll('button'))
+    b.classList.toggle('on', b.dataset.m === fac.moneda);
+
+  // renglones
+  const cont = $('fac-lineas');
+  cont.innerHTML = '';
+  if (!fac.lineas.length) {
+    cont.innerHTML = '<div class="sub" style="padding:6px 0">Aquí saldrán los productos de la factura. ' +
+      'Sube la foto y pulsa «Leer la factura», o añádelos a mano.</div>';
+  }
+  fac.lineas.forEach((l, i) => {
+    const calc = round2((Number(l.cantidad) || 0) * (Number(l.precio) || 0));
+    const descuadra = Math.abs(calc - (Number(l.importe) || 0)) > 0.01;
+    const row = document.createElement('button');
+    row.className = 'linea';
+    row.innerHTML =
+      '<div style="flex:1;min-width:0"><div class="nom">' + esc(l.nombre || '(sin nombre)') + '</div>' +
+      '<div class="det">' + fmt(Number(l.cantidad) || 0) + ' ' + esc(l.unidad || 'un') +
+      ' × ' + fmtDinero(l.precio, fac.moneda) +
+      (descuadra ? ' · <span class="flag">revisa</span>' : '') + '</div></div>' +
+      '<span class="imp">' + fmtDinero(l.importe, fac.moneda) + '</span>';
+    row.onclick = () => editarLinea(i);
+    cont.appendChild(row);
+  });
+
+  // totales
+  $('fac-t-lineas').textContent = fac.lineas.length;
+  $('fac-t-factura').textContent = fac.totalFactura == null ? '—' : fmtDinero(fac.totalFactura, fac.moneda);
+  $('fac-t-total').textContent = fmtDinero(total, fac.moneda);
+  const dif = fac.totalFactura == null ? 0 : round2(total - fac.totalFactura);
+  $('fac-aviso').textContent = Math.abs(dif) > 0.01
+    ? '⚠️ La suma de los renglones da ' + fmtDinero(total, fac.moneda) + ' y la factura dice ' +
+      fmtDinero(fac.totalFactura, fac.moneda) + ' (' + (dif > 0 ? 'sobran ' : 'faltan ') +
+      fmtDinero(Math.abs(dif), fac.moneda) + '). Revisa los renglones.'
+    : '';
+
+  $('fac-pagada').textContent = fac.pagada ? '↩︎ Marcar como pendiente' : '✅ Marcar como pagada';
+}
+
+/* ---- edición de un renglón ---- */
+let lineaIdx = -1;
+function editarLinea(i) {
+  const fac = currentFac;
+  lineaIdx = i;
+  const l = i < 0
+    ? { nombre: '', cantidad: '', unidad: '', precio: '', importe: '' }
+    : fac.lineas[i];
+  $('linea-title').textContent = i < 0 ? 'Nuevo producto' : 'Producto';
+  $('ln-nombre').value = l.nombre || '';
+  $('ln-cant').value = l.cantidad === '' || l.cantidad == null ? '' : String(l.cantidad).replace('.', ',');
+  $('ln-unidad').value = l.unidad || '';
+  $('ln-precio').value = l.precio === '' || l.precio == null ? '' : String(l.precio).replace('.', ',');
+  $('ln-importe').value = l.importe === '' || l.importe == null ? '' : String(l.importe).replace('.', ',');
+  $('ln-del').classList.toggle('hidden', i < 0);
+  $('modal-linea').classList.add('show');
+  setTimeout(() => $('ln-nombre').focus(), 50);
+}
+
+// al tocar cantidad o precio se recalcula el importe, pero se puede corregir a mano
+function recalcularImporte() {
+  const c = parseNum($('ln-cant').value.trim());
+  const p = parseNum($('ln-precio').value.trim());
+  if (isNaN(c) || isNaN(p)) return;
+  $('ln-importe').value = String(round2(c * p)).replace('.', ',');
+}
+$('ln-cant').addEventListener('input', recalcularImporte);
+$('ln-precio').addEventListener('input', recalcularImporte);
+
+$('ln-cancel').onclick = () => { $('modal-linea').classList.remove('show'); lineaIdx = -1; };
+$('ln-del').onclick = () => {
+  if (lineaIdx < 0) return;
+  currentFac.lineas.splice(lineaIdx, 1);
+  touch(currentFac); save(); renderFac();
+  $('modal-linea').classList.remove('show');
+  lineaIdx = -1;
+  toast('Renglón borrado');
+};
+$('ln-save').onclick = () => {
+  const nombre = $('ln-nombre').value.trim();
+  if (!nombre) { toast('Escribe el nombre del producto'); return; }
+  const num = s => { const v = parseNum(s.trim()); return isNaN(v) ? 0 : round2(v); };
+  const l = {
+    nombre,
+    cantidad: num($('ln-cant').value),
+    unidad: $('ln-unidad').value.trim() || 'un',
+    precio: num($('ln-precio').value),
+    importe: num($('ln-importe').value)
+  };
+  if (lineaIdx < 0) currentFac.lineas.push(l); else currentFac.lineas[lineaIdx] = l;
+  touch(currentFac); save(); renderFac();
+  $('modal-linea').classList.remove('show');
+  lineaIdx = -1;
+};
+
+/* ---- foto ---- */
+// se reduce antes de guardarla: cabe en el teléfono y viaja rápido a la IA
+function prepararFoto(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 1600;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) { reject(new Error('imagen')); return; }
+      const escala = Math.min(1, MAX / Math.max(w, h));
+      w = Math.round(w * escala); h = Math.round(h * escala);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagen')); };
+    img.src = url;
+  });
+}
+
+// la foto sale recortada para no comerse la pantalla; al tocarla se ve entera
+$('fac-img').onclick = () => $('fac-img').classList.toggle('ampliada');
+$('fac-foto-btn').onclick = () => $('fac-file').click();
+$('fac-file').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    currentFac.foto = await prepararFoto(file);
+    touch(currentFac); save(); renderFac();
+    toast('Foto guardada');
+  } catch {
+    toast('No se pudo leer esa foto');
+  }
+});
+
+/* ---- lectura de la factura con IA ---- */
+const IA_URL = 'https://api.anthropic.com/v1/messages';
+const IA_MODELO = 'claude-opus-5';
+
+const FACTURA_SCHEMA = {
+  type: 'object',
+  properties: {
+    numero: { type: 'string', description: 'Número de la factura, vacío si no se ve' },
+    fecha: { type: 'string', description: 'Fecha de la factura en formato AAAA-MM-DD, vacío si no se ve' },
+    moneda: { type: 'string', enum: ['USD', 'Bs'], description: 'Moneda de los importes' },
+    total: { type: 'number', description: 'Total a pagar que aparece en la factura, 0 si no aparece' },
+    productos: {
+      type: 'array',
+      description: 'Un elemento por cada renglón de la factura, en el mismo orden',
+      items: {
+        type: 'object',
+        properties: {
+          nombre: { type: 'string', description: 'Nombre del producto tal como aparece' },
+          cantidad: { type: 'number' },
+          unidad: { type: 'string', description: 'kg, un, caja, saco, bulto…' },
+          precio: { type: 'number', description: 'Precio por unidad' },
+          importe: { type: 'number', description: 'Lo que cobran por ese renglón' }
+        },
+        required: ['nombre', 'cantidad', 'unidad', 'precio', 'importe'],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ['numero', 'fecha', 'moneda', 'total', 'productos'],
+  additionalProperties: false
+};
+
+const IA_INSTRUCCIONES =
+  'Esta es la foto de una factura del proveedor ' + PROVEEDOR_TS + '. Saca todos sus renglones.\n\n' +
+  '- Copia el nombre de cada producto tal como está escrito en el papel, sin traducirlo ni corregirlo.\n' +
+  '- "cantidad" es cuánto facturan de ese producto y "unidad" es en qué se mide (kg, un, caja, saco, bulto…). ' +
+  'Si la factura no dice la unidad, pon "un".\n' +
+  '- "precio" es el precio por unidad e "importe" es lo que cobran por ese renglón. ' +
+  'Si en la factura solo aparece uno de los dos, calcula el otro.\n' +
+  '- "total" es el total a pagar que aparece impreso. Si no aparece, pon 0.\n' +
+  '- No inventes nada: lo que no se lea en la foto va vacío ("") o en 0.\n' +
+  '- Los números van sin separador de miles y con punto decimal (ejemplo: 1234.56).';
+
+function estadoIA(msg, clase) {
+  const el = $('fac-estado');
+  el.textContent = msg;
+  el.className = 'hint' + (clase ? ' ' + clase : '');
+}
+
+async function leerFacturaIA() {
+  const fac = currentFac;
+  const clave = (db.settings.apiKey || '').trim();
+  if (!fac.foto) { toast('Primero sube la foto de la factura'); return; }
+  if (!clave) {
+    estadoIA('Falta la clave para leer facturas. Ponla en Ajustes ⚙️.', 'err');
+    toast('Configura la clave en Ajustes');
+    return;
+  }
+  const m = /^data:(image\/[a-zA-Z+]+);base64,(.+)$/.exec(fac.foto);
+  if (!m) { estadoIA('La foto no se puede leer, vuelve a tomarla.', 'err'); return; }
+
+  $('fac-leer').disabled = true;
+  estadoIA('✨ Leyendo la factura… puede tardar medio minuto.', 'working');
+  // con mala señal la petición podría quedarse colgada para siempre
+  const corte = new AbortController();
+  const reloj = setTimeout(() => corte.abort(), 180000);
+  try {
+    const res = await fetch(IA_URL, {
+      method: 'POST',
+      signal: corte.signal,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': clave,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: IA_MODELO,
+        max_tokens: 16000,
+        output_config: { format: { type: 'json_schema', schema: FACTURA_SCHEMA } },
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
+            { type: 'text', text: IA_INSTRUCCIONES }
+          ]
+        }]
+      })
+    });
+
+    if (!res.ok) {
+      let detalle = '';
+      try { const j = await res.json(); detalle = (j.error && j.error.message) || ''; } catch {}
+      if (res.status === 401 || res.status === 403) throw new Error('La clave no funciona. Revísala en Ajustes ⚙️.');
+      if (res.status === 429) throw new Error('Demasiadas lecturas seguidas. Espera un momento y vuelve a intentarlo.');
+      if (res.status === 400 && /credit|balance/i.test(detalle)) throw new Error('La cuenta de IA se quedó sin saldo.');
+      if (res.status >= 500) throw new Error('El servicio de IA está caído ahora mismo. Inténtalo en un rato.');
+      throw new Error(detalle || ('Error ' + res.status + ' al leer la factura.'));
+    }
+
+    const data = await res.json();
+    if (data.stop_reason === 'refusal') throw new Error('La IA no pudo procesar esa imagen. Prueba con otra foto.');
+    if (data.stop_reason === 'max_tokens') throw new Error('La factura tiene demasiados renglones para leerla de una vez.');
+    const bloque = (data.content || []).find(b => b.type === 'text');
+    if (!bloque) throw new Error('La IA no devolvió nada. Prueba con otra foto.');
+
+    let leido;
+    try { leido = JSON.parse(bloque.text); } catch { throw new Error('No se entendió la respuesta de la IA. Vuelve a intentarlo.'); }
+    aplicarLectura(fac, leido);
+  } catch (err) {
+    const msg = (err && err.message) || '';
+    // fetch falla sin mensaje útil cuando no hay internet
+    const sinRed = !navigator.onLine || /failed to fetch|load failed|networkerror/i.test(msg);
+    const tardo = err && err.name === 'AbortError';
+    estadoIA(tardo ? 'La lectura tardó demasiado. Inténtalo otra vez con mejor señal.'
+      : sinRed ? 'Sin conexión: hace falta internet para leer la foto.' : msg, 'err');
+    toast('No se pudo leer la factura');
+  } finally {
+    clearTimeout(reloj);
+    $('fac-leer').disabled = false;
+  }
+}
+$('fac-leer').onclick = leerFacturaIA;
+
+// mete en la factura lo que devolvió la IA (ya validado contra el esquema)
+function aplicarLectura(fac, leido) {
+  const num = v => { const n = Number(v); return isFinite(n) && n > 0 ? round2(n) : 0; };
+  const lineas = [];
+  for (const p of (leido.productos || [])) {
+    const nombre = String(p.nombre || '').trim();
+    if (!nombre) continue;
+    let cantidad = num(p.cantidad), precio = num(p.precio), importe = num(p.importe);
+    // si falta uno de los tres, se saca de los otros dos
+    if (!importe && cantidad && precio) importe = round2(cantidad * precio);
+    if (!precio && cantidad && importe) precio = round2(importe / cantidad);
+    if (!cantidad && precio && importe) cantidad = round2(importe / precio);
+    lineas.push({ nombre, cantidad, unidad: String(p.unidad || 'un').trim() || 'un', precio, importe });
+  }
+  if (!lineas.length) {
+    estadoIA('No se reconoció ningún producto en la foto. Prueba con una foto más nítida o añádelos a mano.', 'err');
+    return;
+  }
+  fac.lineas = lineas;
+  if (leido.numero) fac.numero = String(leido.numero).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(leido.fecha || '')) fac.fecha = leido.fecha;
+  if (leido.moneda === 'USD' || leido.moneda === 'Bs') fac.moneda = leido.moneda;
+  const total = num(leido.total);
+  fac.totalFactura = total || null;
+  touch(fac); save(); renderFac();
+  estadoIA('✅ Listo: ' + lineas.length + (lineas.length === 1 ? ' renglón leído.' : ' renglones leídos.') +
+    ' Repásalos antes de enviar — la IA se puede equivocar.', 'ok');
+  toast('Factura leída');
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+/* ---- datos editables de la factura ---- */
+$('fac-num').addEventListener('change', e => {
+  currentFac.numero = e.target.value.trim();
+  touch(currentFac); save(); renderFac();
+});
+$('fac-fecha').addEventListener('change', e => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { renderFac(); return; }
+  currentFac.fecha = e.target.value;
+  touch(currentFac); save(); renderFac();
+});
+$('fac-total').addEventListener('change', e => {
+  const s = e.target.value.trim();
+  const v = parseNum(s);
+  currentFac.totalFactura = s === '' ? null : (isNaN(v) ? currentFac.totalFactura : round2(v));
+  touch(currentFac); save(); renderFac();
+});
+$('fac-moneda').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  currentFac.moneda = b.dataset.m;
+  touch(currentFac); save(); renderFac();
+});
+$('fac-add').onclick = () => editarLinea(-1);
+$('fac-back').onclick = () => { currentFac = null; renderHome(); show('home'); };
+$('fac-pagada').onclick = () => {
+  currentFac.pagada = !currentFac.pagada;
+  touch(currentFac); save(); renderFac();
+  toast(currentFac.pagada ? 'Marcada como pagada' : 'Marcada como pendiente');
+};
+$('fac-del').onclick = () => {
+  askConfirm('Eliminar factura',
+    'Se borrará esta factura con todos sus renglones. Esta acción no se puede deshacer.',
+    () => {
+      db.borradas[currentFac.id] = Date.now();
+      db.facturas = db.facturas.filter(f => f.id !== currentFac.id);
+      save();
+      currentFac = null;
+      renderHome(); show('home');
+      toast('Factura eliminada');
+    });
+};
+
+/* ---- resumen para WhatsApp ---- */
+function buildResumenFactura(fac) {
+  const total = facTotal(fac);
+  let txt = '🧾 *FACTURA · ' + fac.proveedor.toUpperCase() + '*\n📅 ' + fmtDate(fac.fecha) + '\n';
+  if (fac.numero) txt += '🔖 Nº ' + fac.numero + '\n';
+  txt += '\n*Productos:*\n';
+  if (!fac.lineas.length) {
+    txt += '• (sin productos)\n';
+  } else {
+    for (const l of fac.lineas) {
+      txt += '• ' + l.nombre + ': ' + fmt(Number(l.cantidad) || 0) + ' ' + (l.unidad || 'un') +
+        ' × ' + fmtDinero(l.precio, fac.moneda) + ' = ' + fmtDinero(l.importe, fac.moneda) + '\n';
+    }
+  }
+  txt += '\n📦 ' + fac.lineas.length + (fac.lineas.length === 1 ? ' renglón' : ' renglones') + '\n';
+  txt += '💵 *TOTAL: ' + fmtDinero(total, fac.moneda) + '*\n';
+  const dif = fac.totalFactura == null ? 0 : round2(total - fac.totalFactura);
+  if (Math.abs(dif) > 0.01)
+    txt += '⚠️ La factura dice ' + fmtDinero(fac.totalFactura, fac.moneda) + ' — hay que revisarla.\n';
+  txt += fac.pagada ? '✅ *Pagada*' : '⏳ *Pendiente por pagar: ' + fmtDinero(total, fac.moneda) + '*';
+  return txt;
+}
+
+$('fac-wa').onclick = () => {
+  window.open('https://wa.me/?text=' + encodeURIComponent(buildResumenFactura(currentFac)), '_blank');
+};
+$('fac-copiar').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(buildResumenFactura(currentFac));
+    toast('Resumen copiado');
+  } catch {
+    toast('No se pudo copiar');
+  }
+};
+
 /* ============ ajustes ============ */
 $('btn-settings').onclick = () => {
   $('set-tara').value = fmt(db.settings.tara, 1);
@@ -928,6 +1525,7 @@ $('btn-settings').onclick = () => {
   $('set-min1').value = fmt(db.settings.min1);
   $('set-max1').value = fmt(db.settings.max1);
   $('set-token').value = db.settings.syncToken || '';
+  $('set-apikey').value = db.settings.apiKey || '';
   $('modal-settings').classList.add('show');
 };
 $('set-cancel').onclick = () => $('modal-settings').classList.remove('show');
@@ -943,7 +1541,7 @@ $('set-save').onclick = () => {
   }
   const tokenNuevo = $('set-token').value.trim();
   const tokenCambio = tokenNuevo !== (db.settings.syncToken || '');
-  db.settings = { tara, min, max, min1, max1, syncToken: tokenNuevo };
+  db.settings = { tara, min, max, min1, max1, syncToken: tokenNuevo, apiKey: $('set-apikey').value.trim() };
   save(false);
   $('modal-settings').classList.remove('show');
   toast('Ajustes guardados');
@@ -951,7 +1549,7 @@ $('set-save').onclick = () => {
   if (tokenCambio) syncNow();
 };
 
-for (const id of ['modal-settings', 'modal-confirm', 'modal-producto']) {
+for (const id of ['modal-settings', 'modal-confirm', 'modal-producto', 'modal-linea']) {
   $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
 }
 
@@ -999,32 +1597,55 @@ function b64dec(b) {
   return new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, '')), c => c.charCodeAt(0)));
 }
 
-// mezcla lo local con lo remoto: por recepción gana la modificada más reciente
+// mezcla lo local con lo remoto: por elemento gana el modificado más reciente
 function mergeRemote(remote) {
-  const map = new Map();
-  for (const r of (remote && remote.recepciones) || []) map.set(r.id, r);
-  for (const r of db.recepciones) {
-    const o = map.get(r.id);
-    // en empate gana la copia local (conserva la referencia de la pantalla abierta)
-    if (!o || (r.mod || 0) >= (o.mod || 0)) map.set(r.id, r);
-  }
   const borradas = Object.assign({}, (remote && remote.borradas) || {}, db.borradas);
-  const recepciones = [...map.values()].filter(r => !(r.id in borradas));
-  recepciones.sort((a, b) => (a.creada || 0) - (b.creada || 0));
-  return { recepciones, borradas };
+  const unir = (locales, remotos) => {
+    const map = new Map();
+    for (const r of remotos || []) map.set(r.id, r);
+    for (const r of locales) {
+      const o = map.get(r.id);
+      // en empate gana la copia local (conserva la referencia de la pantalla abierta)
+      if (!o || (r.mod || 0) >= (o.mod || 0)) map.set(r.id, r);
+      else if (r.foto && !o.foto) o.foto = r.foto;  // la foto solo vive en este teléfono
+    }
+    const lista = [...map.values()].filter(r => !(r.id in borradas));
+    lista.sort((a, b) => (a.creada || 0) - (b.creada || 0));
+    return lista;
+  };
+  return {
+    recepciones: unir(db.recepciones, remote && remote.recepciones),
+    facturas: unir(db.facturas, remote && remote.facturas),
+    borradas
+  };
 }
 
 // ¿lo mezclado ya es idéntico a lo que hay en el servidor?
 function sameAsRemote(merged, remote) {
-  const rr = (remote && remote.recepciones) || [];
+  const igual = (mios, suyos) => {
+    suyos = suyos || [];
+    if (suyos.length !== mios.length) return false;
+    const map = new Map(suyos.map(r => [r.id, r.mod || 0]));
+    for (const r of mios) if (map.get(r.id) !== (r.mod || 0)) return false;
+    return true;
+  };
+  if (!igual(merged.recepciones, remote && remote.recepciones)) return false;
+  if (!igual(merged.facturas, remote && remote.facturas)) return false;
   const rb = (remote && remote.borradas) || {};
-  if (rr.length !== merged.recepciones.length) return false;
-  const rmap = new Map(rr.map(r => [r.id, r.mod || 0]));
-  for (const r of merged.recepciones) if (rmap.get(r.id) !== (r.mod || 0)) return false;
   const bk = Object.keys(merged.borradas), rbk = Object.keys(rb);
   if (bk.length !== rbk.length) return false;
   for (const k of bk) if (!(k in rb)) return false;
   return true;
+}
+
+// las fotos se quedan en el teléfono: abultan y no hacen falta en los demás
+function sinFotos(facturas) {
+  return facturas.map(f => {
+    if (!f.foto) return f;
+    const copia = Object.assign({}, f);
+    delete copia.foto;
+    return copia;
+  });
 }
 
 async function crearRamaDatos() {
@@ -1056,17 +1677,22 @@ async function syncNow(reintento) {
     }
 
     // 2. mezclar y aplicar en este teléfono
-    const antes = db.recepciones.map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
+    const huella = () => db.recepciones.concat(db.facturas).map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
+    const antes = huella();
     const merged = mergeRemote(remote);
     db.recepciones = merged.recepciones;
+    db.facturas = merged.facturas;
     db.borradas = merged.borradas;
     save(false);
-    const despues = db.recepciones.map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
-    if (antes !== despues) {
+    if (antes !== huella()) {
       // llegaron cambios de otro teléfono: refrescar lo que está en pantalla
       if (current) {
         current = db.recepciones.find(r => r.id === current.id);
         if (current) renderRec();
+        else { renderHome(); show('home'); }
+      } else if (currentFac) {
+        currentFac = db.facturas.find(f => f.id === currentFac.id);
+        if (currentFac) renderFac();
         else { renderHome(); show('home'); }
       } else {
         renderHome();
@@ -1078,7 +1704,11 @@ async function syncNow(reintento) {
     if (!sameAsRemote(merged, remote)) {
       const body = {
         message: 'datos: actualización desde la app',
-        content: b64enc(JSON.stringify({ recepciones: merged.recepciones, borradas: merged.borradas })),
+        content: b64enc(JSON.stringify({
+          recepciones: merged.recepciones,
+          facturas: sinFotos(merged.facturas),
+          borradas: merged.borradas
+        })),
         branch: SYNC.branch
       };
       if (sha) body.sha = sha;

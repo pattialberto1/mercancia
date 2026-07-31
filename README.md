@@ -18,9 +18,9 @@ Cubre la **recepción de pollo** y la **recepción de papas**; se irán añadien
 
 ## Cómo funcionan las papas y las verduras
 
-La pantalla de inicio tiene tres pestañas: **🐔 Pollo**, **🥔 Papas** y **🥬 Verduras**
+La pantalla de inicio tiene cuatro pestañas: **🐔 Pollo**, **🥔 Papas**, **🥬 Verduras**
 (repollo blanco, repollo morado, zanahoria y cebollín — al crear una recepción de
-verduras la app pregunta cuál llega).
+verduras la app pregunta cuál llega) y **🧾 Tierra Santa** (facturas del proveedor).
 
 - Las papas y las verduras se pesan **de 1 a 5 cestas** por pesada (selector en pantalla).
 - En la pestaña de verduras hay un botón **"Enviar verduras del día"** que junta todas
@@ -33,6 +33,45 @@ verduras la app pregunta cuál llega).
 
 Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 = 1.548 kg bruto, 45 cestas → tara 103,5 kg → **1.444,5 kg de pollo neto**.
+
+## Tierra Santa — facturas del proveedor
+
+La cuarta pestaña, **🧾 Tierra Santa**, no lleva pesadas: guarda las **facturas
+del proveedor**. Le tomas una foto a la factura y la app saca sola todos los
+renglones (producto, cantidad, unidad, precio e importe).
+
+1. **🧾 Nueva factura** → **📷 Tomar o elegir foto** (cámara o carrete).
+2. **✨ Leer la factura**: en unos segundos aparecen los productos, el nº de
+   factura, la fecha y el total.
+3. **Repasa siempre lo leído.** Se toca cualquier renglón para corregir el
+   nombre, la cantidad, la unidad, el precio o el importe; con **+ Añadir** se
+   agrega uno que se haya saltado. Al cambiar cantidad o precio, el importe se
+   recalcula solo (y se puede corregir a mano si la factura trae un descuento).
+4. Si el total impreso en la factura no cuadra con la suma de los renglones,
+   la app avisa en rojo y dice cuánto falta o sobra.
+5. **📲 Enviar por WhatsApp**: manda el parte con todo lo que llegó, el total y
+   lo que queda por pagar. Con **✅ Marcar como pagada** el mensaje deja de
+   reclamar el pago.
+
+La factura se puede llevar en **dólares o en bolívares** (selector de moneda).
+
+### Clave para leer facturas
+
+Leer la foto lo hace un servicio de IA, así que hace falta una clave:
+
+1. Sacar una clave de API en [console.anthropic.com](https://console.anthropic.com)
+   → *API keys* → *Create key* (empieza por `sk-ant-…`).
+2. Pegarla en la app: **Ajustes ⚙️ → Clave para leer facturas**, en cada teléfono
+   que vaya a leer facturas.
+
+La clave se guarda **solo en ese teléfono** y nunca se sube al repositorio, igual
+que el código de sincronización. Cada foto leída tiene un pequeño costo en esa
+cuenta; escribir los renglones a mano no cuesta nada.
+
+Las facturas sí se comparten entre teléfonos por la sincronización normal.
+**La foto no se comparte**: se queda en el teléfono que la tomó (pesa demasiado
+para subirla). Si al teléfono se le acaba el espacio, la app suelta primero las
+fotos más viejas y conserva los datos ya leídos.
 
 ## Funciones
 
@@ -93,5 +132,7 @@ modificada más recientemente. Recepciones distintas nunca chocan.
 
 Los datos se guardan en `localStorage` del navegador y, si la sincronización está
 activada, también en `datos.json` en la rama `datos` del repositorio. Ojo: si el
-repositorio es público, ese archivo de datos también lo es (pesos y cantidades,
-nada más). El token de sincronización nunca se guarda en el repositorio.
+repositorio es público, ese archivo de datos también lo es (pesos, cantidades y
+los renglones de las facturas, nada más). Ni el token de sincronización ni la
+clave para leer facturas se guardan nunca en el repositorio; las fotos de las
+facturas tampoco salen del teléfono que las tomó.
