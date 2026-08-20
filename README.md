@@ -18,9 +18,10 @@ Cubre la **recepción de pollo** y la **recepción de papas**; se irán añadien
 
 ## Cómo funcionan las papas y las verduras
 
-La pantalla de inicio tiene cuatro pestañas: **🐔 Pollo**, **🥔 Papas**, **🥬 Verduras**
+La pantalla de inicio tiene seis pestañas: **🐔 Pollo**, **🥔 Papas**, **🥬 Verduras**
 (repollo blanco, repollo morado, zanahoria y cebollín — al crear una recepción de
-verduras la app pregunta cuál llega) y **🧾 Tierra Santa** (facturas del proveedor).
+verduras la app pregunta cuál llega), **🍗 Alitas** (control de bolsas, ver abajo)
+y **🧾 Tierra Santa** (facturas del proveedor).
 
 - Las papas y las verduras se pesan **de 1 a 5 cestas** por pesada (selector en pantalla).
 - En la pestaña de verduras hay un botón **"Enviar verduras del día"** que junta todas
@@ -33,6 +34,23 @@ verduras la app pregunta cuál llega) y **🧾 Tierra Santa** (facturas del prov
 
 Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 = 1.548 kg bruto, 45 cestas → tara 103,5 kg → **1.444,5 kg de pollo neto**.
+
+## Alitas — solo control de peso
+
+La pestaña **🍗 Alitas** es distinta a las demás: no hay cestas, no hay tara y no
+hay rango. Cada pesada es directamente **el peso de una bolsa**, y el total es la
+suma exacta de lo pesado — no lleva ningún descuento. Sirve para llevar el control
+de cuánto entra, no para calcular un neto a partir de un bruto.
+
+- Se escribe el peso de cada bolsa (admite decimales, ej. 4,25) y se pulsa «Añadir».
+- El total («ALITAS NETAS») es simplemente la suma de las bolsas anotadas.
+- No aparecen las tarjetas de «Cestas», «Tara» ni «Cestas vacías», porque no aplican.
+- El resumen de WhatsApp lista cada bolsa con su peso y el total, sin mencionar
+  cestas ni tara.
+
+Para agregar otro producto "de control simple" igual que este (sin cestas ni tara),
+se define con `bolsa: true` en `PRODUCTOS` — el resto de la app (totales, lista de
+pesadas, resumen de WhatsApp) se ajusta solo.
 
 ## Tierra Santa — facturas del proveedor
 
