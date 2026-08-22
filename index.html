@@ -481,8 +481,16 @@
       <button class="iconbtn" id="eq-back" aria-label="Volver">←</button>
       <div style="flex:1"><h1>⚙️ Equivalencias</h1><div class="sub">Qué consume cada cosa que vendes</div></div>
     </div>
-    <div class="sub" style="margin-bottom:14px">Por cada producto del reporte de ventas, cuántas piezas de pollo y qué otras cosas lleva. Lo que no tenga equivalencia sale marcado y no se descuenta de nada.</div>
-    <div id="eq-list"></div>
+    <div class="card">
+      <div class="listhead"><h2>Qué controlar</h2></div>
+      <div class="sub" style="margin:2px 0 12px">Activa solo lo que estés registrando de verdad al recibir. Si activas algo sin anotar sus entradas, las cuentas saldrán en negativo.</div>
+      <div id="eq-articulos"></div>
+    </div>
+    <div class="card">
+      <div class="listhead"><h2>Equivalencias</h2></div>
+      <div class="sub" style="margin:2px 0 12px">Qué consume cada producto del reporte. Lo que no tenga equivalencia no se descuenta de nada.</div>
+      <div id="eq-list"></div>
+    </div>
   </section>
 </main>
 
@@ -597,7 +605,8 @@
 const STORE_KEY = 'mercancia.v1';
 const defaults = {
   settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-              proveedores: ['Tierra Santa'], ultimoProveedor: 'Tierra Santa' },
+              proveedores: ['Tierra Santa'], ultimoProveedor: 'Tierra Santa',
+              articulosActivos: ['pollo_pieza'] },
   recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -617,9 +626,12 @@ const PRODUCTOS = {
   /* Productos que se CUENTAN, no se pesan (refrescos, aguas, envases). Cada
      entrada es un número de unidades. Alimentan el módulo de Inventario, donde
      lo recibido y lo vendido se comparan en la misma unidad. */
-  refresco_1l:    { emoji: '🥤', nombre: 'Refresco 1L',    neto: 'REFRESCOS 1L', unidad: true },
-  agua:           { emoji: '💧', nombre: 'Agua',           neto: 'AGUAS',        unidad: true },
-  envases:        { emoji: '📦', nombre: 'Envases',        neto: 'ENVASES',      unidad: true }
+  refresco_1l:    { emoji: '🥤', nombre: 'Refresco 1L',   neto: 'REFRESCOS 1L',   unidad: true },
+  refresco_15l:   { emoji: '🥤', nombre: 'Refresco 1,5L', neto: 'REFRESCOS 1,5L', unidad: true },
+  refresco_2l:    { emoji: '🥤', nombre: 'Refresco 2L',   neto: 'REFRESCOS 2L',   unidad: true },
+  agua:           { emoji: '💧', nombre: 'Agua 600ml',    neto: 'AGUAS',          unidad: true },
+  yuky:           { emoji: '🧃', nombre: 'Yuky-pack',     neto: 'YUKY-PACKS',     unidad: true },
+  envases:        { emoji: '📦', nombre: 'Envases',       neto: 'ENVASES',        unidad: true }
 };
 // ¿este producto se pesa "a bolsas" (sin cestas ni tara), en vez de a granel con cestas?
 function esBolsaTipo(tipo) { return !!(PRODUCTOS[tipo] || {}).bolsa; }
@@ -639,7 +651,7 @@ const TABS = {
   papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
-  unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'agua', 'envases'] },
+  unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'yuky', 'envases'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
   inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
 };
@@ -1789,15 +1801,28 @@ for (const id of ['modal-settings', 'modal-confirm', 'modal-producto', 'modal-li
 /* Qué se controla. Cada artículo dice de dónde sale lo que ENTRA:
    - 'cestas': de las recepciones de pollo, convertidas a piezas
    - 'unidades': de las recepciones de productos que se cuentan       */
-const ARTICULOS = [
+const ARTICULOS_TODOS = [
   { id: 'pollo_pieza', nombre: 'Piezas de pollo', emoji: '🍗', unidad: 'piezas',
     entrada: { tipo: 'cestas', producto: 'pollo' } },
   { id: 'ref_1l', nombre: 'Refrescos de 1L', emoji: '🥤', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'refresco_1l' } },
-  { id: 'agua', nombre: 'Agua', emoji: '💧', unidad: 'unidades',
-    entrada: { tipo: 'unidades', producto: 'agua' } }
+  { id: 'ref_15l', nombre: 'Refrescos de 1,5L', emoji: '🥤', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'refresco_15l' } },
+  { id: 'ref_2l', nombre: 'Refrescos de 2L', emoji: '🥤', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'refresco_2l' } },
+  { id: 'agua', nombre: 'Agua 600ml', emoji: '💧', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'agua' } },
+  { id: 'yuky', nombre: 'Yuky-packs', emoji: '🧃', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'yuky' } }
 ];
-function articulo(id) { return ARTICULOS.find(a => a.id === id); }
+/* Solo se controla lo que se esté registrando de verdad. Activar un artículo
+   sin anotar sus entradas haría que el esperado saliera negativo semana tras
+   semana. Se arranca solo con el pollo y se van sumando los demás. */
+function articulosActivos() {
+  const ids = db.settings.articulosActivos || ['pollo_pieza'];
+  return ARTICULOS_TODOS.filter(a => ids.includes(a.id));
+}
+function articulo(id) { return ARTICULOS_TODOS.find(a => a.id === id); }
 
 /* Una cesta trae 18 pollos fijos; al picarlos rinden 20, y cada pollo son
    8 piezas. O sea 160 piezas vendibles por cesta. Configurable por si
@@ -1825,7 +1850,11 @@ const EQUIVALENCIAS_BASE = {
   '1539': { nombre: 'REF. 1L UVA',        consume: { ref_1l: 1 } },
   '1513': { nombre: 'AGUA 600ML',         consume: { agua: 1 } },
   '1621': { nombre: 'MINALBA 600ML',      consume: { agua: 1 } },
-  '1620': { nombre: 'MINALBA 1.5L',       consume: { agua: 1 } }
+  '1552': { nombre: 'YUKY PACK DURAZNO',  consume: { yuky: 1 } },
+  '1553': { nombre: 'YUKY PACK MANZANA',  consume: { yuky: 1 } },
+  '1554': { nombre: 'YUKY PACK PERA',     consume: { yuky: 1 } },
+  '1602': { nombre: 'TENDER+REF./ YUKY PACK', consume: { yuky: 1 } },
+  '1630': { nombre: 'LITRO Y MEDIO',      consume: { ref_15l: 1 } }
 };
 function equivalencias() {
   return Object.assign({}, EQUIVALENCIAS_BASE, db.settings.equivalencias || {});
@@ -1857,7 +1886,7 @@ function inicialDe(inv) {
 /* ---- lo recibido en la semana, de las recepciones que ya existen ---- */
 function recibidoEnSemana(inv) {
   const out = {};
-  for (const art of ARTICULOS) {
+  for (const art of articulosActivos()) {
     const e = art.entrada;
     const recs = db.recepciones.filter(r =>
       r.tipo === e.producto && r.fecha >= inv.semanaInicio && r.fecha <= inv.semanaFin);
@@ -1875,7 +1904,7 @@ function recibidoEnSemana(inv) {
 function vendidoEnSemana(inv) {
   const eq = equivalencias();
   const out = {};
-  for (const art of ARTICULOS) out[art.id] = 0;
+  for (const art of articulosActivos()) out[art.id] = 0;
   for (const v of (inv.ventas || [])) {
     const regla = eq[v.codigo];
     if (!regla) continue;
@@ -2153,7 +2182,7 @@ function calcular(inv) {
   const inicial = inicialDe(inv);
   const recibido = recibidoEnSemana(inv);
   const vendido = vendidoEnSemana(inv);
-  return ARTICULOS.map(a => {
+  return articulosActivos().map(a => {
     const ini = Number(inicial[a.id]) || 0;
     const rec = Number(recibido[a.id]) || 0;
     const ven = Number(vendido[a.id]) || 0;
@@ -2315,7 +2344,33 @@ $('inv-wa').onclick = () => {
 };
 
 /* ---- equivalencias ---- */
+function renderArticulosActivos() {
+  const activos = (db.settings.articulosActivos || ['pollo_pieza']);
+  const cont = $('eq-articulos');
+  cont.innerHTML = '';
+  for (const a of ARTICULOS_TODOS) {
+    const on = activos.includes(a.id);
+    const row = document.createElement('button');
+    row.className = 'entry';
+    row.style.width = '100%';
+    row.innerHTML =
+      '<div style="flex:1;text-align:left"><span class="w">' + a.emoji + ' ' + a.nombre + '</span>' +
+      '<div class="meta">' + (on ? 'Se está controlando' : 'No se controla') + '</div></div>' +
+      '<span style="font-size:20px">' + (on ? '✅' : '⬜️') + '</span>';
+    row.onclick = () => {
+      const lista = on ? activos.filter(x => x !== a.id) : [...activos, a.id];
+      if (!lista.length) { toast('Deja al menos uno'); return; }
+      db.settings.articulosActivos = lista;
+      save(false);
+      renderArticulosActivos();
+      toast(on ? a.nombre + ': ya no se controla' : a.nombre + ': se empezará a controlar');
+    };
+    cont.appendChild(row);
+  }
+}
+
 function renderEquivalencias() {
+  renderArticulosActivos();
   const eq = equivalencias();
   const cont = $('eq-list');
   const inv = currentInv;

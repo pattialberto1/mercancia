@@ -150,6 +150,16 @@ de ahí en adelante sale solo.
   de lo que la app tiene registrado y que falta cargar el inicial o las entradas.
   Tampoco deja cerrar la semana así, porque ese error se arrastraría para siempre.
 
+### Qué se controla
+
+En **⚙️ Equivalencias** se elige qué artículos se controlan. **De arranque solo
+el pollo**, a propósito: activar algo sin registrar sus entradas haría que las
+cuentas salieran en negativo semana tras semana. Cada bebida se activa cuando
+ya se esté anotando lo que entra de ella.
+
+Disponibles: piezas de pollo, refrescos de 1L, de 1,5L y de 2L, agua de 600 ml
+y yuky-packs.
+
 ### Equivalencias
 
 El sistema vende platos, no insumos: no se puede restar «730 combos» de «kg de
