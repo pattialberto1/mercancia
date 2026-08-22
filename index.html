@@ -100,6 +100,7 @@
     vertical-align: 2px;
   }
   .badge.open { background: var(--accent-soft); color: var(--accent); }
+  .badge.vacia { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
   .empty { text-align: center; color: var(--muted); padding: 36px 16px; font-size: 15px; }
   .empty .big { font-size: 40px; display: block; margin-bottom: 10px; }
 
@@ -316,9 +317,9 @@
 
     <div class="card">
       <div class="totals">
-        <div class="tot"><div class="lbl">Pesadas</div><div class="val" id="t-pesadas">0</div></div>
+        <div class="tot"><div class="lbl" id="tot-pesadas-lbl">Pesadas</div><div class="val" id="t-pesadas">0</div></div>
         <div class="tot" id="tot-cestas"><div class="lbl">Cestas</div><div class="val" id="t-cestas">0</div></div>
-        <div class="tot"><div class="lbl">Peso bruto</div><div class="val" id="t-bruto">0 kg</div></div>
+        <div class="tot" id="tot-bruto"><div class="lbl" id="tot-bruto-lbl">Peso bruto</div><div class="val" id="t-bruto">0 kg</div></div>
         <div class="tot" id="tot-tara"><div class="lbl">Tara cestas</div><div class="val" id="t-tara">−0 kg</div></div>
         <div class="net"><span class="lbl" id="t-neto-lbl">POLLO NETO</span><span class="val" id="t-neto">0 kg</span></div>
       </div>
@@ -375,6 +376,12 @@
 
     <div class="card">
       <div class="listhead"><h2>Datos de la factura</h2></div>
+      <div class="field">
+        <label for="fac-proveedor">Proveedor</label>
+        <input id="fac-proveedor" type="text" list="lista-proveedores" autocomplete="off" placeholder="Nombre del proveedor">
+        <datalist id="lista-proveedores"></datalist>
+        <div class="hint" style="text-align:left">Escribe uno nuevo y se guarda solo para la próxima.</div>
+      </div>
       <div class="row2">
         <div class="field"><label>Nº de factura</label><input id="fac-num" type="text" autocomplete="off" placeholder="—"></div>
         <div class="field"><label>Fecha</label><input id="fac-fecha" type="date"></div>
@@ -523,7 +530,8 @@
 /* ============ almacenamiento ============ */
 const STORE_KEY = 'mercancia.v1';
 const defaults = {
-  settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '' },
+  settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
+              proveedores: ['Tierra Santa'], ultimoProveedor: 'Tierra Santa' },
   recepciones: [], facturas: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -539,10 +547,24 @@ const PRODUCTOS = {
   zanahoria:      { emoji: '🥕', nombre: 'Zanahoria',      neto: 'ZANAHORIA NETA', cestas: 5 },
   cebollin:       { emoji: '🌿', nombre: 'Cebollín',       neto: 'CEBOLLÍN NETO', cestas: 5 },
   // solo control de peso: sin cestas ni tara, cada pesada es una bolsa
-  alitas:         { emoji: '🍗', nombre: 'Alitas',         neto: 'ALITAS NETAS', bolsa: true }
+  alitas:         { emoji: '🍗', nombre: 'Alitas',         neto: 'ALITAS NETAS', bolsa: true },
+  /* Productos que se CUENTAN, no se pesan (refrescos, aguas, envases). Cada
+     entrada es un número de unidades. Alimentan el módulo de Inventario, donde
+     lo recibido y lo vendido se comparan en la misma unidad. */
+  refresco_1l:    { emoji: '🥤', nombre: 'Refresco 1L',    neto: 'REFRESCOS 1L', unidad: true },
+  agua:           { emoji: '💧', nombre: 'Agua',           neto: 'AGUAS',        unidad: true },
+  envases:        { emoji: '📦', nombre: 'Envases',        neto: 'ENVASES',      unidad: true }
 };
 // ¿este producto se pesa "a bolsas" (sin cestas ni tara), en vez de a granel con cestas?
 function esBolsaTipo(tipo) { return !!(PRODUCTOS[tipo] || {}).bolsa; }
+// ¿se cuenta en unidades en vez de pesarse?
+function esUnidadTipo(tipo) { return !!(PRODUCTOS[tipo] || {}).unidad; }
+// cómo se mide un producto: los que se cuentan no llevan "kg"
+function fmtMedida(n, tipo) {
+  return esUnidadTipo(tipo)
+    ? fmt(round2(n)) + (round2(n) === 1 ? ' unidad' : ' unidades')
+    : fmtKg(n);
+}
 
 /* Pestañas del inicio: una puede agrupar varios productos.
    La pestaña de Tierra Santa no lleva pesadas: son facturas del proveedor. */
@@ -551,9 +573,16 @@ const TABS = {
   papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
+  unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'agua', 'envases'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true }
 };
-const PROVEEDOR_TS = 'Tierra Santa';
+const PROVEEDOR_TS = 'Tierra Santa';   // el primero, y el que ya tenía facturas
+// Los proveedores se guardan en los ajustes para poder agregar otros (las
+// bebidas y los empaques vienen de un proveedor distinto al de las verduras).
+function proveedores() {
+  const guardados = (db.settings.proveedores || []).filter(Boolean);
+  return guardados.length ? guardados : [PROVEEDOR_TS];
+}
 
 function load() {
   try {
@@ -703,16 +732,21 @@ function renderHome() {
   for (const rec of recs) {
     const t = totals(rec);
     const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
-    const meta = P.bolsa
-      ? (t.pesadas === 1 ? '1 bolsa' : t.pesadas + ' bolsas')
-      : t.pesadas + ' pesadas · ' + t.cestas + ' cestas';
+    const meta = P.unidad
+      ? (t.pesadas === 1 ? '1 entrada' : t.pesadas + ' entradas')
+      : P.bolsa
+        ? (t.pesadas === 1 ? '1 bolsa' : t.pesadas + ' bolsas')
+        : t.pesadas + ' pesadas · ' + t.cestas + ' cestas';
     const btn = document.createElement('button');
     btn.className = 'rec-item';
     btn.innerHTML =
       '<div><div style="font-weight:700">' + P.emoji + ' ' + P.nombre + ' · ' + fmtDate(rec.fecha) +
-      (rec.cerrada ? '<span class="badge">terminada</span>' : '<span class="badge open">abierta</span>') +
+      (rec.cerrada ? '<span class="badge">terminada</span>'
+        // una recepción abierta sin una sola pesada no es trabajo a medias:
+        // es una que se creó por error y quedó ahí ensuciando la lista
+        : t.pesadas ? '<span class="badge open">abierta</span>' : '<span class="badge vacia">sin usar</span>') +
       '</div><div class="meta sub">' + meta + '</div></div>' +
-      '<div style="display:flex;align-items:center;gap:8px"><span class="kg">' + fmtKg(t.neto) + '</span><span class="chev">›</span></div>';
+      '<div style="display:flex;align-items:center;gap:8px"><span class="kg">' + fmtMedida(t.neto, rec.tipo) + '</span><span class="chev">›</span></div>';
     btn.onclick = () => openRec(rec.id);
     list.appendChild(btn);
   }
@@ -734,9 +768,14 @@ function renderRec() {
   const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
   const esPollo = rec.tipo === 'pollo';
   const esBolsa = !!P.bolsa;
+  const esUnidad = !!P.unidad;
+  // ambos comparten pantalla: una sola entrada, sin cestas ni tara
+  const simple = esBolsa || esUnidad;
   $('rec-title').textContent = P.nombre + ' · ' + fmtDate(rec.fecha);
   $('rec-sub').textContent = rec.cerrada
     ? 'Recepción terminada'
+    : esUnidad
+      ? 'Anota cuántas unidades llegan.'
     : esBolsa
       ? 'Anota el peso de cada bolsa que llega.'
       : esPollo
@@ -747,10 +786,10 @@ function renderRec() {
   $('entry-card').classList.toggle('hidden', rec.cerrada);
   $('btn-close-rec').textContent = rec.cerrada ? 'Reabrir recepción' : 'Terminar recepción';
   $('seg-mode').classList.toggle('hidden', !esPollo);
-  $('cestas-picker').classList.toggle('hidden', esPollo || esBolsa);
+  $('cestas-picker').classList.toggle('hidden', esPollo || simple);
   for (const b of $('seg-mode').querySelectorAll('button'))
     b.classList.toggle('on', +b.dataset.mode === mode);
-  if (!esPollo && !esBolsa) {
+  if (!esPollo && !simple) {
     // botones 1..máximo de cestas del producto (papas: 5 · verduras: 3)
     const segC = $('seg-cestas');
     const maxC = P.cestas || 5;
@@ -766,8 +805,9 @@ function renderRec() {
     for (const b of segC.querySelectorAll('button'))
       b.classList.toggle('on', +b.dataset.c === mode);
   }
-  $('weight-input').setAttribute('inputmode', esPollo ? 'numeric' : 'decimal');
-  $('weight-input').placeholder = esBolsa ? 'Peso de la bolsa en kg' : 'Peso en kg';
+  $('weight-input').setAttribute('inputmode', esPollo || esUnidad ? 'numeric' : 'decimal');
+  $('weight-input').placeholder = esUnidad ? 'Cuántas unidades'
+    : esBolsa ? 'Peso de la bolsa en kg' : 'Peso en kg';
 
   // botones rápidos (solo pollo: enteros del rango, modo 2 cestas)
   const qb = $('quick-btns');
@@ -787,6 +827,9 @@ function renderRec() {
     qb.classList.add('hidden');
     const [lo1, hi1] = rango(1, rec);
     $('range-hint').textContent = 'Cesta suelta: entre ' + fmt(lo1) + ' y ' + fmt(hi1) + ' kg.';
+  } else if (esUnidad) {
+    qb.classList.add('hidden');
+    $('range-hint').textContent = 'Escribe cuántas unidades llegan (números enteros).';
   } else if (esBolsa) {
     qb.classList.add('hidden');
     $('range-hint').textContent = 'Escribe el peso de la bolsa (puede llevar decimales, ej. 4,25).';
@@ -798,13 +841,16 @@ function renderRec() {
   // totales (en bolsas no hay cestas ni tara: se ocultan esas dos casillas)
   $('t-pesadas').textContent = t.pesadas;
   $('t-cestas').textContent = t.cestas;
-  $('t-bruto').textContent = fmtKg(t.bruto);
+  $('t-bruto').textContent = fmtMedida(t.bruto, rec.tipo);
   $('t-tara').textContent = '−' + fmtKg(t.tara);
   $('t-neto-lbl').textContent = P.neto;
-  $('t-neto').textContent = fmtKg(t.neto);
-  $('tot-cestas').classList.toggle('hidden', esBolsa);
-  $('tot-tara').classList.toggle('hidden', esBolsa);
-  $('card-vacias').classList.toggle('hidden', esBolsa);
+  $('t-neto').textContent = fmtMedida(t.neto, rec.tipo);
+  document.querySelector('#tot-pesadas-lbl').textContent = esUnidad ? 'Entradas' : 'Pesadas';
+  document.querySelector('#tot-bruto-lbl').textContent = esUnidad ? 'Total' : 'Peso bruto';
+  $('tot-cestas').classList.toggle('hidden', simple);
+  $('tot-tara').classList.toggle('hidden', simple);
+  $('tot-bruto').classList.toggle('hidden', esUnidad);
+  $('card-vacias').classList.toggle('hidden', simple);
 
   // resumen agrupado (solo pollo: en papas los pesos casi nunca se repiten)
   $('summary-card').classList.toggle('hidden', !esPollo);
@@ -846,9 +892,9 @@ function renderRec() {
     const idx = rec.pesadas.indexOf(p);
     const row = document.createElement('div');
     row.className = 'entry';
-    const meta = esBolsa ? ('#' + (idx + 1)) : ((p.cestas === 1 ? '1 cesta' : p.cestas + ' cestas') + ' · #' + (idx + 1));
+    const meta = simple ? ('#' + (idx + 1)) : ((p.cestas === 1 ? '1 cesta' : p.cestas + ' cestas') + ' · #' + (idx + 1));
     row.innerHTML =
-      '<div><span class="w">' + fmt(p.peso) + ' kg</span> ' +
+      '<div><span class="w">' + (esUnidad ? fmt(p.peso) + (p.peso === 1 ? ' unidad' : ' unidades') : fmt(p.peso) + ' kg') + '</span> ' +
       '<span class="meta">· ' + meta + '</span>' +
       (inRange(p.peso, p.cestas, rec) ? '' : ' <span class="flag">fuera de rango</span>') + '</div>' +
       (rec.cerrada ? '' : '<button class="del">Borrar</button>');
@@ -936,9 +982,23 @@ function addEntry(peso, cestas) {
     save();
     $('weight-input').value = '';
     renderRec();
-    toast('✓ ' + fmt(peso) + ' kg añadidos');
+    toast('✓ ' + (esUnidadTipo(rec.tipo)
+      ? fmt(peso) + (peso === 1 ? ' unidad añadida' : ' unidades añadidas')
+      : fmt(peso) + ' kg añadidos'));
     if (navigator.vibrate) navigator.vibrate(15);
   };
+  // La tara no puede comerse el peso: si una pesada de N cestas pesa menos que
+  // sus cestas vacías, el neto sale negativo. Pasó de verdad (repollo morado,
+  // 5 cestas y 8,6 kg) y quedó guardado sin que nada avisara.
+  const taraPesada = cestas * rec.tara;
+  if (cestas > 0 && peso <= taraPesada) {
+    askConfirm('El peso no cuadra con las cestas',
+      fmt(peso) + ' kg para ' + cestas + (cestas === 1 ? ' cesta' : ' cestas') +
+      ' da un neto de ' + fmt(round2(peso - taraPesada)) + ' kg, porque solo la tara ya pesa ' +
+      fmt(round2(taraPesada)) + ' kg. Revisa si son esas cestas o ese peso. ¿Anotarlo igual?',
+      doAdd);
+    return;
+  }
   if (!inRange(peso, cestas, rec)) {
     const [min, max] = rango(cestas, rec);
     askConfirm('Peso fuera de rango',
@@ -953,6 +1013,15 @@ function addEntry(peso, cestas) {
 $('btn-add').onclick = () => {
   const s = $('weight-input').value.trim();
   let v;
+  if (esUnidadTipo(current.tipo)) {
+    // no se pesan: se cuentan, y media unidad no existe
+    if (!/^\d+$/.test(s)) { toast('Escribe cuántas unidades, en número entero'); return; }
+    v = parseInt(s, 10);
+    if (v <= 0) { toast('Escribe cuántas unidades'); return; }
+    if (v > 5000) { toast('Esa cantidad no parece correcta'); return; }
+    addEntry(v, 0);
+    return;
+  }
   if (current.tipo === 'pollo') {
     // el pollo se anota en kg enteros
     if (!/^\d+$/.test(s)) { toast('Solo números enteros, sin decimales'); return; }
@@ -980,7 +1049,7 @@ $('btn-close-rec').onclick = () => {
     toast('Recepción reabierta');
   } else {
     askConfirm('Terminar recepción',
-      'Se guardará con ' + fmtKg(totals(rec).neto) + ' de ' + (PRODUCTOS[rec.tipo] || PRODUCTOS.pollo).nombre.toLowerCase() + ' neto. Podrás reabrirla si lo necesitas.',
+      'Se guardará con ' + fmtMedida(totals(rec).neto, rec.tipo) + ' de ' + (PRODUCTOS[rec.tipo] || PRODUCTOS.pollo).nombre.toLowerCase() + ' neto. Podrás reabrirla si lo necesitas.',
       () => { rec.cerrada = true; touch(rec); save(); renderRec(); toast('Recepción terminada'); });
   }
 };
@@ -1002,6 +1071,14 @@ $('btn-del-rec').onclick = () => {
 function buildResumen(rec) {
   const t = totals(rec);
   const P = PRODUCTOS[rec.tipo] || PRODUCTOS.pollo;
+  if (P.unidad) {
+    // se cuentan: ni cestas, ni tara, ni kilos
+    let txt = P.emoji + ' *' + P.nombre.toUpperCase() + '*\n📅 ' + fmtDate(rec.fecha) + '\n\n';
+    if (!rec.pesadas.length) txt += '• (sin entradas todavía)\n';
+    else rec.pesadas.forEach((x, i) => { txt += '• Entrada ' + (i + 1) + ': ' + fmt(x.peso) + '\n'; });
+    txt += '\n✅ *' + P.neto + ': ' + fmtMedida(t.neto, rec.tipo) + '*';
+    return txt;
+  }
   if (P.bolsa) {
     // sin cestas ni tara: solo el peso de cada bolsa y el total
     let txt = P.emoji + ' *' + P.nombre.toUpperCase() + '*\n📅 ' + fmtDate(rec.fecha) + '\n';
@@ -1104,7 +1181,7 @@ function facTotal(fac) {
 function nuevaFactura() {
   const fac = {
     id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    proveedor: PROVEEDOR_TS,
+    proveedor: db.settings.ultimoProveedor || proveedores()[0],
     numero: '',
     fecha: todayISO(),
     moneda: 'USD',
@@ -1133,8 +1210,8 @@ function renderHomeFacturas() {
   const list = $('home-list');
   const facs = [...db.facturas].sort((a, b) => b.creada - a.creada);
   if (!facs.length) {
-    list.innerHTML = '<div class="empty"><span class="big">🧾</span>Todavía no hay facturas de ' + PROVEEDOR_TS +
-      '.<br>Pulsa «Nueva factura» y súbele la foto.</div>';
+    list.innerHTML = '<div class="empty"><span class="big">🧾</span>Todavía no hay facturas.' +
+      '<br>Pulsa «Nueva factura» y súbele la foto.</div>';
     return;
   }
   list.innerHTML = '';
@@ -1145,7 +1222,7 @@ function renderHomeFacturas() {
       '<div><div style="font-weight:700">🧾 ' + fmtDate(fac.fecha) +
       (fac.numero ? ' · Nº ' + esc(fac.numero) : '') +
       (fac.pagada ? '<span class="badge">pagada</span>' : '<span class="badge open">por pagar</span>') +
-      '</div><div class="meta sub">' + fac.lineas.length +
+      '</div><div class="meta sub">' + esc(fac.proveedor || PROVEEDOR_TS) + ' · ' + fac.lineas.length +
       (fac.lineas.length === 1 ? ' renglón' : ' renglones') + '</div></div>' +
       '<div style="display:flex;align-items:center;gap:8px"><span class="kg">' +
       fmtDinero(facTotal(fac), fac.moneda) + '</span><span class="chev">›</span></div>';
@@ -1175,6 +1252,9 @@ function renderFac() {
   $('fac-leer').classList.toggle('hidden', !fac.foto);
 
   // datos
+  $('fac-proveedor').value = fac.proveedor || '';
+  $('lista-proveedores').innerHTML = proveedores()
+    .map(n => '<option value="' + esc(n) + '">').join('');
   $('fac-num').value = fac.numero || '';
   $('fac-fecha').value = fac.fecha;
   $('fac-total').value = fac.totalFactura == null ? '' : String(fac.totalFactura).replace('.', ',');
@@ -1346,8 +1426,8 @@ const FACTURA_SCHEMA = {
   additionalProperties: false
 };
 
-const IA_INSTRUCCIONES =
-  'Esta es la foto de una factura del proveedor ' + PROVEEDOR_TS + '. Saca todos sus renglones.\n\n' +
+function iaInstrucciones(proveedor) {
+  return 'Esta es la foto de una factura del proveedor ' + (proveedor || PROVEEDOR_TS) + '. Saca todos sus renglones.\n\n' +
   '- Copia el nombre de cada producto tal como está escrito en el papel, sin traducirlo ni corregirlo.\n' +
   '- "cantidad" es cuánto facturan de ese producto y "unidad" es en qué se mide (kg, un, caja, saco, bulto…). ' +
   'Si la factura no dice la unidad, pon "un".\n' +
@@ -1356,6 +1436,7 @@ const IA_INSTRUCCIONES =
   '- "total" es el total a pagar que aparece impreso. Si no aparece, pon 0.\n' +
   '- No inventes nada: lo que no se lea en la foto va vacío ("") o en 0.\n' +
   '- Los números van sin separador de miles y con punto decimal (ejemplo: 1234.56).';
+}
 
 function estadoIA(msg, clase) {
   const el = $('fac-estado');
@@ -1398,7 +1479,7 @@ async function leerFacturaIA() {
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
-            { type: 'text', text: IA_INSTRUCCIONES }
+            { type: 'text', text: iaInstrucciones(fac.proveedor) }
           ]
         }]
       })
@@ -1470,6 +1551,17 @@ function aplicarLectura(fac, leido) {
 }
 
 /* ---- datos editables de la factura ---- */
+$('fac-proveedor').addEventListener('change', e => {
+  const nombre = e.target.value.trim();
+  if (!nombre) { renderFac(); return; }
+  currentFac.proveedor = nombre;
+  const lista = proveedores();
+  if (!lista.some(n => n.toLowerCase() === nombre.toLowerCase())) {
+    db.settings.proveedores = [...lista, nombre];
+  }
+  db.settings.ultimoProveedor = nombre;
+  touch(currentFac); save(); renderFac();
+});
 $('fac-num').addEventListener('change', e => {
   currentFac.numero = e.target.value.trim();
   touch(currentFac); save(); renderFac();

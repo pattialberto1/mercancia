@@ -18,10 +18,11 @@ Cubre la **recepción de pollo** y la **recepción de papas**; se irán añadien
 
 ## Cómo funcionan las papas y las verduras
 
-La pantalla de inicio tiene seis pestañas: **🐔 Pollo**, **🥔 Papas**, **🥬 Verduras**
+La pantalla de inicio tiene estas pestañas: **🐔 Pollo**, **🥔 Papas**, **🥬 Verduras**
 (repollo blanco, repollo morado, zanahoria y cebollín — al crear una recepción de
-verduras la app pregunta cuál llega), **🍗 Alitas** (control de bolsas, ver abajo)
-y **🧾 Tierra Santa** (facturas del proveedor).
+verduras la app pregunta cuál llega), **🍗 Alitas** (control de bolsas, ver abajo),
+**🥤 Bebidas** (productos que se cuentan, ver abajo) y **🧾 Tierra Santa** (facturas
+de proveedores).
 
 - Las papas y las verduras se pesan **de 1 a 5 cestas** por pesada (selector en pantalla).
 - En la pestaña de verduras hay un botón **"Enviar verduras del día"** que junta todas
@@ -34,6 +35,19 @@ y **🧾 Tierra Santa** (facturas del proveedor).
 
 Ejemplo real: 13 pesadas de 69 kg + 2 de 70 + 7 de 68 + 1 cesta suelta de 35 kg
 = 1.548 kg bruto, 45 cestas → tara 103,5 kg → **1.444,5 kg de pollo neto**.
+
+## Bebidas y empaques — se cuentan, no se pesan
+
+Refrescos, aguas y envases no se pesan: se cuentan. La pestaña **🥤 Bebidas**
+anota **cuántas unidades** llegan, sin cestas, sin tara y sin kilos, y el total
+es la suma de lo que entró.
+
+Estos productos son los que alimentan el módulo de Inventario: como se compran y
+se venden en la misma unidad, lo recibido y lo vendido se pueden restar
+directamente, sin equivalencias de por medio.
+
+Para agregar otro producto que se cuente, se define con `unidad: true` en
+`PRODUCTOS` — igual que `bolsa: true` para los que se pesan sueltos.
 
 ## Alitas — solo control de peso
 
@@ -52,10 +66,12 @@ Para agregar otro producto "de control simple" igual que este (sin cestas ni tar
 se define con `bolsa: true` en `PRODUCTOS` — el resto de la app (totales, lista de
 pesadas, resumen de WhatsApp) se ajusta solo.
 
-## Tierra Santa — facturas del proveedor
+## Facturas de proveedores
 
-La cuarta pestaña, **🧾 Tierra Santa**, no lleva pesadas: guarda las **facturas
-del proveedor**. Le tomas una foto a la factura y la app saca sola todos los
+La pestaña **🧾 Tierra Santa** no lleva pesadas: guarda las **facturas de
+proveedores** (Tierra Santa trae las verduras; las bebidas y los empaques vienen
+de otro). Cada factura lleva su proveedor: se escribe una vez y queda sugerido
+para las siguientes. Le tomas una foto a la factura y la app saca sola todos los
 renglones (producto, cantidad, unidad, precio e importe).
 
 1. **🧾 Nueva factura** → **📷 Tomar o elegir foto** (cámara o carrete).
