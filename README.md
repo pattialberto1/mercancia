@@ -114,6 +114,63 @@ Las facturas sí se comparten entre teléfonos por la sincronización normal.
 para subirla). Si al teléfono se le acaba el espacio, la app suelta primero las
 fotos más viejas y conserva los datos ya leídos.
 
+## Inventario semanal
+
+La pestaña **📊 Inventario** compara lo que entró contra lo que se vendió, para
+ver si cuadra con el conteo físico.
+
+```
+esperado = lo que había al empezar la semana
+         + lo recibido (de las recepciones ya registradas)
+         − lo vendido (del reporte del sistema)
+```
+
+**El «lo que había al empezar» no es opcional.** Es el conteo con el que se cerró
+la semana anterior, y sin él los números nunca cuadran: se vende mercancía que
+entró la semana pasada. Con datos reales, una semana dio *−872 piezas* sin ese
+arrastre. La primera semana se escribe a mano (el conteo del domingo al cerrar);
+de ahí en adelante sale solo.
+
+### Cómo se usa
+
+1. **📊 Nueva semana**.
+2. **📄 Elegir el PDF** del reporte de ventas exportado del sistema. Se lee en el
+   propio teléfono, sin subirlo a ningún lado, y **el PDF no se guarda**: solo los
+   datos leídos.
+3. Escribir el **conteo real** de cada artículo.
+4. **Cerrar la semana**: ese conteo pasa a ser el punto de partida de la siguiente.
+
+### Dos avisos que evitan números falsos
+
+- **Si el reporte no cubre la misma semana**, la app lo dice. El PDF trae impreso
+  su propio rango (*«Del Día: 16/08/2026 al 21/08/2026»*) y se compara con la
+  semana: si al exportarlo eliges otro rango, faltarían ventas y la merma saldría
+  inflada.
+- **Si el esperado sale negativo**, no lo llama merma: avisa de que se vendió más
+  de lo que la app tiene registrado y que falta cargar el inicial o las entradas.
+  Tampoco deja cerrar la semana así, porque ese error se arrastraría para siempre.
+
+### Equivalencias
+
+El sistema vende platos, no insumos: no se puede restar «730 combos» de «kg de
+pollo». Por eso cada producto del reporte declara qué consume, atado a su **código**
+(no al nombre, que puede cambiar):
+
+| Producto | Consume |
+|---|---|
+| COMBO 1 y COMBO 2 | 4 piezas de pollo |
+| COMBO 3 y COMBO 4 | 8 piezas de pollo |
+| COMBO DUO | 2 piezas |
+| COMBO 2 y COMBO 4 | además, 1 refresco de 1L |
+
+Entrada de pollo: **1 cesta = 18 pollos, que al picarse rinden 20 → 160 piezas.**
+
+Esto destapa el consumo que no se ve en el reporte: en una semana real se
+vendieron **190 refrescos de 1L sueltos, pero los combos se llevaron 747 más**.
+
+Lo que no consume nada de lo controlado (postres, tés, delivery) simplemente no
+lleva equivalencia. La app solo avisa de los que suenan a pollo o bebida.
+
 ## Funciones
 
 - Botones rápidos 67/68/69/70/71 kg: una pesada por toque.

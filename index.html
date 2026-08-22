@@ -221,6 +221,30 @@
   .linea .flag { color: var(--bad); font-weight: 700; }
   .working { color: var(--accent); font-weight: 600; }
 
+  /* ---- inventario ---- */
+  .inv-art { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .inv-art:last-child { border-bottom: none; }
+  .inv-nom { font-size: 16px; font-weight: 800; margin-bottom: 10px; }
+  .inv-nums { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .inv-cell {
+    display: flex; flex-direction: column; gap: 3px; padding: 8px 10px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .inv-cell span { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  .inv-cell b { font-size: 17px; font-variant-numeric: tabular-nums; }
+  .inv-cell.esperado { background: var(--accent-soft); border-color: transparent; }
+  .inv-cell.esperado span, .inv-cell.esperado b { color: var(--accent); }
+  .inv-cell input {
+    font: inherit; font-size: 17px; font-weight: 700; width: 100%; padding: 0;
+    border: none; background: none; color: var(--text); outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .inv-cell:focus-within { border-color: var(--accent); }
+  .inv-dif { margin-top: 10px; font-size: 14px; font-weight: 700; }
+  .inv-dif.ok { color: var(--ok); }
+  .inv-dif.mal { color: var(--bad); }
+  .inv-dif.sobra { color: var(--accent); }
+
   /* ---- formularios / ajustes ---- */
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
@@ -418,6 +442,48 @@
     <button class="btn-wa" id="fac-wa" style="margin-bottom:10px">📲 Enviar por WhatsApp</button>
     <button class="btn-secondary" id="fac-copiar">📋 Copiar resumen</button>
   </section>
+
+  <!-- ================= INVENTARIO SEMANAL ================= -->
+  <section id="view-inv" class="hidden">
+    <div class="topbar">
+      <button class="iconbtn" id="inv-back" aria-label="Volver">←</button>
+      <div style="flex:1">
+        <h1 id="inv-title">Inventario</h1>
+        <div class="sub" id="inv-sub"></div>
+      </div>
+      <button class="iconbtn btn-danger" id="inv-del" aria-label="Eliminar">🗑️</button>
+    </div>
+
+    <div id="inv-msg"></div>
+
+    <div class="card">
+      <h2>📄 Reporte de ventas</h2>
+      <div class="sub" style="margin:2px 0 12px">Sube el PDF que exportas del sistema, con el rango de la semana.</div>
+      <input type="file" id="inv-file" accept="application/pdf,.pdf" hidden>
+      <button class="btn-secondary" id="inv-subir" style="margin-bottom:10px">📄 Elegir el PDF</button>
+      <div class="hint" id="inv-estado"></div>
+      <div id="inv-ventas-resumen"></div>
+    </div>
+
+    <div class="card" id="inv-comparacion-card">
+      <div class="listhead"><h2>Comparación</h2></div>
+      <div id="inv-comparacion"></div>
+    </div>
+
+    <button class="btn-primary" id="inv-cerrar" style="margin-bottom:10px">Cerrar la semana</button>
+    <button class="btn-wa" id="inv-wa" style="margin-bottom:10px">📲 Enviar por WhatsApp</button>
+    <button class="btn-secondary" id="inv-equivalencias">⚙️ Equivalencias</button>
+  </section>
+
+  <!-- ================= EQUIVALENCIAS ================= -->
+  <section id="view-eq" class="hidden">
+    <div class="topbar">
+      <button class="iconbtn" id="eq-back" aria-label="Volver">←</button>
+      <div style="flex:1"><h1>⚙️ Equivalencias</h1><div class="sub">Qué consume cada cosa que vendes</div></div>
+    </div>
+    <div class="sub" style="margin-bottom:14px">Por cada producto del reporte de ventas, cuántas piezas de pollo y qué otras cosas lleva. Lo que no tenga equivalencia sale marcado y no se descuenta de nada.</div>
+    <div id="eq-list"></div>
+  </section>
 </main>
 
 <!-- ================= MODAL AJUSTES ================= -->
@@ -532,7 +598,7 @@ const STORE_KEY = 'mercancia.v1';
 const defaults = {
   settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
               proveedores: ['Tierra Santa'], ultimoProveedor: 'Tierra Santa' },
-  recepciones: [], facturas: [], borradas: {}
+  recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
 
@@ -574,7 +640,8 @@ const TABS = {
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
   unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'agua', 'envases'] },
-  tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true }
+  tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
+  inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
 };
 const PROVEEDOR_TS = 'Tierra Santa';   // el primero, y el que ya tenía facturas
 // Los proveedores se guardan en los ajustes para poder agregar otros (las
@@ -592,6 +659,7 @@ function load() {
     d.settings = Object.assign({}, defaults.settings, d.settings);
     d.recepciones = d.recepciones || [];
     d.facturas = d.facturas || [];
+    d.inventarios = d.inventarios || [];
     d.borradas = d.borradas || {};
     for (const r of d.recepciones) if (!r.tipo) r.tipo = 'pollo';
     // v2: el rango de 2 cestas pasó de 68-71 a 65-75 (solo si no se había personalizado)
@@ -697,6 +765,8 @@ function show(view) {
   $('view-home').classList.toggle('hidden', view !== 'home');
   $('view-rec').classList.toggle('hidden', view !== 'rec');
   $('view-fac').classList.toggle('hidden', view !== 'fac');
+  $('view-inv').classList.toggle('hidden', view !== 'inv');
+  $('view-eq').classList.toggle('hidden', view !== 'eq');
   window.scrollTo(0, 0);
 }
 
@@ -715,11 +785,12 @@ function renderHome() {
   const T = TABS[homeTab];
   for (const b of $('home-tabs').querySelectorAll('button'))
     b.classList.toggle('on', b.dataset.t === homeTab);
-  $('btn-new').textContent = T.facturas
-    ? T.emoji + ' Nueva factura'
+  $('btn-new').textContent = T.facturas ? T.emoji + ' Nueva factura'
+    : T.inventario ? T.emoji + ' Nueva semana'
     : T.emoji + ' Nueva recepción de ' + T.nombre.toLowerCase();
   $('btn-wa-dia').classList.toggle('hidden', homeTab !== 'verduras');
   if (T.facturas) return renderHomeFacturas();
+  if (T.inventario) return renderHomeInventario();
 
   const list = $('home-list');
   const recs = db.recepciones.filter(r => T.tipos.includes(r.tipo || 'pollo')).sort((a, b) => b.creada - a.creada);
@@ -933,6 +1004,7 @@ function nuevaRecepcion(tipo) {
 $('btn-new').onclick = () => {
   const T = TABS[homeTab];
   if (T.facturas) { nuevaFactura(); return; }
+  if (T.inventario) { nuevaSemanaDesdeHoy(); return; }
   if (T.tipos.length === 1) { nuevaRecepcion(T.tipos[0]); return; }
   // la pestaña agrupa varios productos: preguntar cuál llega
   const cont = $('producto-btns');
@@ -1697,6 +1769,580 @@ for (const id of ['modal-settings', 'modal-confirm', 'modal-producto', 'modal-li
   $(id).addEventListener('click', e => { if (e.target.id === id) $(id).classList.remove('show'); });
 }
 
+
+/* ================================================================
+   INVENTARIO SEMANAL
+
+   Compara lo que entró (de las recepciones ya registradas) contra lo que
+   se vendió (del reporte del POS) para saber qué debería quedar, y eso se
+   contrasta con el conteo físico.
+
+       esperado = lo que había al empezar la semana
+                + lo recibido en la semana
+                − lo vendido en la semana
+
+   El "lo que había al empezar" es el conteo físico con el que se cerró la
+   semana anterior. Sin ese arrastre los números no cuadran nunca: se vende
+   mercancía que entró la semana pasada.
+   ================================================================ */
+
+/* Qué se controla. Cada artículo dice de dónde sale lo que ENTRA:
+   - 'cestas': de las recepciones de pollo, convertidas a piezas
+   - 'unidades': de las recepciones de productos que se cuentan       */
+const ARTICULOS = [
+  { id: 'pollo_pieza', nombre: 'Piezas de pollo', emoji: '🍗', unidad: 'piezas',
+    entrada: { tipo: 'cestas', producto: 'pollo' } },
+  { id: 'ref_1l', nombre: 'Refrescos de 1L', emoji: '🥤', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'refresco_1l' } },
+  { id: 'agua', nombre: 'Agua', emoji: '💧', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'agua' } }
+];
+function articulo(id) { return ARTICULOS.find(a => a.id === id); }
+
+/* Una cesta trae 18 pollos fijos; al picarlos rinden 20, y cada pollo son
+   8 piezas. O sea 160 piezas vendibles por cesta. Configurable por si
+   cambia el rendimiento. */
+const POLLOS_POR_CESTA = 18;
+const RENDIMIENTO_POLLOS = 20;
+const PIEZAS_POR_POLLO = 8;
+function piezasPorCesta() { return RENDIMIENTO_POLLOS * PIEZAS_POR_POLLO; }
+
+/* Equivalencias: qué consume cada producto del POS, por su código.
+   El código es la llave, no el nombre, porque el nombre puede cambiar. */
+const EQUIVALENCIAS_BASE = {
+  '1519': { nombre: 'COMBO 1 POLLO',   consume: { pollo_pieza: 4 } },
+  '1521': { nombre: 'COMBO 2 POLLO',   consume: { pollo_pieza: 4, ref_1l: 1 } },
+  '1523': { nombre: 'COMBO 3 POLLO',   consume: { pollo_pieza: 8 } },
+  '1524': { nombre: 'COMBO 4 POLLO',   consume: { pollo_pieza: 8, ref_1l: 1 } },
+  '1611': { nombre: 'COMBO DUO',       consume: { pollo_pieza: 2 } },
+  '1610': { nombre: 'COMBO DUO+REF',   consume: { pollo_pieza: 2 } },
+  '1535': { nombre: 'REF. 1L COCA COLA',  consume: { ref_1l: 1 } },
+  '1536': { nombre: 'REF. 1L CHINOTTO',   consume: { ref_1l: 1 } },
+  '1537': { nombre: 'REF. 1L FRESCOLITA', consume: { ref_1l: 1 } },
+  '1590': { nombre: 'REF. 1L MANZANITA',  consume: { ref_1l: 1 } },
+  '1538': { nombre: 'REF. 1L NARANJA',    consume: { ref_1l: 1 } },
+  '1605': { nombre: 'REF. 1L PINA',       consume: { ref_1l: 1 } },
+  '1539': { nombre: 'REF. 1L UVA',        consume: { ref_1l: 1 } },
+  '1513': { nombre: 'AGUA 600ML',         consume: { agua: 1 } },
+  '1621': { nombre: 'MINALBA 600ML',      consume: { agua: 1 } },
+  '1620': { nombre: 'MINALBA 1.5L',       consume: { agua: 1 } }
+};
+function equivalencias() {
+  return Object.assign({}, EQUIVALENCIAS_BASE, db.settings.equivalencias || {});
+}
+
+/* ---- semanas ---- */
+function lunesDe(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  const off = (d.getDay() + 6) % 7;          // 0 = lunes
+  d.setDate(d.getDate() - off);
+  return d.toISOString().slice(0, 10);
+}
+function masDias(iso, n) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function semanasOrdenadas() {
+  return [...db.inventarios].sort((a, b) => a.semanaInicio.localeCompare(b.semanaInicio));
+}
+// lo que se contó al cerrar la semana anterior es el punto de partida de esta
+function inicialDe(inv) {
+  const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
+  const ultima = previas[previas.length - 1];
+  if (!ultima) return inv.inicialManual || {};
+  return ultima.conteo || {};
+}
+
+/* ---- lo recibido en la semana, de las recepciones que ya existen ---- */
+function recibidoEnSemana(inv) {
+  const out = {};
+  for (const art of ARTICULOS) {
+    const e = art.entrada;
+    const recs = db.recepciones.filter(r =>
+      r.tipo === e.producto && r.fecha >= inv.semanaInicio && r.fecha <= inv.semanaFin);
+    let n = 0;
+    for (const r of recs) {
+      const t = totals(r);
+      n += e.tipo === 'cestas' ? t.cestas * piezasPorCesta() : t.bruto;
+    }
+    out[art.id] = round2(n);
+  }
+  return out;
+}
+
+/* ---- lo vendido, aplicando las equivalencias al reporte ---- */
+function vendidoEnSemana(inv) {
+  const eq = equivalencias();
+  const out = {};
+  for (const art of ARTICULOS) out[art.id] = 0;
+  for (const v of (inv.ventas || [])) {
+    const regla = eq[v.codigo];
+    if (!regla) continue;
+    for (const [artId, porUnidad] of Object.entries(regla.consume || {})) {
+      if (out[artId] === undefined) continue;
+      out[artId] += porUnidad * (Number(v.cantidad) || 0);
+    }
+  }
+  for (const k of Object.keys(out)) out[k] = round2(out[k]);
+  return out;
+}
+
+// códigos del reporte que nadie ha dicho qué consumen
+function codigosSinAsignar(inv) {
+  const eq = equivalencias();
+  return (inv.ventas || []).filter(v => !eq[v.codigo]);
+}
+
+function nuevaSemana(desde, hasta) {
+  const inv = {
+    id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    semanaInicio: desde, semanaFin: hasta,
+    creada: Date.now(), cerrado: false,
+    ventas: [], conteo: {}, inicialManual: {}
+  };
+  touch(inv);
+  db.inventarios.push(inv);
+  save();
+  return inv;
+}
+
+/* ============================================================
+   Lector del reporte de ventas del POS (PDF)
+
+   El reporte lo genera FoxPro/Haru PDF: es texto de verdad, no una foto
+   escaneada, así que no hace falta OCR ni ninguna librería. Cada celda es
+   un bloque "BT ... x y Td ... (texto) ' ... ET" con coordenadas absolutas,
+   o sea que la tabla se reconstruye agrupando por coordenada Y (la fila) y
+   asignando la columna por coordenada X.
+   ============================================================ */
+
+// columnas del reporte, por su coordenada X aproximada
+const COLS = [
+  { k: 'codigo', x: 18 }, { k: 'descripcion', x: 76 }, { k: 'cantidad', x: 215 },
+  { k: 'precio', x: 268 }, { k: 'total', x: 329 }
+];
+const TOLERANCIA_X = 26;   // margen: los números van alineados a la derecha
+
+// los textos del PDF traen escapes octales (\363 = ó) y paréntesis escapados
+function desescapar(s) {
+  return s.replace(/\\([0-7]{3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)))
+          .replace(/\\([()\\])/g, '$1');
+}
+
+// "1,043.19" o "173.000" -> número
+function aNumero(s) {
+  const limpio = String(s || '').replace(/[^\d.,-]/g, '').replace(/,/g, '');
+  const n = parseFloat(limpio);
+  return isFinite(n) ? n : 0;
+}
+
+// descomprime un stream FlateDecode usando lo que ya trae el navegador
+async function inflar(bytes) {
+  const ds = new DecompressionStream('deflate');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+// saca el texto de todos los streams del PDF
+async function textoDelPDF(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let crudo = '';
+  for (let i = 0; i < bytes.length; i += 8192)
+    crudo += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+
+  const partes = [];
+  let pos = 0;
+  while (true) {
+    const ini = crudo.indexOf('stream', pos);
+    if (ini < 0) break;
+    // saltar el salto de línea que va después de la palabra "stream"
+    let d = ini + 6;
+    if (crudo[d] === '\r') d++;
+    if (crudo[d] === '\n') d++;
+    const fin = crudo.indexOf('endstream', d);
+    if (fin < 0) break;
+    // El salto de línea que va justo antes de "endstream" no es parte del
+    // stream, y si se le cuela al descompresor este falla entero.
+    let f = fin;
+    while (f > d && (bytes[f - 1] === 10 || bytes[f - 1] === 13)) f--;
+    const trozo = bytes.subarray(d, f);
+    // 0x78 = cabecera zlib; si no la trae, el stream va sin comprimir
+    if (trozo[0] === 0x78) {
+      try {
+        partes.push(new TextDecoder('latin1').decode(await inflar(trozo)));
+      } catch { /* stream ilegible: se salta, los demás pueden servir */ }
+    } else {
+      partes.push(crudo.slice(d, f));
+    }
+    pos = fin + 9;
+  }
+  return partes;
+}
+
+// de un stream de página, saca los trozos de texto con su posición
+function celdasDePagina(txt) {
+  const celdas = [];
+  const bloques = txt.match(/BT[\s\S]*?ET/g) || [];
+  for (const b of bloques) {
+    const td = /([\d.]+)\s+([\d.]+)\s+Td/.exec(b);
+    const tx = /\(([\s\S]*?)\)\s*'/.exec(b);
+    if (!td || !tx) continue;
+    celdas.push({ x: parseFloat(td[1]), y: Math.round(parseFloat(td[2]) * 10) / 10, t: desescapar(tx[1]).trim() });
+  }
+  return celdas;
+}
+
+// agrupa las celdas en filas por su coordenada Y
+function filasDe(celdas) {
+  const porY = new Map();
+  for (const c of celdas) {
+    if (!porY.has(c.y)) porY.set(c.y, []);
+    porY.get(c.y).push(c);
+  }
+  return [...porY.entries()]
+    .sort((a, b) => b[0] - a[0])          // de arriba hacia abajo
+    .map(([y, cs]) => ({ y, celdas: cs.sort((a, b) => a.x - b.x) }));
+}
+
+function aRenglon(fila) {
+  const r = {};
+  for (const c of fila.celdas) {
+    const col = COLS.find(k => Math.abs(c.x - k.x) <= TOLERANCIA_X);
+    if (col && !r[col.k]) r[col.k] = c.t;
+  }
+  // una fila de producto es la que tiene código numérico y descripción
+  if (!r.codigo || !/^\d+$/.test(r.codigo) || !r.descripcion) return null;
+  return {
+    codigo: r.codigo,
+    descripcion: r.descripcion,
+    cantidad: aNumero(r.cantidad),
+    precio: aNumero(r.precio),
+    total: aNumero(r.total)
+  };
+}
+
+/* Lee el PDF y devuelve { desde, hasta, renglones[] }.
+   El propio reporte trae impreso su rango ("Del Día: 16/08/2026 al
+   21/08/2026"), así que la semana no hay que escribirla a mano. */
+async function leerReporteVentas(buffer) {
+  const paginas = await textoDelPDF(buffer);
+  if (!paginas.length) throw new Error('vacio');
+
+  const renglones = [];
+  let desde = '', hasta = '';
+  for (const pag of paginas) {
+    const celdas = celdasDePagina(pag);
+    for (const f of filasDe(celdas)) {
+      const r = aRenglon(f);
+      if (r) renglones.push(r);
+      // el rango de fechas viene en su propia celda
+      for (const c of f.celdas) {
+        const m = /Del\s*D[íi]a:\s*(\d{2})\/(\d{2})\/(\d{4})\s*al\s*(\d{2})\/(\d{2})\/(\d{4})/i.exec(c.t);
+        if (m) {
+          desde = m[3] + '-' + m[2] + '-' + m[1];
+          hasta = m[6] + '-' + m[5] + '-' + m[4];
+        }
+      }
+    }
+  }
+  if (!renglones.length) throw new Error('sin-renglones');
+  return { desde, hasta, renglones };
+}
+
+
+/* ---- inventario: pantallas ---- */
+let currentInv = null;
+
+function renderHomeInventario() {
+  const list = $('home-list');
+  const semanas = semanasOrdenadas().reverse();
+  if (!semanas.length) {
+    list.innerHTML = '<div class="empty"><span class="big">📊</span>Todavía no hay semanas de inventario.<br>Pulsa «Nueva semana» para empezar.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const inv of semanas) {
+    const btn = document.createElement('button');
+    btn.className = 'rec-item';
+    const dif = inv.cerrado ? diferenciaTotal(inv) : null;
+    btn.innerHTML =
+      '<div><div style="font-weight:700">📊 ' + fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
+      (inv.cerrado ? '<span class="badge">cerrada</span>' : '<span class="badge open">abierta</span>') +
+      '</div><div class="meta sub">' + (inv.ventas || []).length +
+      ((inv.ventas || []).length === 1 ? ' producto vendido' : ' productos vendidos') + '</div></div>' +
+      '<span class="chev">›</span>';
+    btn.onclick = () => abrirInv(inv.id);
+    list.appendChild(btn);
+  }
+}
+
+function abrirInv(id) {
+  currentInv = db.inventarios.find(i => i.id === id);
+  if (!currentInv) return;
+  $('inv-estado').textContent = '';
+  $('inv-estado').className = 'hint';
+  renderInv();
+  show('inv');
+}
+
+function nuevaSemanaDesdeHoy() {
+  // por defecto, la semana pasada completa: es la que se cierra el domingo
+  const lunesEsta = lunesDe(todayISO());
+  const desde = masDias(lunesEsta, -7), hasta = masDias(desde, 6);
+  const ya = db.inventarios.find(i => i.semanaInicio === desde);
+  if (ya) { abrirInv(ya.id); return; }
+  abrirInv(nuevaSemana(desde, hasta).id);
+}
+
+function renderInv() {
+  const inv = currentInv;
+  $('inv-title').textContent = 'Semana ' + fmtDate(inv.semanaInicio);
+  $('inv-sub').textContent = fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
+    (inv.cerrado ? ' · cerrada' : '');
+  $('inv-subir').classList.toggle('hidden', inv.cerrado);
+  $('inv-cerrar').classList.toggle('hidden', inv.cerrado || !(inv.ventas || []).length);
+  $('inv-del').classList.toggle('hidden', inv.cerrado);
+
+  // aviso si el reporte no cubre la misma semana
+  const avisos = [];
+  if (inv.rangoReporte && (inv.rangoReporte.desde !== inv.semanaInicio || inv.rangoReporte.hasta !== inv.semanaFin)) {
+    avisos.push('<div class="msg error">⚠️ El reporte va del ' + fmtDate(inv.rangoReporte.desde) + ' al ' +
+      fmtDate(inv.rangoReporte.hasta) + ', pero esta semana va del ' + fmtDate(inv.semanaInicio) + ' al ' +
+      fmtDate(inv.semanaFin) + '. Al exportarlo del sistema elige exactamente el mismo rango, o faltarán ventas y la merma saldrá inflada.</div>');
+  }
+  // Muchos productos del reporte no consumen nada de lo que se controla
+  // (postres, tés, delivery): que no tengan equivalencia es lo normal y no
+  // hay por qué alarmar. Solo se avisa de los que suenan a pollo o bebida.
+  const sospechosos = codigosSinAsignar(inv).filter(v =>
+    /pollo|combo|tender|refresco|ref\.|agua|malta|jugo/i.test(v.descripcion));
+  if (sospechosos.length) {
+    avisos.push('<div class="msg warn">' + sospechosos.length +
+      (sospechosos.length === 1 ? ' producto puede estar consumiendo' : ' productos pueden estar consumiendo') +
+      ' pollo o bebidas y no tienen equivalencia: ' +
+      sospechosos.slice(0, 3).map(v => esc(v.descripcion)).join(', ') +
+      (sospechosos.length > 3 ? ' y ' + (sospechosos.length - 3) + ' más' : '') +
+      '. Míralos en ⚙️ Equivalencias.</div>');
+  }
+  const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
+  if (!previas.length && !Object.keys(inv.inicialManual || {}).length) {
+    avisos.push('<div class="msg warn">Es la primera semana: no hay conteo anterior del que partir. Escribe abajo lo que había el domingo al cerrar, en la columna «Inicial».</div>');
+  }
+  $('inv-msg').innerHTML = avisos.join('');
+
+  // resumen de lo leído del PDF
+  const rv = $('inv-ventas-resumen');
+  if (!(inv.ventas || []).length) {
+    rv.innerHTML = '';
+  } else {
+    const totalUnidades = inv.ventas.reduce((s, v) => s + v.cantidad, 0);
+    rv.innerHTML = '<div class="msg ok" style="margin-top:12px">✅ ' + inv.ventas.length +
+      ' productos leídos del reporte (' + fmt(totalUnidades) + ' unidades vendidas).</div>';
+  }
+
+  renderComparacion();
+}
+
+function diferenciaTotal(inv) {
+  const c = calcular(inv);
+  return c.reduce((s, f) => s + (f.diferencia || 0), 0);
+}
+
+// la tabla: inicial + recibido − vendido = esperado, contra el conteo real
+function calcular(inv) {
+  const inicial = inicialDe(inv);
+  const recibido = recibidoEnSemana(inv);
+  const vendido = vendidoEnSemana(inv);
+  return ARTICULOS.map(a => {
+    const ini = Number(inicial[a.id]) || 0;
+    const rec = Number(recibido[a.id]) || 0;
+    const ven = Number(vendido[a.id]) || 0;
+    const esperado = round2(ini + rec - ven);
+    const tieneConteo = inv.conteo && inv.conteo[a.id] !== undefined && inv.conteo[a.id] !== '';
+    const conteo = tieneConteo ? Number(inv.conteo[a.id]) || 0 : null;
+    return {
+      art: a, inicial: ini, recibido: rec, vendido: ven, esperado,
+      conteo, diferencia: tieneConteo ? round2(conteo - esperado) : null
+    };
+  });
+}
+
+function renderComparacion() {
+  const inv = currentInv;
+  const cont = $('inv-comparacion');
+  const filas = calcular(inv);
+  const primera = !semanasOrdenadas().some(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
+  cont.innerHTML = '';
+  for (const f of filas) {
+    const a = f.art;
+    const pct = f.esperado > 0 && f.diferencia !== null ? (f.diferencia / f.esperado) * 100 : 0;
+    const div = document.createElement('div');
+    div.className = 'inv-art';
+    div.innerHTML =
+      '<div class="inv-nom">' + a.emoji + ' ' + a.nombre + '</div>' +
+      '<div class="inv-nums">' +
+        (primera
+          ? '<label class="inv-cell"><span>Inicial</span><input class="inv-inicial" data-a="' + a.id + '" type="text" inputmode="decimal" value="' +
+            (inv.inicialManual && inv.inicialManual[a.id] !== undefined ? inv.inicialManual[a.id] : '') + '" placeholder="0"' + (inv.cerrado ? ' disabled' : '') + '></label>'
+          : '<div class="inv-cell"><span>Inicial</span><b>' + fmt(f.inicial) + '</b></div>') +
+        '<div class="inv-cell"><span>Recibido</span><b>' + fmt(f.recibido) + '</b></div>' +
+        '<div class="inv-cell"><span>Vendido</span><b>' + fmt(f.vendido) + '</b></div>' +
+        '<div class="inv-cell esperado"><span>Debería quedar</span><b>' + fmt(f.esperado) + '</b></div>' +
+        '<label class="inv-cell"><span>Conteo real</span><input class="inv-conteo" data-a="' + a.id + '" type="text" inputmode="decimal" value="' +
+          (inv.conteo && inv.conteo[a.id] !== undefined ? inv.conteo[a.id] : '') + '" placeholder="—"' + (inv.cerrado ? ' disabled' : '') + '></label>' +
+      '</div>' +
+      (f.esperado < 0
+        // vendiste más de lo que la app sabe que entró: el número no es merma,
+        // es que falta cargar algo. Decirlo, en vez de dar una cifra falsa.
+        ? '<div class="inv-dif mal">⚠️ Salen ' + fmt(Math.abs(f.esperado)) + ' ' + a.unidad +
+          ' de menos: se vendió más de lo que la app tiene registrado. Falta cargar el inicial o las entradas de la semana.</div>'
+        : f.diferencia === null
+        ? '<div class="inv-dif sub">Escribe el conteo real para ver la diferencia.</div>'
+        : '<div class="inv-dif ' + (Math.abs(f.diferencia) < 0.01 ? 'ok' : f.diferencia < 0 ? 'mal' : 'sobra') + '">' +
+          (Math.abs(f.diferencia) < 0.01 ? '✅ Cuadra exacto'
+            : (f.diferencia < 0 ? '⚠️ Faltan ' : '↑ Sobran ') + fmt(Math.abs(f.diferencia)) + ' ' + a.unidad +
+              (f.esperado > 0 ? ' (' + fmt(Math.abs(pct)) + '%)' : '')) + '</div>');
+    cont.appendChild(div);
+  }
+  for (const el of cont.querySelectorAll('.inv-conteo')) {
+    el.addEventListener('change', e => {
+      const v = e.target.value.trim();
+      currentInv.conteo = currentInv.conteo || {};
+      if (v === '') delete currentInv.conteo[e.target.dataset.a];
+      else {
+        const n = parseNum(v);
+        if (isNaN(n)) { toast('Escribe un número'); renderComparacion(); return; }
+        currentInv.conteo[e.target.dataset.a] = round2(n);
+      }
+      touch(currentInv); save(); renderComparacion();
+    });
+  }
+  for (const el of cont.querySelectorAll('.inv-inicial')) {
+    el.addEventListener('change', e => {
+      const v = e.target.value.trim();
+      currentInv.inicialManual = currentInv.inicialManual || {};
+      if (v === '') delete currentInv.inicialManual[e.target.dataset.a];
+      else {
+        const n = parseNum(v);
+        if (isNaN(n)) { toast('Escribe un número'); renderComparacion(); return; }
+        currentInv.inicialManual[e.target.dataset.a] = round2(n);
+      }
+      touch(currentInv); save(); renderInv();
+    });
+  }
+}
+
+/* ---- leer el PDF ---- */
+$('inv-subir').onclick = () => $('inv-file').click();
+$('inv-file').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  $('inv-estado').textContent = '📄 Leyendo el reporte…';
+  $('inv-estado').className = 'hint working';
+  try {
+    const buffer = await file.arrayBuffer();
+    const r = await leerReporteVentas(buffer);
+    currentInv.ventas = r.renglones.map(x => ({
+      codigo: x.codigo, descripcion: x.descripcion, cantidad: x.cantidad
+    }));
+    if (r.desde && r.hasta) currentInv.rangoReporte = { desde: r.desde, hasta: r.hasta };
+    touch(currentInv); save();
+    $('inv-estado').textContent = '';
+    renderInv();
+    toast('Reporte leído: ' + r.renglones.length + ' productos');
+  } catch (err) {
+    const m = (err && err.message) || '';
+    $('inv-estado').className = 'hint err';
+    $('inv-estado').textContent =
+      m === 'sin-renglones' ? 'Ese PDF no trae la tabla de productos vendidos. ¿Es el reporte correcto?'
+      : m === 'vacio' ? 'No se pudo abrir ese PDF.'
+      : typeof DecompressionStream !== 'function' ? 'Este teléfono no puede leer PDF. Actualiza el sistema o usa otro.'
+      : 'No se pudo leer el PDF. Comprueba que sea el reporte exportado del sistema.';
+    console.error(err);
+  }
+});
+
+$('inv-back').onclick = () => { currentInv = null; renderHome(); show('home'); };
+$('inv-equivalencias').onclick = () => { renderEquivalencias(); show('eq'); };
+$('eq-back').onclick = () => { renderInv(); show('inv'); };
+
+$('inv-del').onclick = () => {
+  askConfirm('Eliminar la semana',
+    'Se borra esta semana con lo leído del reporte y el conteo. Las recepciones no se tocan.',
+    () => {
+      db.borradas[currentInv.id] = Date.now();
+      db.inventarios = db.inventarios.filter(i => i.id !== currentInv.id);
+      save(); currentInv = null; renderHome(); show('home');
+      toast('Semana eliminada');
+    });
+};
+
+$('inv-cerrar').onclick = () => {
+  const inv = currentInv;
+  const filas = calcular(inv);
+  const sinContar = filas.filter(f => f.conteo === null);
+  if (sinContar.length) {
+    toast('Falta el conteo de ' + sinContar.map(f => f.art.nombre.toLowerCase()).join(', '));
+    return;
+  }
+  // cerrar con un esperado negativo dejaría un arrastre podrido para siempre
+  const negativos = filas.filter(f => f.esperado < 0);
+  if (negativos.length) {
+    toast('Revisa ' + negativos.map(f => f.art.nombre.toLowerCase()).join(', ') + ': falta cargar entradas');
+    return;
+  }
+  askConfirm('Cerrar la semana',
+    'El conteo de esta semana pasa a ser el punto de partida de la siguiente. Después de cerrar ya no se puede modificar.',
+    () => { inv.cerrado = true; touch(inv); save(); renderInv(); toast('Semana cerrada'); });
+};
+
+$('inv-wa').onclick = () => {
+  const inv = currentInv;
+  const filas = calcular(inv);
+  let txt = '📊 *INVENTARIO*\n📅 ' + fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) + '\n';
+  for (const f of filas) {
+    txt += '\n' + f.art.emoji + ' *' + f.art.nombre + '*\n';
+    txt += 'Inicial ' + fmt(f.inicial) + ' + recibido ' + fmt(f.recibido) + ' − vendido ' + fmt(f.vendido) + '\n';
+    txt += 'Debería quedar: ' + fmt(f.esperado) + '\n';
+    if (f.conteo !== null) {
+      txt += 'Contado: ' + fmt(f.conteo) + '\n';
+      txt += Math.abs(f.diferencia) < 0.01 ? '✅ Cuadra\n'
+        : (f.diferencia < 0 ? '⚠️ Faltan ' : '↑ Sobran ') + fmt(Math.abs(f.diferencia)) + ' ' + f.art.unidad + '\n';
+    }
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+};
+
+/* ---- equivalencias ---- */
+function renderEquivalencias() {
+  const eq = equivalencias();
+  const cont = $('eq-list');
+  const inv = currentInv;
+  // primero los que aparecen en el reporte de esta semana, que son los que importan
+  const delReporte = (inv && inv.ventas || []).map(v => v.codigo);
+  const codigos = [...new Set([...delReporte, ...Object.keys(eq)])];
+  cont.innerHTML = '';
+  for (const cod of codigos) {
+    const venta = (inv && inv.ventas || []).find(v => v.codigo === cod);
+    const regla = eq[cod];
+    const nombre = venta ? venta.descripcion : (regla ? regla.nombre : cod);
+    const consume = regla ? Object.entries(regla.consume || {}) : [];
+    const row = document.createElement('div');
+    row.className = 'entry';
+    row.innerHTML =
+      '<div style="flex:1;min-width:0">' +
+        '<div class="w" style="font-size:15px">' + esc(nombre) + '</div>' +
+        '<div class="meta">' + (consume.length
+          ? consume.map(([a, n]) => n + ' × ' + (articulo(a) ? articulo(a).nombre.toLowerCase() : a)).join(' + ')
+          : '<span class="flag">sin asignar</span>') +
+        (venta ? ' · ' + fmt(venta.cantidad) + ' vendidos' : '') + '</div>' +
+      '</div>';
+    cont.appendChild(row);
+  }
+  if (!codigos.length) cont.innerHTML = '<div class="sub">Sube un reporte para ver los productos vendidos.</div>';
+}
+
 /* ============ sincronización entre teléfonos ============
    Los datos se guardan en un archivo (datos.json) dentro del propio
    repositorio de GitHub, en la rama "datos". Cada teléfono necesita el
@@ -1760,6 +2406,7 @@ function mergeRemote(remote) {
   return {
     recepciones: unir(db.recepciones, remote && remote.recepciones),
     facturas: unir(db.facturas, remote && remote.facturas),
+    inventarios: unir(db.inventarios, remote && remote.inventarios),
     borradas
   };
 }
@@ -1775,6 +2422,7 @@ function sameAsRemote(merged, remote) {
   };
   if (!igual(merged.recepciones, remote && remote.recepciones)) return false;
   if (!igual(merged.facturas, remote && remote.facturas)) return false;
+  if (!igual(merged.inventarios, remote && remote.inventarios)) return false;
   const rb = (remote && remote.borradas) || {};
   const bk = Object.keys(merged.borradas), rbk = Object.keys(rb);
   if (bk.length !== rbk.length) return false;
@@ -1821,11 +2469,12 @@ async function syncNow(reintento) {
     }
 
     // 2. mezclar y aplicar en este teléfono
-    const huella = () => db.recepciones.concat(db.facturas).map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
+    const huella = () => db.recepciones.concat(db.facturas, db.inventarios).map(r => r.id + ':' + (r.mod || 0)).sort().join(',');
     const antes = huella();
     const merged = mergeRemote(remote);
     db.recepciones = merged.recepciones;
     db.facturas = merged.facturas;
+    db.inventarios = merged.inventarios;
     db.borradas = merged.borradas;
     save(false);
     if (antes !== huella()) {
@@ -1851,6 +2500,7 @@ async function syncNow(reintento) {
         content: b64enc(JSON.stringify({
           recepciones: merged.recepciones,
           facturas: sinFotos(merged.facturas),
+          inventarios: merged.inventarios,
           borradas: merged.borradas
         })),
         branch: SYNC.branch
