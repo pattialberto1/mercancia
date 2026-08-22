@@ -631,6 +631,7 @@ const PRODUCTOS = {
   refresco_2l:    { emoji: '🥤', nombre: 'Refresco 2L',   neto: 'REFRESCOS 2L',   unidad: true },
   agua:           { emoji: '💧', nombre: 'Agua 600ml',    neto: 'AGUAS',          unidad: true },
   yuky:           { emoji: '🧃', nombre: 'Yuky-pack',     neto: 'YUKY-PACKS',     unidad: true },
+  malta:          { emoji: '🍺', nombre: 'Malta',         neto: 'MALTAS',         unidad: true },
   envases:        { emoji: '📦', nombre: 'Envases',       neto: 'ENVASES',        unidad: true }
 };
 // ¿este producto se pesa "a bolsas" (sin cestas ni tara), en vez de a granel con cestas?
@@ -651,7 +652,7 @@ const TABS = {
   papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
-  unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'yuky', 'envases'] },
+  unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'yuky', 'malta', 'envases'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
   inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
 };
@@ -1813,7 +1814,9 @@ const ARTICULOS_TODOS = [
   { id: 'agua', nombre: 'Agua 600ml', emoji: '💧', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'agua' } },
   { id: 'yuky', nombre: 'Yuky-packs', emoji: '🧃', unidad: 'unidades',
-    entrada: { tipo: 'unidades', producto: 'yuky' } }
+    entrada: { tipo: 'unidades', producto: 'yuky' } },
+  { id: 'malta', nombre: 'Maltas', emoji: '🍺', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'malta' } }
 ];
 /* Solo se controla lo que se esté registrando de verdad. Activar un artículo
    sin anotar sus entradas haría que el esperado saliera negativo semana tras
@@ -1854,7 +1857,7 @@ const EQUIVALENCIAS_BASE = {
   '1553': { nombre: 'YUKY PACK MANZANA',  consume: { yuky: 1 } },
   '1554': { nombre: 'YUKY PACK PERA',     consume: { yuky: 1 } },
   '1602': { nombre: 'TENDER+REF./ YUKY PACK', consume: { yuky: 1 } },
-  '1630': { nombre: 'LITRO Y MEDIO',      consume: { ref_15l: 1 } }
+  '1617': { nombre: 'MALTA BOTELLA',      consume: { malta: 1 } }
 };
 function equivalencias() {
   return Object.assign({}, EQUIVALENCIAS_BASE, db.settings.equivalencias || {});
