@@ -1864,10 +1864,11 @@ function equivalencias() {
 }
 
 /* ---- semanas ---- */
-function lunesDe(iso) {
+// La semana del negocio empieza el DOMINGO y termina el sábado. Es la misma
+// que usa la app de Vales, para que las dos hablen del mismo tramo de tiempo.
+function domingoDe(iso) {
   const d = new Date(iso + 'T12:00:00');
-  const off = (d.getDay() + 6) % 7;          // 0 = lunes
-  d.setDate(d.getDate() - off);
+  d.setDate(d.getDate() - d.getDay());       // día 0 = domingo
   return d.toISOString().slice(0, 10);
 }
 function masDias(iso, n) {
@@ -2119,9 +2120,9 @@ function abrirInv(id) {
 }
 
 function nuevaSemanaDesdeHoy() {
-  // por defecto, la semana pasada completa: es la que se cierra el domingo
-  const lunesEsta = lunesDe(todayISO());
-  const desde = masDias(lunesEsta, -7), hasta = masDias(desde, 6);
+  // por defecto, la semana pasada completa: es la que ya terminó el sábado
+  const domingoEsta = domingoDe(todayISO());
+  const desde = masDias(domingoEsta, -7), hasta = masDias(desde, 6);
   const ya = db.inventarios.find(i => i.semanaInicio === desde);
   if (ya) { abrirInv(ya.id); return; }
   abrirInv(nuevaSemana(desde, hasta).id);
@@ -2158,7 +2159,7 @@ function renderInv() {
   }
   const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
   if (!previas.length && !Object.keys(inv.inicialManual || {}).length) {
-    avisos.push('<div class="msg warn">Es la primera semana: no hay conteo anterior del que partir. Escribe abajo lo que había el domingo al cerrar, en la columna «Inicial».</div>');
+    avisos.push('<div class="msg warn">Es la primera semana: no hay conteo anterior del que partir. Escribe abajo lo que había al arrancar la semana (el sábado al cerrar, o el domingo antes de abrir), en la columna «Inicial».</div>');
   }
   $('inv-msg').innerHTML = avisos.join('');
 

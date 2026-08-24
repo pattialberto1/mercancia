@@ -128,8 +128,10 @@ esperado = lo que había al empezar la semana
 **El «lo que había al empezar» no es opcional.** Es el conteo con el que se cerró
 la semana anterior, y sin él los números nunca cuadran: se vende mercancía que
 entró la semana pasada. Con datos reales, una semana dio *−872 piezas* sin ese
-arrastre. La primera semana se escribe a mano (el conteo del domingo al cerrar);
-de ahí en adelante sale solo.
+arrastre. La primera semana se escribe a mano (el conteo con el que arranca:
+el sábado al cerrar, o el domingo antes de abrir); de ahí en adelante sale solo.
+
+La semana va de **domingo a sábado**, la misma que usa la app de Vales.
 
 ### Cómo se usa
 
