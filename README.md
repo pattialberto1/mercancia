@@ -125,6 +125,12 @@ esperado = lo que había al empezar la semana
          − lo vendido (del reporte del sistema)
 ```
 
+**Cuidado con las dos cestas.** La que llega del proveedor trae **18 pollos
+enteros** (144 piezas). Los cocineros los pican y los reacomodan en **cestas de
+20 pollos** (160 piezas), que son las que se cuentan en la cava. Por eso *50
+cestas recibidas se vuelven 45 marinadas*, y usar 160 para lo recibido inflaba
+la entrada un 11%.
+
 **El «lo que había al empezar» no es opcional.** Es el conteo con el que se cerró
 la semana anterior, y sin él los números nunca cuadran: se vende mercancía que
 entró la semana pasada. Con datos reales, una semana dio *−872 piezas* sin ese

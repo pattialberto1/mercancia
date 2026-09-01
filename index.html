@@ -629,7 +629,7 @@ const defaults = {
               articulosActivos: ['pollo_pieza'],
               // cuántas unidades trae un bulto de cada bebida (editable en Equivalencias).
               // El de 1,5L queda sin poner a propósito: todavía no está confirmado.
-              porBulto: { ref_1l: 6, ref_2l: 6, agua: 24, malta: 36, yuky: 24 } },
+              porBulto: { ref_1l: 6, ref_15l: 12, ref_2l: 6, agua: 24, malta: 36, yuky: 24 } },
   recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -652,7 +652,8 @@ const PRODUCTOS = {
   refresco_1l:    { emoji: '🥤', nombre: 'Refresco 1L',   neto: 'REFRESCOS 1L',   unidad: true },
   refresco_15l:   { emoji: '🥤', nombre: 'Refresco 1,5L', neto: 'REFRESCOS 1,5L', unidad: true },
   refresco_2l:    { emoji: '🥤', nombre: 'Refresco 2L',   neto: 'REFRESCOS 2L',   unidad: true },
-  agua:           { emoji: '💧', nombre: 'Agua 600ml',    neto: 'AGUAS',          unidad: true },
+  agua:           { emoji: '💧', nombre: 'Agua Minalba 600ml', neto: 'AGUAS 600ML', unidad: true },
+  agua_glacier:   { emoji: '💧', nombre: 'Agua Glacier 550ml', neto: 'AGUAS GLACIER', unidad: true },
   yuky:           { emoji: '🧃', nombre: 'Yuky-pack',     neto: 'YUKY-PACKS',     unidad: true },
   malta:          { emoji: '🍺', nombre: 'Malta',         neto: 'MALTAS',         unidad: true },
   envases:        { emoji: '📦', nombre: 'Envases',       neto: 'ENVASES',        unidad: true }
@@ -675,7 +676,7 @@ const TABS = {
   papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
-  unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'yuky', 'malta', 'envases'] },
+  unidades:    { emoji: '🥤', nombre: 'Bebidas',  tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'agua_glacier', 'yuky', 'malta', 'envases'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
   inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
 };
@@ -1836,8 +1837,10 @@ const ARTICULOS_TODOS = [
     entrada: { tipo: 'unidades', producto: 'refresco_15l' } },
   { id: 'ref_2l', nombre: 'Refrescos de 2L', emoji: '🥤', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'refresco_2l' } },
-  { id: 'agua', nombre: 'Agua 600ml', emoji: '💧', unidad: 'unidades',
+  { id: 'agua', nombre: 'Agua Minalba 600ml', emoji: '💧', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'agua' } },
+  { id: 'agua_glacier', nombre: 'Agua Glacier 550ml', emoji: '💧', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'agua_glacier' } },
   { id: 'yuky', nombre: 'Yuky-packs', emoji: '🧃', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'yuky' } },
   { id: 'malta', nombre: 'Maltas', emoji: '🍺', unidad: 'unidades',
@@ -1852,19 +1855,24 @@ function articulosActivos() {
 }
 function articulo(id) { return ARTICULOS_TODOS.find(a => a.id === id); }
 
-/* Una cesta trae 18 pollos fijos; al picarlos rinden 20, y cada pollo son
-   8 piezas. O sea 160 piezas vendibles por cesta. Configurable por si
-   cambia el rendimiento. */
-const POLLOS_POR_CESTA = 18;
-const RENDIMIENTO_POLLOS = 20;
+/* OJO: la cesta que se RECIBE y la cesta que se CUENTA no son del mismo
+   tamaño, y confundirlas infla lo recibido un 11%.
+   - Del proveedor llega una cesta con 18 pollos enteros.
+   - Los cocineros los pican y los reacomodan en cestas de 20 pollos, así que
+     50 cestas recibidas se convierten en 45 cestas marinadas (900 pollos).
+   Lo que no cambia es el pollo: 8 piezas cada uno. */
+const POLLOS_POR_CESTA = 18;            // cesta del proveedor, pollo entero
+const POLLOS_POR_CESTA_MARINADA = 20;   // cesta ya picada, la que se cuenta
 const PIEZAS_POR_POLLO = 8;
-function piezasPorCesta() { return RENDIMIENTO_POLLOS * PIEZAS_POR_POLLO; }
+function piezasPorCestaRecibida() { return POLLOS_POR_CESTA * PIEZAS_POR_POLLO; }        // 144
+function piezasPorCestaMarinada() { return POLLOS_POR_CESTA_MARINADA * PIEZAS_POR_POLLO; } // 160
 
 /* Nadie cuenta 2.400 piezas de pollo: se cuentan 15 cestas. Ni 684 refrescos:
    se cuentan 57 bultos y 12 sueltos. Cuántas unidades trae un bulto se
    configura por artículo; el del pollo sale solo del rendimiento de la cesta. */
+// para CONTAR, la cesta es la marinada: la que está en la cava, de 20 pollos
 function porBultoDe(a) {
-  if (a.entrada && a.entrada.tipo === 'cestas') return piezasPorCesta();
+  if (a.entrada && a.entrada.tipo === 'cestas') return piezasPorCestaMarinada();
   return Number((db.settings.porBulto || {})[a.id]) || 0;
 }
 function nombreBulto(a) { return a.entrada && a.entrada.tipo === 'cestas' ? 'cestas' : 'bultos'; }
@@ -1939,7 +1947,7 @@ function recibidoEnSemana(inv) {
     let n = 0;
     for (const r of recs) {
       const t = totals(r);
-      n += e.tipo === 'cestas' ? t.cestas * piezasPorCesta() : t.bruto;
+      n += e.tipo === 'cestas' ? t.cestas * piezasPorCestaRecibida() : t.bruto;
     }
     out[art.id] = round2(n);
   }
@@ -2475,7 +2483,9 @@ function renderArticulosActivos() {
     row.innerHTML =
       '<div style="flex:1;text-align:left"><span class="w">' + a.emoji + ' ' + a.nombre + '</span>' +
       '<div class="meta">' + (on
-        ? (fijo ? 'Se controla · 1 cesta = ' + fmt(pb) + ' piezas'
+        ? (fijo ? 'Se controla · se cuenta en cestas marinadas de ' + POLLOS_POR_CESTA_MARINADA +
+                  ' pollos (' + fmt(pb) + ' piezas). La que llega del proveedor trae ' +
+                  POLLOS_POR_CESTA + ' pollos (' + fmt(piezasPorCestaRecibida()) + ' piezas).'
                 : pb ? 'Se controla · 1 bulto = ' + fmt(pb) + ' unidades'
                      : 'Se controla · falta decir cuántas unidades trae un bulto')
         : 'No se controla') + '</div></div>' +
