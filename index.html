@@ -658,7 +658,7 @@ const PRODUCTOS = {
   malta:          { emoji: '🍺', nombre: 'Malta',         neto: 'MALTAS',         unidad: true },
   huevos:         { emoji: '🥚', nombre: 'Huevos',        neto: 'HUEVOS',         unidad: true },
   // insumos de las recetas: se pesan por bolsa, sin cestas ni tara
-  pollo_rojo:     { emoji: '🍖', nombre: 'Pollo rojo',    neto: 'POLLO ROJO NETO', bolsa: true },
+  // el pollo rojo del chino y el de los tenders salen de la misma pechuga
   pechuga:        { emoji: '🍗', nombre: 'Pechuga',       neto: 'PECHUGA NETA',   bolsa: true },
   camaron:        { emoji: '🦐', nombre: 'Camarón',       neto: 'CAMARÓN NETO',   bolsa: true },
   arroz:          { emoji: '🍚', nombre: 'Arroz',         neto: 'ARROZ NETO',     bolsa: true },
@@ -684,7 +684,7 @@ const TABS = {
   papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
-  insumos:     { emoji: '🍚', nombre: 'Insumos',  tipos: ['pollo_rojo', 'pechuga', 'camaron', 'arroz', 'magia', 'azucar'] },
+  insumos:     { emoji: '🍚', nombre: 'Insumos',  tipos: ['pechuga', 'camaron', 'arroz', 'magia', 'azucar'] },
   unidades:    { emoji: '🥤', nombre: 'Bebidas y otros', tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'agua_glacier', 'yuky', 'malta', 'huevos', 'envases'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
   inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
@@ -710,6 +710,28 @@ function load() {
     d.inventarios = d.inventarios || [];
     d.borradas = d.borradas || {};
     for (const r of d.recepciones) if (!r.tipo) r.tipo = 'pollo';
+    // el «pollo rojo» del chino resultó ser la misma pechuga de los tenders
+    for (const r of d.recepciones) if (r.tipo === 'pollo_rojo') r.tipo = 'pechuga';
+    // los kilos se suman; lo tecleado (bultos y sueltas) solo se muda si no
+    // hay ya un valor de pechuga, para no inventar una mezcla de los dos
+    const sumar = o => {
+      if (!o || o.pollo_rojo === undefined) return;
+      o.pechuga = round2((Number(o.pechuga) || 0) + (Number(o.pollo_rojo) || 0));
+      delete o.pollo_rojo;
+    };
+    const mudar = o => {
+      if (!o || o.pollo_rojo === undefined) return;
+      if (o.pechuga === undefined) o.pechuga = o.pollo_rojo;
+      delete o.pollo_rojo;
+    };
+    for (const inv of d.inventarios) {
+      sumar(inv.conteo); sumar(inv.inicialManual);
+      mudar(inv.conteoDet); mudar(inv.inicialManualDet);
+    }
+    if (d.settings.articulosActivos) {
+      d.settings.articulosActivos = [...new Set(d.settings.articulosActivos
+        .map(x => x === 'pollo_rojo' ? 'pechuga' : x))];
+    }
     // v2: el rango de 2 cestas pasó de 68-71 a 65-75 (solo si no se había personalizado)
     if (!d.v || d.v < 2) {
       if (d.settings.min === 68) d.settings.min = 65;
@@ -1860,9 +1882,7 @@ const ARTICULOS_TODOS = [
     entrada: { tipo: 'unidades', producto: 'huevos' } },
   { id: 'cebollin', nombre: 'Cebollín', emoji: '🌿', unidad: 'kg',
     entrada: { tipo: 'peso', producto: 'cebollin' } },
-  { id: 'pollo_rojo', nombre: 'Pollo rojo (chino)', emoji: '🍖', unidad: 'kg',
-    entrada: { tipo: 'peso', producto: 'pollo_rojo' } },
-  { id: 'pechuga', nombre: 'Pechuga (tenders)', emoji: '🍗', unidad: 'kg',
+  { id: 'pechuga', nombre: 'Pechuga', emoji: '🍗', unidad: 'kg',
     entrada: { tipo: 'peso', producto: 'pechuga' } },
   { id: 'camaron', nombre: 'Camarón', emoji: '🦐', unidad: 'kg',
     entrada: { tipo: 'peso', producto: 'camaron' } },
@@ -1928,7 +1948,7 @@ const PECHUGA_TENDER = 0.16;      // 160 g de pechuga por tender
 // Un pote de chino. Los de pollo y camarón llevan además el camarón.
 function potesChino(potes, conCamaron) {
   const uno = {
-    pollo_rojo: 0.1, camaron: conCamaron ? 0.12 : 0,
+    pechuga: 0.1, camaron: conCamaron ? 0.12 : 0,
     huevos: 2, cebollin: 0.05, arroz: 0.4,
     magia: 2 * CUCHARADA, azucar: 1 * CUCHARADA
   };
