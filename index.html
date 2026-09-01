@@ -250,6 +250,31 @@
   .msg.error { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
   .msg.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
   .msg.warn { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  /* ---- inventario físico ---- */
+  .fis-cat {
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--accent); background: var(--accent-soft); padding: 7px 10px;
+    border-radius: 8px; margin: 14px 0 8px;
+  }
+  .fis-cat:first-child { margin-top: 0; }
+  .fis-row { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .fis-row.con .fis-nom { font-weight: 800; }
+  .fis-nom { font-size: 14px; margin-bottom: 5px; }
+  .fis-nums { display: flex; gap: 8px; }
+  .fis-nums > label {
+    flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 5px 9px;
+  }
+  .fis-nums > label:focus-within { border-color: var(--accent); }
+  .fis-nums input {
+    font: inherit; font-size: 16px; font-weight: 700; width: 100%; padding: 0;
+    border: none; background: none; color: var(--text); outline: none; font-variant-numeric: tabular-nums;
+  }
+  .fis-nums em { font-size: 10px; font-style: normal; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .fis-obs {
+    width: 100%; margin-top: 6px; font: inherit; font-size: 13px; padding: 5px 9px;
+    border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text);
+  }
   .inv-dif { margin-top: 10px; font-size: 14px; font-weight: 700; }
   .inv-dif.ok { color: var(--ok); }
   .inv-dif.mal { color: var(--bad); }
@@ -316,6 +341,7 @@
     </div>
     <div class="seg" id="home-tabs"></div>
     <button class="btn-primary" id="btn-new" style="margin:14px 0 10px">🐔 Nueva recepción de pollo</button>
+    <button class="btn-secondary hidden" id="btn-fisico" style="margin-bottom:10px">📋 Nuevo inventario físico</button>
     <button class="btn-wa hidden" id="btn-wa-dia">📲 Enviar verduras del día</button>
     <button class="syncline" id="sync-status">☁️ Sincronización no configurada — toca aquí</button>
     <div id="home-list"></div>
@@ -476,7 +502,7 @@
       <div class="hint" id="inv-arranque-hint"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="inv-reporte-card">
       <h2>📄 Reporte de ventas</h2>
       <div class="sub" style="margin:2px 0 12px">Sube el PDF que exportas del sistema, con el rango de la semana.</div>
       <input type="file" id="inv-file" accept="application/pdf,.pdf" hidden>
@@ -488,6 +514,14 @@
     <div class="card" id="inv-comparacion-card">
       <div class="listhead"><h2>Comparación</h2></div>
       <div id="inv-comparacion"></div>
+    </div>
+
+    <!-- inventario físico: la hoja completa del local, solo conteo -->
+    <div class="card hidden" id="inv-fisico-card">
+      <div class="listhead"><h2>Conteo</h2><span class="sub" id="fis-resumen"></span></div>
+      <input id="fis-buscar" type="search" placeholder="Buscar un producto…" autocomplete="off"
+             style="width:100%;margin-bottom:10px">
+      <div id="inv-fisico"></div>
     </div>
 
     <button class="btn-primary" id="inv-cerrar" style="margin-bottom:10px">Cerrar la semana</button>
@@ -859,6 +893,7 @@ function renderHome() {
     : T.inventario ? T.emoji + ' Nueva semana'
     : T.emoji + ' Nueva recepción de ' + T.nombre.toLowerCase();
   $('btn-wa-dia').classList.toggle('hidden', homeTab !== 'verduras');
+  $('btn-fisico').classList.toggle('hidden', !T.inventario);
   if (T.facturas) return renderHomeFacturas();
   if (T.inventario) return renderHomeInventario();
 
@@ -1939,6 +1974,122 @@ function totalDe(a, det) {
   return round2(b * pb + u);
 }
 
+/* ================================================================
+   INVENTARIO FÍSICO: la hoja completa que se llena a mano en el local.
+   Son dos columnas independientes, como en el papel — «por bulto» y «por
+   unidad» — más la observación. No se convierten ni se suman: el bulto de
+   cada cosa es distinto y muchos ni se venden, así que aquí no hay merma
+   que calcular. El control semanal con su fórmula sigue aparte.
+   Un «|kg» o «|lt» al final del nombre cambia la unidad de la 2ª columna. */
+const CATALOGO_FISICO = [
+  { cat: 'Alimentos procesados y otros', items: [
+    'Aceite Vatel Pro', 'Aceite Portumesa', 'Aceite Concovado', 'Aceite humo sésamo 5L',
+    'Arroz cocido|kg', 'Arroz Mary', 'Arroz Mónica 900 grs',
+    'Azúcar Montalbán', 'Azúcar Agro Líder', 'Azúcar dulcería blanca|kg', 'Azúcar Maite', 'Azúcar Solmia',
+    'Caraotas negras Mary 400g', 'Caraotas rojas Mary 500g', 'Harina de trigo', 'Harina Pan',
+    'Leche', 'Lentejas Mary 500g', 'Lentejas Pantera 500g', 'Arvejas Mary 400gr', 'Arvejas Pantera 900g',
+    'Mostaza', 'Pasta corta', 'Pasta de tomate', 'Pasta larga',
+    'Sal Cruz de Oro', 'Sal refinada Monte Blanca',
+    'Salsa agridulce sobre', 'Salsa agridulce racionada', 'Salsa soya sobre Usine',
+    'Salsa de soya negra concentrado', 'Salsa soya clara', 'Salsa soya clara (caja de 4)', 'Salsa soya salón',
+    'Salsa de soya negra El Chino Mushroom', 'Salsa de tomate de la casa', 'Salsa de la casa racionada',
+    'Salsa de tomate Heinz', 'Salsa de tomate Ideal galón 4k',
+    'Salsa ketchup Chef Quality caja 24', 'Salsa ketchup Chef Quality sobre',
+    'Salsa ketchup Tiquere caja 24', 'Salsa de tomate Mayo 3,8kg', 'Salsa de tomate Don Antonio',
+    'Salsa de tomate sobre ketchup', 'Salsa pote agridulce|lt', 'Salsa BBQ',
+    'Sobre Maggi', 'Vinagre Heinz', 'Vinagre Sansone', 'Yesqueros'
+  ]},
+  { cat: 'Animes, cubiertos y bolsas', items: [
+    'CT1 envases', 'CT2 envases', 'CT3 envases',
+    'Tapa de tina de ensalada', 'Tapas de tina china', 'Tina china 23oz',
+    'Tina de ensalada 3oz', 'Tina de ensalada 6oz', 'Tina salsera 1oz Occidente',
+    'Platos N10', 'Platos N9', 'Tenedores', 'Cuchillos', 'Cucharillas',
+    'Vasos V127', 'Vasos V67', 'Vasos V67 o 77', 'Vasos V89', 'Pitillos',
+    'Bandejas térmicas para lumpias BT1',
+    'Bolsas de 2 kilos', 'Bolsas de 10 kilos', 'Bolsas de 15 kilos', 'Bolsas de 20 kilos',
+    'Bolsas de 25 kilos', 'Bolsas de 40 kilos negra', 'Bolsas transparentes 1/4'
+  ]},
+  { cat: 'Bebidas', items: [
+    'Agua Minalba 1,5L', 'Agua Minalba 600ml', 'Agua Glacier 550ml',
+    'Gatorade de mandarina', 'Gatorade de tropical',
+    'Jugo naranja 400ml Barinas', 'Jugo pera 400ml Barinas', 'Jugo manzana 400ml Barinas',
+    'Malta botella',
+    'Refresco Manzanita 1L', 'Refresco Piña 1L', 'Refresco 7UP 1L', 'Refresco Chinoto 1L',
+    'Refresco Coca-Cola 1L', 'Refresco Colita 1L', 'Refresco Naranja 1L',
+    'Refresco Fanta Naranja 1L', 'Refresco Uva 1L',
+    'Refresco Toronja 2L', 'Refresco Manzanita 2L', 'Refresco 7UP 2L', 'Refresco Pepsi 2L',
+    'Refresco Coca-Cola 2L', 'Refresco Colita 2L', 'Refresco Chinoto 2L', 'Refresco Naranja 2L',
+    'Té Lipton durazno', 'Té Lipton limón', 'Té verde Lipton',
+    'Tenta té durazno 1L', 'Tenta té limón 1L', 'Tenta té durazno 500ml', 'Tenta té limón 500ml',
+    'Yukki pack pera', 'Yukki pack manzana', 'Yukki pack durazno'
+  ]},
+  { cat: 'Legumbres y frutas', items: [
+    'Aguacate|kg', 'Ají dulce|kg', 'Ajinomoto|kg', 'Ajo|kg', 'Ajo porro|kg', 'Apio|kg', 'Auyama|kg',
+    'Berenjena|kg', 'Brócoli|kg', 'Cambur|kg', 'Calabacín|kg', 'Cebolla blanca|kg',
+    'Cebollín en cestas|kg', 'Cebollín picado|kg', 'Celeri (apio España)|kg', 'Cilantro|kg',
+    'Ensalada', 'Guayaba|kg', 'Jojoto|kg', 'Jengibre|kg', 'Lechuga|kg', 'Limón|kg', 'Mango|kg',
+    'Melón|kg', 'Naranja|kg', 'Ñame|kg', 'Ocumo|kg', 'Papas cestas|kg', 'Papelón',
+    'Parchita|kg', 'Patilla|kg', 'Pepino|kg', 'Perejil|kg', 'Pimentón|kg', 'Piña|kg', 'Plátanos|kg',
+    'Queso|kg', 'Remolacha|kg', 'Repollo blanco|kg', 'Repollo morado|kg',
+    'Tomate|kg', 'Tomate de árbol|kg', 'Vainita|kg', 'Yuca|kg', 'Zanahoria|kg'
+  ]},
+  { cat: 'Carnes, pollo, camarón y otros', items: [
+    'Alas|kg', 'Atún', 'Camarón|kg', 'Carne mechada|kg', 'Carne molida|kg', 'Carne bistec|kg',
+    'Carne para guisar|kg', 'Chuletas|kg', 'Lagarto sin hueso|kg',
+    'Empanizado para pollo', 'Empanizado para tender', 'Huevos', 'Magia|kg', 'Marinado',
+    'Milanesa cocida|kg', 'Milanesa congelada|kg',
+    'Pollo en cestas|kg', 'Pollo en cestas marinado|kg', 'Pollo picado|kg',
+    'Polvo colorante 12U Brig-Red', 'Polvo colorante 12U Orangel Yelow',
+    'Polvo colorante amarillo Frutalia 500g', 'Tenders'
+  ]},
+  { cat: 'Detergentes y limpieza', items: [
+    'Citronela concentrado (amarillo)|lt', 'Citronela preparado|lt',
+    'Cloro concentrado|lt', 'Cloro preparado|lt', 'Coleto',
+    'Desengrasante|lt', 'Desinfectante concentrado azul|lt', 'Desinfectante preparado azul|lt',
+    'Desinfectante anaranjado concentrado|lt', 'Desinfectante anaranjado preparado|lt',
+    'Esponjas de brillo', 'Esponja amarilla', 'Esponja jabonosa', 'Esponja de mayas',
+    'Jabón líquido|lt', 'Jabón Dove', 'Pañitos', 'Trapeador limpia vidrios'
+  ]},
+  { cat: 'Uniformes y otros', items: [
+    'Delantal', 'Gorros tela sencilla', 'Gorros tela lana', 'Guantes L y M',
+    'Franelas de uniformes', 'Tapa boca'
+  ]},
+  { cat: 'Material de oficina', items: [
+    'Bombillo 6VT vert', 'Bombillo Angel Ligth 15W', 'Bombillo 130VT vert', 'Bombillos tubo 60W',
+    'Bolígrafos negros', 'Cargador tipo C', 'Grapas', 'Ligas',
+    'Marcador Sharpie negro', 'Marcador permanente azul', 'Pilas AAA x2',
+    'Panel LED redondo 6" 15W', 'Panel LED redondo 5" 9W', 'Resaltador', 'Reflector LED',
+    'Resma de hojas blancas', 'Rollos térmicos impresora fiscal', 'Rollos térmicos punto de venta',
+    'Teipe', 'Tinta para impresora negra|lt'
+  ]},
+  { cat: 'Papel y servilletas', items: [
+    'Papel antigrasa', 'Papel antigrasa blanco lumpias', 'Papel higiénico 3B', 'Papel higiénico bambú',
+    'Servilletas Euro', 'Servilletas mega pack', 'Servilletas sin marca', 'Sobre para lumpias',
+    'Stikers', 'Filtro', 'Toallín', 'Papel Alison'
+  ]},
+  { cat: 'Otros', items: [
+    'Lumpias', 'Postres Paolo', 'Postres tres leches', 'Pinzas'
+  ]}
+];
+/* El id sale del nombre, para que no haya que mantener una lista de códigos.
+   Si se renombra un producto, lo contado antes queda huérfano: por eso el
+   nombre no se toca, se agrega uno nuevo. */
+function idFisico(nombre) {
+  return nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+}
+function catalogoFisico() {
+  const out = [];
+  for (const g of CATALOGO_FISICO) {
+    const items = g.items.map(s => {
+      const [nombre, unidad] = s.split('|');
+      return { id: idFisico(nombre), nombre, unidad: unidad || 'und' };
+    });
+    out.push({ cat: g.cat, items });
+  }
+  return out;
+}
+
 /* Equivalencias: qué consume cada producto del POS, por su código.
    El código es la llave, no el nombre, porque el nombre puede cambiar. */
 /* Recetas, en la unidad de cada artículo (kg o unidades).
@@ -2054,6 +2205,26 @@ function vendidoEnSemana(inv) {
 function codigosSinAsignar(inv) {
   const eq = equivalencias();
   return (inv.ventas || []).filter(v => !eq[v.codigo]);
+}
+
+// el inventario físico es una foto de un día: la hoja completa del local
+function nuevoFisico(fecha) {
+  const inv = {
+    id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4),
+    tipo: 'fisico', semanaInicio: fecha, semanaFin: fecha,
+    creada: Date.now(), cerrado: false,
+    ventas: [], conteo: {}, inicialManual: {}, fisico: {}
+  };
+  touch(inv);
+  db.inventarios.push(inv);
+  save();
+  return inv;
+}
+function esFisico(inv) { return inv && inv.tipo === 'fisico'; }
+// cuántos renglones tienen algo escrito
+function contadosFisico(inv) {
+  return Object.values(inv.fisico || {})
+    .filter(v => v && ((v.b !== '' && v.b != null) || (v.u !== '' && v.u != null))).length;
 }
 
 function nuevaSemana(desde, hasta) {
@@ -2227,12 +2398,15 @@ function renderHomeInventario() {
   for (const inv of semanas) {
     const btn = document.createElement('button');
     btn.className = 'rec-item';
-    const dif = inv.cerrado ? diferenciaTotal(inv) : null;
+    const fis = esFisico(inv);
+    const n = fis ? contadosFisico(inv) : (inv.ventas || []).length;
     btn.innerHTML =
-      '<div><div style="font-weight:700">📊 ' + fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
-      (inv.cerrado ? '<span class="badge">cerrada</span>' : '<span class="badge open">abierta</span>') +
-      '</div><div class="meta sub">' + (inv.ventas || []).length +
-      ((inv.ventas || []).length === 1 ? ' producto vendido' : ' productos vendidos') + '</div></div>' +
+      '<div><div style="font-weight:700">' + (fis ? '📋 Inventario físico · ' + fmtDate(inv.semanaInicio)
+                                                 : '📊 ' + fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin)) +
+      (inv.cerrado ? '<span class="badge">cerrado</span>' : '<span class="badge open">abierto</span>') +
+      '</div><div class="meta sub">' + n +
+      (fis ? (n === 1 ? ' producto contado' : ' productos contados')
+           : (n === 1 ? ' producto vendido' : ' productos vendidos')) + '</div></div>' +
       '<span class="chev">›</span>';
     btn.onclick = () => abrirInv(inv.id);
     list.appendChild(btn);
@@ -2271,6 +2445,24 @@ function nuevaSemanaDesdeHoy() {
 
 function renderInv() {
   const inv = currentInv;
+  // el inventario físico es otra cosa: la hoja completa, sin fórmula ni merma
+  const fis = esFisico(inv);
+  for (const id of ['inv-reporte-card', 'inv-comparacion-card', 'inv-arranque-card', 'inv-equivalencias'])
+    $(id).classList.toggle('hidden', fis);
+  $('inv-fisico-card').classList.toggle('hidden', !fis);
+  if (fis) {
+    $('inv-title').textContent = 'Inventario físico';
+    $('inv-sub').textContent = fmtDate(inv.semanaInicio) + (inv.cerrado ? ' · cerrado' : '');
+    $('inv-msg').innerHTML = inv.cerrado
+      ? '<div class="msg ok">Este inventario está cerrado. Queda como quedó el día que se contó.</div>'
+      : '<div class="msg">Es la hoja completa del local. Se anota igual que en el papel: por bulto y por unidad, cada uno por su lado. Lo que no se cuente se deja en blanco.</div>';
+    $('inv-cerrar').classList.toggle('hidden', inv.cerrado);
+    $('inv-cerrar').textContent = 'Cerrar el inventario';
+    $('inv-del').classList.toggle('hidden', inv.cerrado);
+    renderFisico();
+    return;
+  }
+  $('inv-cerrar').textContent = 'Cerrar la semana';
   // el primer tramo puede arrancar a mitad de semana: no llamarlo «semana»
   $('inv-title').textContent = inv.semanaInicio === domingoDe(inv.semanaInicio)
     ? 'Semana ' + fmtDate(inv.semanaInicio)
@@ -2393,6 +2585,66 @@ function lineaTotal(a, det, total) {
     (u ? ' + ' + fmt(u) : '') + ' = <b>' + fmt(total) + ' ' + a.unidad + '</b></div>';
 }
 
+/* ---- inventario físico: la hoja completa, por categorías ---- */
+let filtroFisico = '';
+
+function renderFisico() {
+  const inv = currentInv;
+  const cont = $('inv-fisico');
+  const q = filtroFisico.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const coincide = n => !q || n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q);
+  cont.innerHTML = '';
+  let mostrados = 0;
+  for (const g of catalogoFisico()) {
+    const items = g.items.filter(i => coincide(i.nombre));
+    if (!items.length) continue;
+    const h = document.createElement('div');
+    h.className = 'fis-cat';
+    h.textContent = g.cat;
+    cont.appendChild(h);
+    for (const it of items) {
+      mostrados++;
+      const v = (inv.fisico || {})[it.id] || {};
+      const dis = inv.cerrado ? ' disabled' : '';
+      const row = document.createElement('div');
+      row.className = 'fis-row' + (v.b || v.u ? ' con' : '');
+      row.innerHTML =
+        '<div class="fis-nom">' + esc(it.nombre) + '</div>' +
+        '<div class="fis-nums">' +
+          '<label><input class="fis-i" data-i="' + it.id + '" data-k="b" type="text" inputmode="decimal" value="' +
+            esc(v.b == null ? '' : v.b) + '" placeholder="—"' + dis + '><em>bultos</em></label>' +
+          '<label><input class="fis-i" data-i="' + it.id + '" data-k="u" type="text" inputmode="decimal" value="' +
+            esc(v.u == null ? '' : v.u) + '" placeholder="—"' + dis + '><em>' + it.unidad + '</em></label>' +
+        '</div>' +
+        '<input class="fis-obs" data-i="' + it.id + '" data-k="obs" type="text" placeholder="Observación" value="' +
+          esc(v.obs || '') + '"' + dis + '>';
+      cont.appendChild(row);
+    }
+  }
+  if (!mostrados) cont.innerHTML = '<div class="sub" style="padding:10px 0">Ningún producto se llama así.</div>';
+
+  const total = catalogoFisico().reduce((s, g) => s + g.items.length, 0);
+  $('fis-resumen').textContent = contadosFisico(inv) + ' de ' + total + ' contados';
+
+  for (const el of cont.querySelectorAll('.fis-i, .fis-obs')) {
+    el.addEventListener('change', e => {
+      const id = e.target.dataset.i, k = e.target.dataset.k, val = e.target.value.trim();
+      if (k !== 'obs' && val !== '' && isNaN(parseNum(val))) { toast('Escribe un número'); renderFisico(); return; }
+      currentInv.fisico = currentInv.fisico || {};
+      const v = Object.assign({ b: '', u: '', obs: '' }, currentInv.fisico[id] || {});
+      v[k] = val;
+      // si no queda nada escrito, se borra el renglón en vez de guardar vacíos
+      if (!v.b && !v.u && !v.obs) delete currentInv.fisico[id];
+      else currentInv.fisico[id] = v;
+      touch(currentInv); save();
+      $('fis-resumen').textContent = contadosFisico(currentInv) + ' de ' + total + ' contados';
+      e.target.closest('.fis-row').classList.toggle('con', !!(v.b || v.u));
+    });
+  }
+}
+
+$('fis-buscar').addEventListener('input', e => { filtroFisico = e.target.value; renderFisico(); });
+
 function renderComparacion() {
   const inv = currentInv;
   const cont = $('inv-comparacion');
@@ -2499,21 +2751,38 @@ $('inv-arranque').onchange = e => {
   touch(currentInv); save(); renderInv();
 };
 $('inv-equivalencias').onclick = () => { renderEquivalencias(); show('eq'); };
+
+$('btn-fisico').onclick = () => {
+  const hoy = todayISO();
+  const ya = db.inventarios.find(i => esFisico(i) && i.semanaInicio === hoy);
+  filtroFisico = ''; $('fis-buscar').value = '';
+  abrirInv(ya ? ya.id : nuevoFisico(hoy).id);
+};
 $('eq-back').onclick = () => { renderInv(); show('inv'); };
 
 $('inv-del').onclick = () => {
-  askConfirm('Eliminar la semana',
-    'Se borra esta semana con lo leído del reporte y el conteo. Las recepciones no se tocan.',
+  const fis = esFisico(currentInv);
+  askConfirm(fis ? 'Eliminar el inventario' : 'Eliminar la semana',
+    fis ? 'Se borra este inventario físico con todo lo contado. Las recepciones no se tocan.'
+        : 'Se borra esta semana con lo leído del reporte y el conteo. Las recepciones no se tocan.',
     () => {
       db.borradas[currentInv.id] = Date.now();
       db.inventarios = db.inventarios.filter(i => i.id !== currentInv.id);
       save(); currentInv = null; renderHome(); show('home');
-      toast('Semana eliminada');
+      toast(fis ? 'Inventario eliminado' : 'Semana eliminada');
     });
 };
 
 $('inv-cerrar').onclick = () => {
   const inv = currentInv;
+  if (esFisico(inv)) {
+    const n = contadosFisico(inv);
+    if (!n) { toast('Todavía no has contado nada'); return; }
+    askConfirm('Cerrar el inventario',
+      'Quedan ' + n + ' productos contados. Después de cerrar ya no se puede modificar.',
+      () => { inv.cerrado = true; touch(inv); save(); renderInv(); toast('Inventario cerrado'); });
+    return;
+  }
   const filas = calcular(inv);
   const sinContar = filas.filter(f => f.conteo === null);
   if (sinContar.length) {
@@ -2533,6 +2802,27 @@ $('inv-cerrar').onclick = () => {
 
 $('inv-wa').onclick = () => {
   const inv = currentInv;
+  if (esFisico(inv)) {
+    let txt = '📋 *INVENTARIO FÍSICO*\n📅 ' + fmtDate(inv.semanaInicio) + '\n';
+    for (const g of catalogoFisico()) {
+      const con = g.items.filter(i => {
+        const v = (inv.fisico || {})[i.id];
+        return v && (v.b || v.u);
+      });
+      if (!con.length) continue;
+      txt += '\n*' + g.cat.toUpperCase() + '*\n';
+      for (const i of con) {
+        const v = inv.fisico[i.id];
+        const partes = [];
+        if (v.b) partes.push(v.b + (Number(parseNum(v.b)) === 1 ? ' bulto' : ' bultos'));
+        if (v.u) partes.push(v.u + ' ' + i.unidad);
+        txt += '• ' + i.nombre + ': ' + partes.join(' + ') + (v.obs ? ' (' + v.obs + ')' : '') + '\n';
+      }
+    }
+    txt += '\n📦 ' + contadosFisico(inv) + ' productos contados';
+    window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+    return;
+  }
   const filas = calcular(inv);
   let txt = '📊 *INVENTARIO*\n📅 ' + fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) + '\n';
   for (const f of filas) {

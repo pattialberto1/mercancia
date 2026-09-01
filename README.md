@@ -125,6 +125,16 @@ esperado = lo que había al empezar la semana
          − lo vendido (del reporte del sistema)
 ```
 
+### Dos inventarios distintos
+
+- **📊 Semana** — el control de merma: *inicial + recibido − vendido* contra el
+  conteo real. Son pocos artículos, los que se venden y se pueden cuadrar.
+- **📋 Inventario físico** — la hoja completa del local (242 productos en 10
+  categorías), la misma que se llena a mano. Dos columnas independientes, *por
+  bulto* y *por unidad*, más la observación — igual que en el papel. Aquí **no
+  hay merma**: la mayoría no se vende, se consume, así que no hay contra qué
+  compararlo. Es una foto de un día.
+
 **Cuidado con las dos cestas.** La que llega del proveedor trae **18 pollos
 enteros** (144 piezas). Los cocineros los pican y los reacomodan en **cestas de
 20 pollos** (160 piezas), que son las que se cuentan en la cava. Por eso *50
