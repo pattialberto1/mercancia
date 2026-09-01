@@ -245,6 +245,11 @@
   .inv-par > label { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .inv-par em { font-size: 10px; font-style: normal; color: var(--muted); font-weight: 600; text-transform: uppercase; }
   .inv-total { grid-column: 1 / -1; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .msg { padding: 12px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; margin-bottom: 12px;
+         background: var(--card); border: 1px solid var(--line); }
+  .msg.error { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+  .msg.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+  .msg.warn { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
   .inv-dif { margin-top: 10px; font-size: 14px; font-weight: 700; }
   .inv-dif.ok { color: var(--ok); }
   .inv-dif.mal { color: var(--bad); }
@@ -2142,8 +2147,20 @@ function abrirInv(id) {
 }
 
 function nuevaSemanaDesdeHoy() {
-  // por defecto, la semana pasada completa: es la que ya terminó el sábado
-  const domingoEsta = domingoDe(todayISO());
+  const hoy = todayISO();
+  /* La PRIMERA vez el control arranca el día que se contó, aunque caiga a
+     mitad de semana: es el único momento del que se sabe con certeza qué
+     había. Ese tramo termina el sábado y de ahí en adelante ya son semanas
+     completas de domingo a sábado. */
+  if (!db.inventarios.length) {
+    const sabado = masDias(domingoDe(hoy), 6);
+    const arranca = hoy < sabado ? hoy : masDias(sabado, 1);   // contado un sábado: arranca el domingo
+    const termina = hoy < sabado ? sabado : masDias(sabado, 7);
+    abrirInv(nuevaSemana(arranca, termina).id);
+    return;
+  }
+  // después, la semana pasada completa: es la que ya terminó el sábado
+  const domingoEsta = domingoDe(hoy);
   const desde = masDias(domingoEsta, -7), hasta = masDias(desde, 6);
   const ya = db.inventarios.find(i => i.semanaInicio === desde);
   if (ya) { abrirInv(ya.id); return; }
@@ -2152,7 +2169,10 @@ function nuevaSemanaDesdeHoy() {
 
 function renderInv() {
   const inv = currentInv;
-  $('inv-title').textContent = 'Semana ' + fmtDate(inv.semanaInicio);
+  // el primer tramo puede arrancar a mitad de semana: no llamarlo «semana»
+  $('inv-title').textContent = inv.semanaInicio === domingoDe(inv.semanaInicio)
+    ? 'Semana ' + fmtDate(inv.semanaInicio)
+    : 'Desde el ' + fmtDate(inv.semanaInicio);
   $('inv-sub').textContent = fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
     (inv.cerrado ? ' · cerrada' : '');
   $('inv-subir').classList.toggle('hidden', inv.cerrado);
@@ -2181,7 +2201,13 @@ function renderInv() {
   }
   const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
   if (!previas.length && !Object.keys(inv.inicialManual || {}).length) {
-    avisos.push('<div class="msg warn">Es la primera semana: no hay conteo anterior del que partir. Escribe abajo lo que había al arrancar la semana (el sábado al cerrar, o el domingo antes de abrir), en la columna «Inicial».</div>');
+    avisos.push('<div class="msg warn">Es el primer tramo: no hay conteo anterior del que partir. Escribe en «Inicial» lo que contaste el ' +
+      fmtDate(inv.semanaInicio) + '.</div>');
+  }
+  // el primer tramo suele arrancar a mitad de semana, el día que se contó
+  if (!previas.length && inv.semanaInicio !== domingoDe(inv.semanaInicio)) {
+    avisos.push('<div class="msg">Este primer tramo va del ' + fmtDate(inv.semanaInicio) + ' al ' +
+      fmtDate(inv.semanaFin) + ' porque el control arranca el día que contaste. Exporta el reporte de ventas con ese mismo rango. A partir del domingo ya son semanas completas.</div>');
   }
   $('inv-msg').innerHTML = avisos.join('');
 
