@@ -626,7 +626,10 @@ const STORE_KEY = 'mercancia.v1';
 const defaults = {
   settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
               proveedores: ['Tierra Santa'], ultimoProveedor: 'Tierra Santa',
-              articulosActivos: ['pollo_pieza'], porBulto: {} },
+              articulosActivos: ['pollo_pieza'],
+              // cuántas unidades trae un bulto de cada bebida (editable en Equivalencias).
+              // El de 1,5L queda sin poner a propósito: todavía no está confirmado.
+              porBulto: { ref_1l: 6, ref_2l: 6, agua: 24, malta: 36, yuky: 24 } },
   recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -690,6 +693,8 @@ function load() {
     if (!raw) return structuredClone(defaults);
     const d = JSON.parse(raw);
     d.settings = Object.assign({}, defaults.settings, d.settings);
+    // los tamaños de bulto se completan con los conocidos, sin pisar los tuyos
+    d.settings.porBulto = Object.assign({}, defaults.settings.porBulto, d.settings.porBulto);
     d.recepciones = d.recepciones || [];
     d.facturas = d.facturas || [];
     d.inventarios = d.inventarios || [];
