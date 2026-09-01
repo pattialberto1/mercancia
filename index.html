@@ -629,7 +629,7 @@ const defaults = {
               articulosActivos: ['pollo_pieza'],
               // cuántas unidades trae un bulto de cada bebida (editable en Equivalencias).
               // El de 1,5L queda sin poner a propósito: todavía no está confirmado.
-              porBulto: { ref_1l: 6, ref_15l: 12, ref_2l: 6, agua: 24, malta: 36, yuky: 24, huevos: 24 } },
+              porBulto: { ref_1l: 6, ref_15l: 12, ref_2l: 6, agua: 24, agua_glacier: 24, malta: 36, yuky: 24, huevos: 24 } },
   recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -657,6 +657,13 @@ const PRODUCTOS = {
   yuky:           { emoji: '🧃', nombre: 'Yuky-pack',     neto: 'YUKY-PACKS',     unidad: true },
   malta:          { emoji: '🍺', nombre: 'Malta',         neto: 'MALTAS',         unidad: true },
   huevos:         { emoji: '🥚', nombre: 'Huevos',        neto: 'HUEVOS',         unidad: true },
+  // insumos de las recetas: se pesan por bolsa, sin cestas ni tara
+  pollo_rojo:     { emoji: '🍖', nombre: 'Pollo rojo',    neto: 'POLLO ROJO NETO', bolsa: true },
+  pechuga:        { emoji: '🍗', nombre: 'Pechuga',       neto: 'PECHUGA NETA',   bolsa: true },
+  camaron:        { emoji: '🦐', nombre: 'Camarón',       neto: 'CAMARÓN NETO',   bolsa: true },
+  arroz:          { emoji: '🍚', nombre: 'Arroz',         neto: 'ARROZ NETO',     bolsa: true },
+  magia:          { emoji: '🧂', nombre: 'Magia',         neto: 'MAGIA NETA',     bolsa: true },
+  azucar:         { emoji: '🍬', nombre: 'Azúcar',        neto: 'AZÚCAR NETA',    bolsa: true },
   envases:        { emoji: '📦', nombre: 'Envases',       neto: 'ENVASES',        unidad: true }
 };
 // ¿este producto se pesa "a bolsas" (sin cestas ni tara), en vez de a granel con cestas?
@@ -677,6 +684,7 @@ const TABS = {
   papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
+  insumos:     { emoji: '🍚', nombre: 'Insumos',  tipos: ['pollo_rojo', 'pechuga', 'camaron', 'arroz', 'magia', 'azucar'] },
   unidades:    { emoji: '🥤', nombre: 'Bebidas y otros', tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'agua_glacier', 'yuky', 'malta', 'huevos', 'envases'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
   inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
@@ -1851,7 +1859,19 @@ const ARTICULOS_TODOS = [
     bulto: 'cartones', bulto1: 'cartón',
     entrada: { tipo: 'unidades', producto: 'huevos' } },
   { id: 'cebollin', nombre: 'Cebollín', emoji: '🌿', unidad: 'kg',
-    entrada: { tipo: 'peso', producto: 'cebollin' } }
+    entrada: { tipo: 'peso', producto: 'cebollin' } },
+  { id: 'pollo_rojo', nombre: 'Pollo rojo (chino)', emoji: '🍖', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'pollo_rojo' } },
+  { id: 'pechuga', nombre: 'Pechuga (tenders)', emoji: '🍗', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'pechuga' } },
+  { id: 'camaron', nombre: 'Camarón', emoji: '🦐', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'camaron' } },
+  { id: 'arroz', nombre: 'Arroz', emoji: '🍚', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'arroz' } },
+  { id: 'magia', nombre: 'Magia', emoji: '🧂', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'magia' } },
+  { id: 'azucar', nombre: 'Azúcar', emoji: '🍬', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'azucar' } }
 ];
 /* Solo se controla lo que se esté registrando de verdad. Activar un artículo
    sin anotar sus entradas haría que el esperado saliera negativo semana tras
@@ -1901,6 +1921,22 @@ function totalDe(a, det) {
 
 /* Equivalencias: qué consume cada producto del POS, por su código.
    El código es la llave, no el nombre, porque el nombre puede cambiar. */
+/* Recetas, en la unidad de cada artículo (kg o unidades).
+   La cucharada se toma como 15 g: es un promedio, y se puede afinar aquí. */
+const CUCHARADA = 0.015;
+const PECHUGA_TENDER = 0.16;      // 160 g de pechuga por tender
+// Un pote de chino. Los de pollo y camarón llevan además el camarón.
+function potesChino(potes, conCamaron) {
+  const uno = {
+    pollo_rojo: 0.1, camaron: conCamaron ? 0.12 : 0,
+    huevos: 2, cebollin: 0.05, arroz: 0.4,
+    magia: 2 * CUCHARADA, azucar: 1 * CUCHARADA
+  };
+  const out = {};
+  for (const [k, v] of Object.entries(uno)) if (v) out[k] = Math.round(v * potes * 1000) / 1000;
+  return out;
+}
+
 const EQUIVALENCIAS_BASE = {
   '1519': { nombre: 'COMBO 1 POLLO',   consume: { pollo_pieza: 4 } },
   '1521': { nombre: 'COMBO 2 POLLO',   consume: { pollo_pieza: 4, ref_1l: 1 } },
@@ -1915,19 +1951,20 @@ const EQUIVALENCIAS_BASE = {
   '1538': { nombre: 'REF. 1L NARANJA',    consume: { ref_1l: 1 } },
   '1605': { nombre: 'REF. 1L PINA',       consume: { ref_1l: 1 } },
   '1539': { nombre: 'REF. 1L UVA',        consume: { ref_1l: 1 } },
-  '1513': { nombre: 'AGUA 600ML',         consume: { agua: 1 } },
+  '1513': { nombre: 'AGUA 600ML',         consume: { agua_glacier: 1 } },  // es la Glacier
   '1621': { nombre: 'MINALBA 600ML',      consume: { agua: 1 } },
+  '1630': { nombre: 'LITRO Y MEDIO',      consume: { ref_15l: 1 } },
   '1552': { nombre: 'YUKY PACK DURAZNO',  consume: { yuky: 1 } },
   '1553': { nombre: 'YUKY PACK MANZANA',  consume: { yuky: 1 } },
   '1554': { nombre: 'YUKY PACK PERA',     consume: { yuky: 1 } },
-  '1602': { nombre: 'TENDER+REF./ YUKY PACK', consume: { yuky: 1 } },
+  '1602': { nombre: 'TENDER+REF./ YUKY PACK', consume: { yuky: 1, pechuga: PECHUGA_TENDER } },
+  '1606': { nombre: 'TENDER DE POLLO',    consume: { pechuga: PECHUGA_TENDER } },
   '1617': { nombre: 'MALTA BOTELLA',      consume: { malta: 1 } },
-  /* Receta del pote de chino: 2 huevos y 50 g de cebollín. El pollo rojo, el
-     arroz y la magia faltan por confirmar. Los COMBOS de chino (1518 y 1520)
-     se dejan SIN asignar a propósito, hasta saber si llevan un pote entero:
-     mientras tanto la app los marca y avisa, en vez de contarlos mal. */
-  '1516': { nombre: 'ARROZ CHINO POLLO',  consume: { huevos: 2, cebollin: 0.05 } },
-  '1517': { nombre: 'ARROZ CHINO P & C',  consume: { huevos: 2, cebollin: 0.05 } }
+  // los combos de chino traen DOS potes, por eso van al doble
+  '1516': { nombre: 'ARROZ CHINO POLLO',  consume: potesChino(1, false) },
+  '1518': { nombre: 'COMBO 1 CHINO POLLO', consume: potesChino(2, false) },
+  '1517': { nombre: 'ARROZ CHINO P & C',  consume: potesChino(1, true) },
+  '1520': { nombre: 'COMBO 2 CHINO P&C',  consume: potesChino(2, true) }
 };
 function equivalencias() {
   return Object.assign({}, EQUIVALENCIAS_BASE, db.settings.equivalencias || {});
@@ -2508,11 +2545,12 @@ function renderArticulosActivos() {
         ? (fijo ? 'Se controla · se cuenta en cestas marinadas de ' + POLLOS_POR_CESTA_MARINADA +
                   ' pollos (' + fmt(pb) + ' piezas). La que llega del proveedor trae ' +
                   POLLOS_POR_CESTA + ' pollos (' + fmt(piezasPorCestaRecibida()) + ' piezas).'
+                : a.unidad === 'kg' ? 'Se controla · se cuenta en kg'
                 : pb ? 'Se controla · 1 ' + nombreBulto1(a) + ' = ' + fmt(pb) + ' ' + a.unidad
                      : 'Se controla · falta decir cuántas unidades trae un bulto')
         : 'No se controla') + '</div></div>' +
-      (on && !fijo
-        ? '<label class="inv-cell" style="width:96px"><span>Por bulto</span>' +
+      (on && !fijo && a.unidad !== 'kg'
+        ? '<label class="inv-cell" style="width:96px"><span>Por ' + nombreBulto1(a) + '</span>' +
           '<input class="art-pb" data-a="' + a.id + '" type="text" inputmode="numeric" value="' +
           (pb || '') + '" placeholder="—"></label>'
         : '') +
@@ -2563,7 +2601,16 @@ function renderEquivalencias() {
       '<div style="flex:1;min-width:0">' +
         '<div class="w" style="font-size:15px">' + esc(nombre) + '</div>' +
         '<div class="meta">' + (consume.length
-          ? consume.map(([a, n]) => n + ' × ' + (articulo(a) ? articulo(a).nombre.toLowerCase() : a)).join(' + ')
+          // con su unidad: «0,16 kg de pechuga» se lee, «0.16 × pechuga» no
+          ? consume.map(([a, n]) => {
+              const art = articulo(a);
+              if (!art) return n + ' × ' + a;
+              // hasta 3 decimales y sin ceros de relleno: 0,16 · 0,015 · 0,4
+              const num = n.toLocaleString('es-ES', { maximumFractionDigits: 3 });
+              return art.unidad === 'kg'
+                ? num + ' kg de ' + art.nombre.toLowerCase()
+                : num + ' × ' + art.nombre.toLowerCase();
+            }).join(' + ')
           : '<span class="flag">sin asignar</span>') +
         (venta ? ' · ' + fmt(venta.cantidad) + ' vendidos' : '') + '</div>' +
       '</div>';
