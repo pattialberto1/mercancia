@@ -139,7 +139,12 @@ La semana va de **domingo a sábado**, la misma que usa la app de Vales.
 2. **📄 Elegir el PDF** del reporte de ventas exportado del sistema. Se lee en el
    propio teléfono, sin subirlo a ningún lado, y **el PDF no se guarda**: solo los
    datos leídos.
-3. Escribir el **conteo real** de cada artículo.
+3. Escribir el **conteo real** de cada artículo, **como se cuenta en el negocio**:
+   *15 cestas* de pollo, *57 bultos y 12 sueltas* de refresco. La app hace la
+   multiplicación y muestra la cuenta hecha (*15 cestas × 160 = 2400 piezas*),
+   para que se pueda revisar. Cuántas unidades trae un bulto se dice una sola
+   vez, por artículo, en **⚙️ Equivalencias → Qué se controla**; la del pollo
+   sale sola del rendimiento de la cesta.
 4. **Cerrar la semana**: ese conteo pasa a ser el punto de partida de la siguiente.
 
 ### Dos avisos que evitan números falsos

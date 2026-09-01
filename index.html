@@ -240,6 +240,11 @@
     font-variant-numeric: tabular-nums;
   }
   .inv-cell:focus-within { border-color: var(--accent); }
+  /* el conteo se escribe como se cuenta en el negocio: bultos/cestas y sueltas */
+  .inv-par { display: flex; gap: 8px; }
+  .inv-par > label { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .inv-par em { font-size: 10px; font-style: normal; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .inv-total { grid-column: 1 / -1; font-size: 13px; color: var(--muted); font-weight: 600; }
   .inv-dif { margin-top: 10px; font-size: 14px; font-weight: 700; }
   .inv-dif.ok { color: var(--ok); }
   .inv-dif.mal { color: var(--bad); }
@@ -606,7 +611,7 @@ const STORE_KEY = 'mercancia.v1';
 const defaults = {
   settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
               proveedores: ['Tierra Santa'], ultimoProveedor: 'Tierra Santa',
-              articulosActivos: ['pollo_pieza'] },
+              articulosActivos: ['pollo_pieza'], porBulto: {} },
   recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -1835,6 +1840,23 @@ const RENDIMIENTO_POLLOS = 20;
 const PIEZAS_POR_POLLO = 8;
 function piezasPorCesta() { return RENDIMIENTO_POLLOS * PIEZAS_POR_POLLO; }
 
+/* Nadie cuenta 2.400 piezas de pollo: se cuentan 15 cestas. Ni 684 refrescos:
+   se cuentan 57 bultos y 12 sueltos. Cuántas unidades trae un bulto se
+   configura por artículo; el del pollo sale solo del rendimiento de la cesta. */
+function porBultoDe(a) {
+  if (a.entrada && a.entrada.tipo === 'cestas') return piezasPorCesta();
+  return Number((db.settings.porBulto || {})[a.id]) || 0;
+}
+function nombreBulto(a) { return a.entrada && a.entrada.tipo === 'cestas' ? 'cestas' : 'bultos'; }
+// de lo tecleado (bultos + sueltas) al total en la unidad del artículo
+function totalDe(a, det) {
+  if (!det) return null;
+  const pb = porBultoDe(a);
+  const b = Number(det.b) || 0, u = Number(det.u) || 0;
+  if ((det.b === '' || det.b == null) && (det.u === '' || det.u == null)) return null;
+  return round2(b * pb + u);
+}
+
 /* Equivalencias: qué consume cada producto del POS, por su código.
    El código es la llave, no el nombre, porque el nombre puede cambiar. */
 const EQUIVALENCIAS_BASE = {
@@ -2191,13 +2213,46 @@ function calcular(inv) {
     const rec = Number(recibido[a.id]) || 0;
     const ven = Number(vendido[a.id]) || 0;
     const esperado = round2(ini + rec - ven);
-    const tieneConteo = inv.conteo && inv.conteo[a.id] !== undefined && inv.conteo[a.id] !== '';
+    const tieneConteo = inv.conteo && inv.conteo[a.id] !== undefined && inv.conteo[a.id] !== '' && inv.conteo[a.id] !== null;
     const conteo = tieneConteo ? Number(inv.conteo[a.id]) || 0 : null;
     return {
       art: a, inicial: ini, recibido: rec, vendido: ven, esperado,
       conteo, diferencia: tieneConteo ? round2(conteo - esperado) : null
     };
   });
+}
+
+/* Lo tecleado se guarda aparte del total, para poder volver a la pantalla y
+   ver «15 cestas» en vez de «2400». Lo escrito antes de este cambio (un total
+   suelto) se muestra como sueltas, sin tocar el número. */
+function detalleDeConteo(inv, campo, a) {
+  const det = (inv[campo + 'Det'] || {})[a.id];
+  if (det) return det;
+  const v = (inv[campo] || {})[a.id];
+  return v === undefined || v === '' || v === null ? null : { b: '', u: v };
+}
+// una casilla en la que se escribe como se cuenta: bultos/cestas + sueltas.
+// Si el artículo no tiene tamaño de bulto configurado, se pide el total.
+function celdaConteo(clase, etiqueta, a, det, disabled) {
+  const pb = porBultoDe(a);
+  const dis = disabled ? ' disabled' : '';
+  const inp = (k, val, ph) => '<input class="' + clase + '" data-a="' + a.id + '" data-k="' + k +
+    '" type="text" inputmode="decimal" value="' + (val == null ? '' : val) +
+    '" placeholder="' + ph + '"' + dis + '>';
+  if (!pb) return '<label class="inv-cell"><span>' + etiqueta + '</span>' + inp('u', det && det.u, '—') + '</label>';
+  return '<div class="inv-cell"><span>' + etiqueta + '</span><div class="inv-par">' +
+      '<label>' + inp('b', det && det.b, '0') + '<em>' + nombreBulto(a) + '</em></label>' +
+      '<label>' + inp('u', det && det.u, '0') + '<em>sueltas</em></label>' +
+    '</div></div>';
+}
+// «15 cestas × 160 = 2.400 piezas»: que se vea la cuenta, no solo el resultado
+function lineaTotal(a, det, total) {
+  const pb = porBultoDe(a);
+  if (!pb || total === null) return '';
+  const b = Number(det && det.b) || 0, u = Number(det && det.u) || 0;
+  if (!b) return '<div class="inv-total">= ' + fmt(total) + ' ' + a.unidad + '</div>';
+  return '<div class="inv-total">' + fmt(b) + ' ' + nombreBulto(a) + ' × ' + fmt(pb) +
+    (u ? ' + ' + fmt(u) : '') + ' = <b>' + fmt(total) + ' ' + a.unidad + '</b></div>';
 }
 
 function renderComparacion() {
@@ -2208,6 +2263,8 @@ function renderComparacion() {
   cont.innerHTML = '';
   for (const f of filas) {
     const a = f.art;
+    const detC = detalleDeConteo(inv, 'conteo', a);
+    const detI = detalleDeConteo(inv, 'inicialManual', a);
     const pct = f.esperado > 0 && f.diferencia !== null ? (f.diferencia / f.esperado) * 100 : 0;
     const div = document.createElement('div');
     div.className = 'inv-art';
@@ -2215,14 +2272,14 @@ function renderComparacion() {
       '<div class="inv-nom">' + a.emoji + ' ' + a.nombre + '</div>' +
       '<div class="inv-nums">' +
         (primera
-          ? '<label class="inv-cell"><span>Inicial</span><input class="inv-inicial" data-a="' + a.id + '" type="text" inputmode="decimal" value="' +
-            (inv.inicialManual && inv.inicialManual[a.id] !== undefined ? inv.inicialManual[a.id] : '') + '" placeholder="0"' + (inv.cerrado ? ' disabled' : '') + '></label>'
+          ? celdaConteo('inv-inicial', 'Inicial', a, detI, inv.cerrado)
           : '<div class="inv-cell"><span>Inicial</span><b>' + fmt(f.inicial) + '</b></div>') +
         '<div class="inv-cell"><span>Recibido</span><b>' + fmt(f.recibido) + '</b></div>' +
         '<div class="inv-cell"><span>Vendido</span><b>' + fmt(f.vendido) + '</b></div>' +
         '<div class="inv-cell esperado"><span>Debería quedar</span><b>' + fmt(f.esperado) + '</b></div>' +
-        '<label class="inv-cell"><span>Conteo real</span><input class="inv-conteo" data-a="' + a.id + '" type="text" inputmode="decimal" value="' +
-          (inv.conteo && inv.conteo[a.id] !== undefined ? inv.conteo[a.id] : '') + '" placeholder="—"' + (inv.cerrado ? ' disabled' : '') + '></label>' +
+        celdaConteo('inv-conteo', 'Conteo real', a, detC, inv.cerrado) +
+        (primera ? lineaTotal(a, detI, totalDe(a, detI)) : '') +
+        lineaTotal(a, detC, f.conteo) +
       '</div>' +
       (f.esperado < 0
         // vendiste más de lo que la app sabe que entró: el número no es merma,
@@ -2237,31 +2294,25 @@ function renderComparacion() {
               (f.esperado > 0 ? ' (' + fmt(Math.abs(pct)) + '%)' : '')) + '</div>');
     cont.appendChild(div);
   }
+  // guarda lo tecleado (bultos y sueltas) y recalcula el total del artículo
+  const enCambio = (campo, despues) => e => {
+    const id = e.target.dataset.a, k = e.target.dataset.k, v = e.target.value.trim();
+    if (v !== '' && isNaN(parseNum(v))) { toast('Escribe un número'); renderComparacion(); return; }
+    const inv = currentInv;
+    inv[campo + 'Det'] = inv[campo + 'Det'] || {};
+    const det = Object.assign({ b: '', u: '' }, detalleDeConteo(inv, campo, articulo(id)) || {});
+    det[k] = v;
+    const total = totalDe(articulo(id), det);
+    inv[campo] = inv[campo] || {};
+    if (total === null) { delete inv[campo + 'Det'][id]; delete inv[campo][id]; }
+    else { inv[campo + 'Det'][id] = det; inv[campo][id] = total; }
+    touch(inv); save(); despues();
+  };
   for (const el of cont.querySelectorAll('.inv-conteo')) {
-    el.addEventListener('change', e => {
-      const v = e.target.value.trim();
-      currentInv.conteo = currentInv.conteo || {};
-      if (v === '') delete currentInv.conteo[e.target.dataset.a];
-      else {
-        const n = parseNum(v);
-        if (isNaN(n)) { toast('Escribe un número'); renderComparacion(); return; }
-        currentInv.conteo[e.target.dataset.a] = round2(n);
-      }
-      touch(currentInv); save(); renderComparacion();
-    });
+    el.addEventListener('change', enCambio('conteo', renderComparacion));
   }
   for (const el of cont.querySelectorAll('.inv-inicial')) {
-    el.addEventListener('change', e => {
-      const v = e.target.value.trim();
-      currentInv.inicialManual = currentInv.inicialManual || {};
-      if (v === '') delete currentInv.inicialManual[e.target.dataset.a];
-      else {
-        const n = parseNum(v);
-        if (isNaN(n)) { toast('Escribe un número'); renderComparacion(); return; }
-        currentInv.inicialManual[e.target.dataset.a] = round2(n);
-      }
-      touch(currentInv); save(); renderInv();
-    });
+    el.addEventListener('change', enCambio('inicialManual', renderInv));
   }
 }
 
@@ -2354,14 +2405,24 @@ function renderArticulosActivos() {
   cont.innerHTML = '';
   for (const a of ARTICULOS_TODOS) {
     const on = activos.includes(a.id);
-    const row = document.createElement('button');
+    const fijo = a.entrada && a.entrada.tipo === 'cestas';   // el pollo sale del rendimiento
+    const pb = porBultoDe(a);
+    const row = document.createElement('div');
     row.className = 'entry';
-    row.style.width = '100%';
     row.innerHTML =
       '<div style="flex:1;text-align:left"><span class="w">' + a.emoji + ' ' + a.nombre + '</span>' +
-      '<div class="meta">' + (on ? 'Se está controlando' : 'No se controla') + '</div></div>' +
-      '<span style="font-size:20px">' + (on ? '✅' : '⬜️') + '</span>';
-    row.onclick = () => {
+      '<div class="meta">' + (on
+        ? (fijo ? 'Se controla · 1 cesta = ' + fmt(pb) + ' piezas'
+                : pb ? 'Se controla · 1 bulto = ' + fmt(pb) + ' unidades'
+                     : 'Se controla · falta decir cuántas unidades trae un bulto')
+        : 'No se controla') + '</div></div>' +
+      (on && !fijo
+        ? '<label class="inv-cell" style="width:96px"><span>Por bulto</span>' +
+          '<input class="art-pb" data-a="' + a.id + '" type="text" inputmode="numeric" value="' +
+          (pb || '') + '" placeholder="—"></label>'
+        : '') +
+      '<button class="btn-link art-on" style="font-size:20px;padding:4px 8px">' + (on ? '✅' : '⬜️') + '</button>';
+    row.querySelector('.art-on').onclick = () => {
       const lista = on ? activos.filter(x => x !== a.id) : [...activos, a.id];
       if (!lista.length) { toast('Deja al menos uno'); return; }
       db.settings.articulosActivos = lista;
@@ -2369,6 +2430,20 @@ function renderArticulosActivos() {
       renderArticulosActivos();
       toast(on ? a.nombre + ': ya no se controla' : a.nombre + ': se empezará a controlar');
     };
+    const inp = row.querySelector('.art-pb');
+    if (inp) inp.addEventListener('change', e => {
+      const v = e.target.value.trim();
+      db.settings.porBulto = db.settings.porBulto || {};
+      if (v === '') delete db.settings.porBulto[a.id];
+      else {
+        const n = parseNum(v);
+        if (isNaN(n) || n <= 0) { toast('Escribe cuántas unidades trae un bulto'); renderArticulosActivos(); return; }
+        db.settings.porBulto[a.id] = n;
+      }
+      save(false);
+      renderArticulosActivos();
+      if (currentInv) renderComparacion();
+    });
     cont.appendChild(row);
   }
 }
