@@ -466,6 +466,16 @@
 
     <div id="inv-msg"></div>
 
+    <div class="card hidden" id="inv-arranque-card">
+      <h2>📅 Desde cuándo se cuenta</h2>
+      <div class="sub" style="margin:2px 0 12px">El primer tramo arranca el día siguiente al conteo físico: lo contado es lo que había al empezar ese día.</div>
+      <div class="field">
+        <label for="inv-arranque">Conté al cerrar el día…</label>
+        <input type="date" id="inv-arranque">
+      </div>
+      <div class="hint" id="inv-arranque-hint"></div>
+    </div>
+
     <div class="card">
       <h2>📄 Reporte de ventas</h2>
       <div class="sub" style="margin:2px 0 12px">Sube el PDF que exportas del sistema, con el rango de la semana.</div>
@@ -2201,13 +2211,23 @@ function renderInv() {
   }
   const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
   if (!previas.length && !Object.keys(inv.inicialManual || {}).length) {
-    avisos.push('<div class="msg warn">Es el primer tramo: no hay conteo anterior del que partir. Escribe en «Inicial» lo que contaste el ' +
-      fmtDate(inv.semanaInicio) + '.</div>');
+    avisos.push('<div class="msg warn">Es el primer tramo: no hay conteo anterior del que partir. Escribe en «Inicial» lo que contaste al cerrar el ' +
+      fmtDate(masDias(inv.semanaInicio, -1)) + '.</div>');
   }
-  // el primer tramo suele arrancar a mitad de semana, el día que se contó
+  // el primer tramo suele arrancar a mitad de semana, tras el conteo físico
   if (!previas.length && inv.semanaInicio !== domingoDe(inv.semanaInicio)) {
     avisos.push('<div class="msg">Este primer tramo va del ' + fmtDate(inv.semanaInicio) + ' al ' +
-      fmtDate(inv.semanaFin) + ' porque el control arranca el día que contaste. Exporta el reporte de ventas con ese mismo rango. A partir del domingo ya son semanas completas.</div>');
+      fmtDate(inv.semanaFin) + ', porque contaste al cerrar el ' + fmtDate(masDias(inv.semanaInicio, -1)) +
+      '. Exporta el reporte de ventas con ese mismo rango. A partir del domingo ya son semanas completas.</div>');
+  }
+  // que el arranque no dependa del día en que se abrió la app, sino del conteo
+  const primerTramo = !previas.length && !inv.cerrado;
+  $('inv-arranque-card').classList.toggle('hidden', !primerTramo);
+  if (primerTramo) {
+    $('inv-arranque').value = masDias(inv.semanaInicio, -1);
+    $('inv-arranque').max = todayISO();
+    $('inv-arranque-hint').textContent = 'Se contará del ' + fmtDate(inv.semanaInicio) +
+      ' al ' + fmtDate(inv.semanaFin) + '.';
   }
   $('inv-msg').innerHTML = avisos.join('');
 
@@ -2374,6 +2394,18 @@ $('inv-file').addEventListener('change', async e => {
 });
 
 $('inv-back').onclick = () => { currentInv = null; renderHome(); show('home'); };
+
+// mover el arranque del primer tramo: lo contado es el saldo con el que
+// empieza el día SIGUIENTE al conteo, así que el tramo arranca ahí
+$('inv-arranque').onchange = e => {
+  const conteo = e.target.value;
+  if (!conteo) { renderInv(); return; }
+  if (conteo > todayISO()) { toast('Esa fecha todavía no ha llegado'); renderInv(); return; }
+  const desde = masDias(conteo, 1);
+  currentInv.semanaInicio = desde;
+  currentInv.semanaFin = masDias(domingoDe(desde), 6);
+  touch(currentInv); save(); renderInv();
+};
 $('inv-equivalencias').onclick = () => { renderEquivalencias(); show('eq'); };
 $('eq-back').onclick = () => { renderInv(); show('inv'); };
 
