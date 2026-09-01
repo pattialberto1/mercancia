@@ -271,6 +271,7 @@
     border: none; background: none; color: var(--text); outline: none; font-variant-numeric: tabular-nums;
   }
   .fis-nums em { font-size: 10px; font-style: normal; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .fis-eq { margin-top: 6px; font-size: 13px; color: var(--accent); font-weight: 600; }
   .fis-obs {
     width: 100%; margin-top: 6px; font: inherit; font-size: 13px; padding: 5px 9px;
     border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text);
@@ -1926,7 +1927,47 @@ const ARTICULOS_TODOS = [
   { id: 'magia', nombre: 'Magia', emoji: '🧂', unidad: 'kg',
     entrada: { tipo: 'peso', producto: 'magia' } },
   { id: 'azucar', nombre: 'Azúcar', emoji: '🍬', unidad: 'kg',
-    entrada: { tipo: 'peso', producto: 'azucar' } }
+    entrada: { tipo: 'peso', producto: 'azucar' } },
+  // lo demás que ya se recibe: entra al inventario aunque no se sepa el consumo
+  { id: 'papas', nombre: 'Papas', emoji: '🥔', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'papas' } },
+  { id: 'repollo_blanco', nombre: 'Repollo blanco', emoji: '🥬', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'repollo_blanco' } },
+  { id: 'repollo_morado', nombre: 'Repollo morado', emoji: '🥬', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'repollo_morado' } },
+  { id: 'zanahoria', nombre: 'Zanahoria', emoji: '🥕', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'zanahoria' } },
+  { id: 'alitas', nombre: 'Alitas', emoji: '🍗', unidad: 'kg',
+    entrada: { tipo: 'peso', producto: 'alitas' } },
+  { id: 'envases', nombre: 'Envases', emoji: '📦', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'envases' } },
+  // de las facturas de proveedor: se reconocen por el nombre del renglón
+  ...[
+    ['queso', 'Queso', '🧀', ['QUESO']],
+    ['cilantro', 'Cilantro', '🌿', ['CILANTRO']],
+    ['apio_espana', 'Apio España (celeri)', '🌿', ['APIO ESPANA', 'APIO ESPAÑA', 'CELERI']],
+    ['apio', 'Apio', '🌿', ['APIO KG']],
+    ['ajo_porro', 'Ajo porro', '🌿', ['AJO PORRO']],
+    ['perejil', 'Perejil', '🌿', ['PEREJIL']],
+    ['platano', 'Plátano', '🍌', ['PLATANO', 'PLÁTANO']],
+    ['aguacate', 'Aguacate', '🥑', ['AGUACATE']],
+    ['lechuga', 'Lechuga', '🥬', ['LECHUGA']],
+    ['cebolla_blanca', 'Cebolla blanca', '🧅', ['CEBOLLA BLANCA']],
+    ['parchita', 'Parchita', '🍈', ['PARCHITA']],
+    ['melon', 'Melón', '🍈', ['MELON', 'MELÓN']],
+    ['limon', 'Limón', '🍋', ['LIMON', 'LIMÓN']],
+    ['tomate', 'Tomate', '🍅', ['TOMATE KG']],
+    ['tomate_arbol', 'Tomate de árbol', '🍅', ['TOMATE DE ARBOL', 'TOMATE DE ÁRBOL']],
+    ['pimenton', 'Pimentón', '🫑', ['PIMENTON', 'PIMENTÓN']],
+    ['aji_dulce', 'Ají dulce', '🌶️', ['AJI DULCE', 'AJÍ DULCE']],
+    ['patilla', 'Patilla', '🍉', ['PATILLA']],
+    ['pina', 'Piña', '🍍', ['PINA', 'PIÑA']],
+    ['jojoto', 'Jojoto', '🌽', ['JOJOTO']],
+    ['name', 'Ñame', '🥔', ['NAME', 'ÑAME']],
+    ['ocumo', 'Ocumo', '🥔', ['OCUMO']]
+  ].map(([id, nombre, emoji, nombres]) => ({
+    id, nombre, emoji, unidad: 'kg', entrada: { tipo: 'factura', nombres }
+  }))
 ];
 /* Solo se controla lo que se esté registrando de verdad. Activar un artículo
    sin anotar sus entradas haría que el esperado saliera negativo semana tras
@@ -2071,6 +2112,15 @@ const CATALOGO_FISICO = [
     'Lumpias', 'Postres Paolo', 'Postres tres leches', 'Pinzas'
   ]}
 ];
+/* Algunos renglones de la hoja son lo mismo que se controla por semana. Al
+   vincularlos, el conteo físico muestra también las unidades vendibles: 17
+   cestas marinadas no dicen nada, 2.720 piezas de pollo sí. */
+const VINCULO_FISICO = {
+  pollo_en_cestas_marinado: 'pollo_pieza',
+  agua_minalba_600ml: 'agua', agua_glacier_550ml: 'agua_glacier',
+  malta_botella: 'malta', huevos: 'huevos',
+  yukki_pack_pera: 'yuky', yukki_pack_manzana: 'yuky', yukki_pack_durazno: 'yuky'
+};
 /* El id sale del nombre, para que no haya que mantener una lista de códigos.
    Si se renombra un producto, lo contado antes queda huérfano: por eso el
    nombre no se toca, se agrega uno nuevo. */
@@ -2083,7 +2133,8 @@ function catalogoFisico() {
   for (const g of CATALOGO_FISICO) {
     const items = g.items.map(s => {
       const [nombre, unidad] = s.split('|');
-      return { id: idFisico(nombre), nombre, unidad: unidad || 'und' };
+      const id = idFisico(nombre);
+      return { id, nombre, unidad: unidad || 'und', art: VINCULO_FISICO[id] || null };
     });
     out.push({ cat: g.cat, items });
   }
@@ -2166,18 +2217,34 @@ function inicialDe(inv) {
 }
 
 /* ---- lo recibido en la semana, de las recepciones que ya existen ---- */
+// para reconocer un renglón de factura sin que estorben tildes ni mayúsculas
+function normaliza(s) {
+  return String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 function recibidoEnSemana(inv) {
   const out = {};
   for (const art of articulosActivos()) {
     const e = art.entrada;
-    const recs = db.recepciones.filter(r =>
-      r.tipo === e.producto && r.fecha >= inv.semanaInicio && r.fecha <= inv.semanaFin);
     let n = 0;
-    for (const r of recs) {
-      const t = totals(r);
-      // neto, no bruto: en lo que se pesa por cestas hay que descontar la tara,
-      // y en lo que se cuenta por unidades neto y bruto son lo mismo
-      n += e.tipo === 'cestas' ? t.cestas * piezasPorCestaRecibida() : t.neto;
+    if (e.tipo === 'factura') {
+      // lo que entra por factura de proveedor, reconocido por el nombre
+      const claves = e.nombres.map(normaliza);
+      for (const f of db.facturas) {
+        if (f.fecha < inv.semanaInicio || f.fecha > inv.semanaFin) continue;
+        for (const l of f.lineas || []) {
+          const nom = normaliza(l.nombre);
+          if (claves.some(k => nom.includes(k))) n += Number(l.cantidad) || 0;
+        }
+      }
+    } else {
+      const recs = db.recepciones.filter(r =>
+        r.tipo === e.producto && r.fecha >= inv.semanaInicio && r.fecha <= inv.semanaFin);
+      for (const r of recs) {
+        const t = totals(r);
+        // neto, no bruto: en lo que se pesa por cestas hay que descontar la tara,
+        // y en lo que se cuenta por unidades neto y bruto son lo mismo
+        n += e.tipo === 'cestas' ? t.cestas * piezasPorCestaRecibida() : t.neto;
+      }
     }
     out[art.id] = round2(n);
   }
@@ -2588,6 +2655,28 @@ function lineaTotal(a, det, total) {
 /* ---- inventario físico: la hoja completa, por categorías ---- */
 let filtroFisico = '';
 
+/* «17 cestas» no dice cuánto pollo hay; «2.720 piezas» sí. Cuando el renglón
+   está vinculado a un artículo del control, se muestra la traducción. */
+function equivFisico(it, v) {
+  if (!it.art) return '';
+  const a = articulo(it.art);
+  if (!a) return '';
+  const pb = porBultoDe(a);
+  const b = parseNum(String(v.b || '')) || 0;
+  // la 2ª columna solo se suma si son unidades sueltas: si es un peso (los
+  // kg de una cesta marinada, por ejemplo) no se puede sumar con las piezas
+  const u = it.unidad === 'und' ? (parseNum(String(v.u || '')) || 0) : 0;
+  if (!b && !u) return '';
+  const total = round2(b * pb + (pb ? u : 0));
+  if (!total) return '';
+  const cuenta = b
+    ? fmt(b) + ' ' + nombreBulto(a) + ' × ' + fmt(pb) + (u ? ' + ' + fmt(u) : '') + ' = '
+    : '';
+  return '<div class="fis-eq">' + cuenta + '<b>' + fmt(total) + ' ' + a.unidad + '</b>' +
+    (a.entrada && a.entrada.tipo === 'cestas'
+      ? ' · ' + fmt(b * POLLOS_POR_CESTA_MARINADA) + ' pollos' : '') + '</div>';
+}
+
 function renderFisico() {
   const inv = currentInv;
   const cont = $('inv-fisico');
@@ -2617,7 +2706,8 @@ function renderFisico() {
             esc(v.u == null ? '' : v.u) + '" placeholder="—"' + dis + '><em>' + it.unidad + '</em></label>' +
         '</div>' +
         '<input class="fis-obs" data-i="' + it.id + '" data-k="obs" type="text" placeholder="Observación" value="' +
-          esc(v.obs || '') + '"' + dis + '>';
+          esc(v.obs || '') + '"' + dis + '>' +
+        equivFisico(it, v);
       cont.appendChild(row);
     }
   }
@@ -2638,12 +2728,24 @@ function renderFisico() {
       else currentInv.fisico[id] = v;
       touch(currentInv); save();
       $('fis-resumen').textContent = contadosFisico(currentInv) + ' de ' + total + ' contados';
-      e.target.closest('.fis-row').classList.toggle('con', !!(v.b || v.u));
+      const fila = e.target.closest('.fis-row');
+      fila.classList.toggle('con', !!(v.b || v.u));
+      const eq = fila.querySelector('.fis-eq');
+      if (eq) eq.remove();
+      const it = catalogoFisico().flatMap(g => g.items).find(x => x.id === id);
+      if (it) fila.insertAdjacentHTML('beforeend', equivFisico(it, v));
     });
   }
 }
 
 $('fis-buscar').addEventListener('input', e => { filtroFisico = e.target.value; renderFisico(); });
+
+/* Si ningún producto del menú consume este artículo, la app NO puede saber
+   cuánto se gastó: la diferencia es el consumo, no una merma. Decirlo como
+   «faltan» sería acusar de un robo que nadie ha comprobado. */
+function tieneConsumoConocido(id) {
+  return Object.values(equivalencias()).some(r => r.consume && r.consume[id]);
+}
 
 function renderComparacion() {
   const inv = currentInv;
@@ -2678,6 +2780,14 @@ function renderComparacion() {
           ' de menos: se vendió más de lo que la app tiene registrado. Falta cargar el inicial o las entradas de la semana.</div>'
         : f.diferencia === null
         ? '<div class="inv-dif sub">Escribe el conteo real para ver la diferencia.</div>'
+        : !tieneConsumoConocido(a.id)
+        // sin receta que diga cuánto gasta cada plato, la diferencia es el
+        // consumo de la semana: un dato útil, pero no una merma
+        ? '<div class="inv-dif' + (f.diferencia > 0 ? ' sobra' : '') + '">' +
+          (f.diferencia <= 0
+            ? '📉 Se consumieron ' + fmt(Math.abs(f.diferencia)) + ' ' + a.unidad + ' esta semana'
+            : '↑ Hay ' + fmt(f.diferencia) + ' ' + a.unidad + ' más de lo que la app tiene anotado') +
+          '<div class="sub" style="font-weight:600;margin-top:2px">No es merma: todavía no hay receta que diga cuánto gasta cada plato.</div></div>'
         : '<div class="inv-dif ' + (Math.abs(f.diferencia) < 0.01 ? 'ok' : f.diferencia < 0 ? 'mal' : 'sobra') + '">' +
           (Math.abs(f.diferencia) < 0.01 ? '✅ Cuadra exacto'
             : (f.diferencia < 0 ? '⚠️ Faltan ' : '↑ Sobran ') + fmt(Math.abs(f.diferencia)) + ' ' + a.unidad +

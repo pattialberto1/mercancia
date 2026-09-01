@@ -125,6 +125,23 @@ esperado = lo que había al empezar la semana
          − lo vendido (del reporte del sistema)
 ```
 
+### De dónde sale «lo recibido»
+
+**Todo lo que se anota entra solo al inventario de la semana**: las recepciones
+de pollo, papas, verduras, alitas, bebidas, huevos e insumos, y también los
+renglones de las **facturas de proveedor** (el cilantro y el queso de Tierra
+Santa se reconocen por el nombre del renglón). No hay que copiar nada a mano.
+
+**La pestaña 🍚 Insumos** es para lo que entra a la cocina y no se vende tal
+cual: pechuga, camarón, arroz, magia y azúcar. Se pesan igual que las alitas.
+
+### «Faltan» no es lo mismo que «se consumieron»
+
+Solo se puede hablar de merma cuando hay una receta que diga cuánto gasta cada
+plato. Del pollo se sabe; de las papas y las verduras, todavía no. En esos
+casos la app dice **«se consumieron X esta semana»** en vez de «faltan X»:
+es el mismo número, pero no acusa a nadie de un robo que nadie ha comprobado.
+
 ### Dos inventarios distintos
 
 - **📊 Semana** — el control de merma: *inicial + recibido − vendido* contra el
