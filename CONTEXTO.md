@@ -107,11 +107,21 @@ dicho qué trae el bulto, la fila **pregunta el dato ahí mismo** («1 bulto =
 ¿cuántas unidades?») y lo guarda en `porBulto`, que **no se sincroniza**: es de
 cada teléfono.
 
-**Tamaños de bulto de la hoja, confirmados el 2/9** (van en `defaults.settings.
+**Tamaños de bulto de la hoja, cargados el 2/9** (van en `defaults.settings.
 porBulto`, no en cada teléfono, porque son del producto): arroz Mary → 24 sacos
-de 900 g · ajinomoto → 25 kg · tina salsera 1oz → 1.000 · vasos V67 → 25
-paquetes. El arroz Mary se cuenta en **sacos** y los vasos V67 en **paquetes**
-(`UNIDAD_FISICO`).
+de 900 g · ajinomoto → 25 kg · tina salsera 1oz → 1.000 · vasos V67 → 25 paq ·
+aceite Portumesa → 12 · aceite humo sésamo → 4 · azúcar dulcería → 15 kg · CT1 →
+88 · CT2 → 105 · CT3 → 90 · salsa BBQ → 24 · salsa soya negra concentrado → 4 ·
+salsa soya clara (caja de 4) → 4 · vinagre Sansone → 4 · salsa de tomate mayo
+3,8kg → 4. **Casi todos estaban ya escritos en las observaciones de la hoja de
+agosto** («La caja trae 4 und»); vale la pena mirar ahí antes de preguntar.
+El arroz Mary se cuenta en **sacos**, y los vasos V67 y los rollos térmicos en
+**paquetes** (`UNIDAD_FISICO`).
+
+Sin poner a propósito: **Platos N10** (la hoja dice «750 und» por bulto y Alberto
+dijo 150 — sin aclarar), **tapa de tina de ensalada** y **Platos N9** (se sabe lo
+que hay, no lo que trae un bulto) y **Harina Pan** («de 2 kg» es lo que pesa el
+paquete, no cuántos trae la caja).
 
 **Un renglón de factura se puede apuntar a un producto (2/9).** Es la única vía
 de entrada de lo que solo está en la hoja: esos productos no se pesan ni se
@@ -130,6 +140,11 @@ artículo, la app no puede saber cuánto debía gastarse: dice *«se consumieron
 esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
 
 ## Estado de los datos (rama `datos`)
+
+- **Nota de entrega de Alimentos Natropic**, nº 8483 del 1/9/2026: 8 cajas de
+  «Base de Salsa de Tomate 3,80 Kg» a 25,08 $ = 200,64 $, sin IVA. Cargada el
+  2/9 apuntando a `f_salsa_de_tomate_mayo_3_8kg` y marcada *en bultos*, así que
+  entran 32 paquetes. **Alimentos Natropic** ya es proveedor de fábrica.
 
 - 119 recepciones, 3 facturas de Tierra Santa
 - **Tramo del 1 al 5 de septiembre**, abierto, con el conteo del 31/08 como

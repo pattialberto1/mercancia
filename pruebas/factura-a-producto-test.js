@@ -71,6 +71,27 @@ const INVENTARIOS = [
   check('tina salsera 1oz: 1 bulto = 1.000 unidades', pb.salsera === 1000, pb);
   check('vasos V67: 1 bulto = 25 paquetes', pb.vasos === 25 && pb.uVasos === 'paquetes', pb);
 
+  // los que estaban escritos en las observaciones de la hoja de agosto
+  const obs = await page.evaluate(() => {
+    const g = id => porBultoDe(articulo('f_' + id));
+    return { ct1: g('ct1_envases'), ct2: g('ct2_envases'), ct3: g('ct3_envases'),
+             bbq: g('salsa_bbq'), vinagre: g('vinagre_sansone'), portumesa: g('aceite_portumesa'),
+             sesamo: g('aceite_humo_sesamo_5l'), azucar: g('azucar_dulceria_blanca'),
+             salsa: g('salsa_de_tomate_mayo_3_8kg'),
+             // estos NO deben estar puestos: no se sabe o hay conflicto
+             platosN10: g('platos_n10'), tapa: g('tapa_de_tina_de_ensalada'),
+             platosN9: g('platos_n9'), harina: g('harina_pan') };
+  });
+  check('CT1, CT2 y CT3 salen de la hoja: 88, 105 y 90',
+    obs.ct1 === 88 && obs.ct2 === 105 && obs.ct3 === 90, obs);
+  check('salsa BBQ 24, vinagre 4, Portumesa 12, sésamo 4, azúcar dulcería 15 kg',
+    obs.bbq === 24 && obs.vinagre === 4 && obs.portumesa === 12 && obs.sesamo === 4 && obs.azucar === 15, obs);
+  check('la salsa de tomate de 3,8kg: 1 bulto = 4 paquetes', obs.salsa === 4, obs);
+  check('Platos N10 NO se pone: la hoja dice 750 y Alberto dijo 150', !obs.platosN10, obs.platosN10);
+  check('tapa de tina y Platos N9 tampoco: nadie ha dicho qué trae su bulto',
+    !obs.tapa && !obs.platosN9, obs);
+  check('ni la Harina Pan: «de 2 kg» es lo que pesa, no cuántas trae la caja', !obs.harina, obs.harina);
+
   // ---------- 2) y ya traducen la hoja sin preguntar nada ----------
   const ini = await page.evaluate(() => {
     const b = baseInicial(db.inventarios.find(i => i.id === 't1'));
@@ -113,11 +134,11 @@ const INVENTARIOS = [
 
   await page.selectOption('#ln-art', 'f_salsa_de_tomate_mayo_3_8kg');
   await page.waitForTimeout(250);
-  check('sin tamaño de bulto todavía no ofrece meterlo en bultos',
-    !(await page.isVisible('#ln-bultos-campo')));
-  check('y dice qué falta para poder meterlo en bultos',
-    /cuántas unidades trae un bulto/i.test(await page.textContent('#ln-art-hint')),
-    await page.textContent('#ln-art-hint'));
+  check('como ya se sabe su bulto, ofrece meter la cantidad en bultos',
+    await page.isVisible('#ln-bultos-campo'));
+  check('y recuerda cuánto trae un bulto',
+    /1 bulto = 4 unidades/i.test(await page.textContent('#ln-bultos-lbl')),
+    await page.textContent('#ln-bultos-lbl'));
 
   await page.click('#ln-save');
   await page.waitForTimeout(300);
@@ -130,15 +151,10 @@ const INVENTARIOS = [
     const f = calcular(t).find(x => x.art.id === 'f_salsa_de_tomate_mayo_3_8kg');
     return { recibido: f.recibido, inicial: f.inicial, esperado: f.esperado };
   });
-  check('sin decir el tamaño del bulto entran las 8 cajas tal cual', rec.recibido === 8, rec);
+  check('marcado en unidades entran las 8 cajas tal cual', rec.recibido === 8, rec);
 
   // ---------- 5) diciendo que un bulto trae 4 paquetes ----------
-  await page.evaluate(() => {
-    db.settings.porBulto = db.settings.porBulto || {};
-    db.settings.porBulto.f_salsa_de_tomate_mayo_3_8kg = 4;
-    currentFac.lineas[0].enBultos = true;
-    touch(currentFac); save();
-  });
+  await page.evaluate(() => { currentFac.lineas[0].enBultos = true; touch(currentFac); save(); });
   rec = await page.evaluate(() => {
     const t = db.inventarios.find(i => i.id === 't1');
     const f = calcular(t).find(x => x.art.id === 'f_salsa_de_tomate_mayo_3_8kg');

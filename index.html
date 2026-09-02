@@ -697,7 +697,7 @@
 const STORE_KEY = 'mercancia.v1';
 const defaults = {
   settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-              proveedores: ['Tierra Santa'], ultimoProveedor: 'Tierra Santa',
+              proveedores: ['Tierra Santa', 'Alimentos Natropic'], ultimoProveedor: 'Tierra Santa',
               articulosActivos: ['pollo_pieza'],
               // cuántas unidades trae un bulto de cada bebida (editable en Equivalencias).
               // El de 1,5L queda sin poner a propósito: todavía no está confirmado.
@@ -706,8 +706,28 @@ const defaults = {
                           // Van aquí y no en cada teléfono porque son del producto, no del que cuenta.
                           f_arroz_mary: 24,                    // 1 bulto = 24 sacos de 900 g
                           f_ajinomoto: 25,                     // 1 bulto = 25 kg
-                          f_tina_salsera_1oz_occidente: 1000,  // 1 bulto = 1.000 unidades
-                          f_vasos_v67: 25 } },                 // 1 bulto = 25 paquetes
+                          f_tina_salsera_1oz_occidente: 1000,  // «La caja trae 1000 und»
+                          f_vasos_v67: 25,                     // «cada caja trae 25 paq»
+                          // sacados de las observaciones de la hoja de agosto,
+                          // donde ya estaba escrito lo que trae cada bulto
+                          f_aceite_humo_sesamo_5l: 4,          // «La caja trae 4 und»
+                          f_aceite_portumesa: 12,              // «Cada caja trae 12 und»
+                          f_azucar_dulceria_blanca: 15,        // «El bulto trae 15 kg»
+                          f_ct1_envases: 88,                   // «88 und»
+                          f_ct2_envases: 105,                  // «105 und»
+                          f_ct3_envases: 90,                   // «90 und»
+                          f_salsa_bbq: 24,                     // «Trae 24 und»
+                          f_salsa_de_soya_negra_concentrado: 4,// «La caja trae 4 und»
+                          f_salsa_soya_clara_caja_de_4: 4,     // «La caja trae 4 und»
+                          f_vinagre_sansone: 4,                // «La caja trae 4 und»
+                          f_salsa_de_tomate_mayo_3_8kg: 4 } }, // «Cada bulto trae 4 und»
+                          /* Sin poner a propósito:
+                             - Platos N10: la hoja dice «750 und» por bulto y Alberto dijo 150. Hasta
+                               que no se aclare, la app lo sigue preguntando en vez de elegir una.
+                             - Tapa de tina de ensalada y Platos N9: se sabe lo que hay (bultos y
+                               sueltas) pero no lo que trae un bulto.
+                             - Harina Pan: «Harina Pan de 2 kg» dice lo que pesa el paquete, no
+                               cuántos trae la caja. */
   recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -2392,7 +2412,10 @@ const CAT_ARTICULO = {
 /* En qué se cuenta un renglón cuando no es ni kg ni «unidades» sueltas. El
    arroz Mary se cuenta en sacos y los vasos en paquetes: decirlo bien evita
    leer «58 unidades» donde son 58 paquetes. */
-const UNIDAD_FISICO = { arroz_mary: 'sacos', vasos_v67: 'paquetes' };
+const UNIDAD_FISICO = {
+  arroz_mary: 'sacos', vasos_v67: 'paquetes',
+  rollos_termicos_impresora_fiscal: 'paquetes'   // la hoja lo anota así
+};
 
 const ARTICULOS_FISICO = (() => {
   const out = [];
