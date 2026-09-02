@@ -114,7 +114,8 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
    esos artículos muestran consumo, no merma.
 3. Cuatro renglones del inventario físico que no se pudieron cargar: refresco
    de 1,5L y pechuga (no aparecen en la hoja), arroz (70 bultos, sin saber los
-   kg por bulto) y huevos (*«HUEVOS 7»*, sin unidad).
+   kg por bulto). Lo de *«HUEVOS 7»* quedó aclarado el 2/9: son **7 huevos
+   sueltos**, no cartones.
 4. **Repasar la transcripción** de la hoja de agosto: son 173 renglones leídos a
    mano de un escaneo.
 5. Camarones: decidido que entran con 120 g por pote de P&C, pero **no se

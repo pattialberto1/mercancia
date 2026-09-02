@@ -130,7 +130,7 @@ module.exports = {
   'Lagarto sin hueso': ['', '4,9', ''],
   'Empanizado para pollo': ['2', '', ''],
   'Empanizado para tender': ['6', '', ''],
-  'Huevos': ['', '7', 'Sin confirmar si son cartones o sueltos'],
+  'Huevos': ['', '7', ''],   // confirmado por Alberto el 2/9: son 7 huevos sueltos
   'Magia': ['', '20,1', ''],
   'Marinado': ['6', '', ''],
   'Milanesa cocida': ['', '48,65', ''],
