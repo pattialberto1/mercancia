@@ -27,6 +27,7 @@ error de JavaScript en la página.
 | `fisico-test.js` | Inventario físico: la hoja completa de 242 productos |
 | `fisico-arranca-test.js` | El físico cerrado es el inicial del tramo siguiente |
 | `tramo-completo-test.js` | Los 242 productos en el tramo, agrupados y plegados |
+| `factura-a-producto-test.js` | Renglón de factura apuntado a un producto, y tamaños de bulto |
 | `todo-entra-test.js` | Recepciones y facturas alimentando el inventario solas |
 
 `hoja-agosto.js` no es una prueba: es la transcripción del inventario físico de

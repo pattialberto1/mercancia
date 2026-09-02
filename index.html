@@ -646,6 +646,18 @@
       <div class="field"><label>Precio por unidad</label><input id="ln-precio" type="text" inputmode="decimal" autocomplete="off"></div>
       <div class="field"><label>Importe</label><input id="ln-importe" type="text" inputmode="decimal" autocomplete="off"></div>
     </div>
+    <div class="field">
+      <label>¿A qué producto del inventario entra?</label>
+      <select id="ln-art"></select>
+      <div class="hint" id="ln-art-hint" style="text-align:left">Si lo dices, esta cantidad entra sola al inventario.</div>
+    </div>
+    <div class="field hidden" id="ln-bultos-campo">
+      <label id="ln-bultos-lbl">La cantidad de arriba viene en…</label>
+      <div class="seg" id="ln-bultos">
+        <button data-b="0" class="on">Unidades</button>
+        <button data-b="1">Bultos</button>
+      </div>
+    </div>
     <div class="actions">
       <button class="btn-secondary btn-danger" id="ln-del">Borrar</button>
       <button class="btn-primary" id="ln-save">Guardar</button>
@@ -689,7 +701,13 @@ const defaults = {
               articulosActivos: ['pollo_pieza'],
               // cuántas unidades trae un bulto de cada bebida (editable en Equivalencias).
               // El de 1,5L queda sin poner a propósito: todavía no está confirmado.
-              porBulto: { ref_1l: 6, ref_15l: 12, ref_2l: 6, agua: 24, agua_glacier: 24, malta: 36, yuky: 24, huevos: 24 } },
+              porBulto: { ref_1l: 6, ref_15l: 12, ref_2l: 6, agua: 24, agua_glacier: 24, malta: 36, yuky: 24, huevos: 24,
+                          // tamaños de bulto de la hoja del local, confirmados por Alberto el 2/9.
+                          // Van aquí y no en cada teléfono porque son del producto, no del que cuenta.
+                          f_arroz_mary: 24,                    // 1 bulto = 24 sacos de 900 g
+                          f_ajinomoto: 25,                     // 1 bulto = 25 kg
+                          f_tina_salsera_1oz_occidente: 1000,  // 1 bulto = 1.000 unidades
+                          f_vasos_v67: 25 } },                 // 1 bulto = 25 paquetes
   recepciones: [], facturas: [], inventarios: [], borradas: {}
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
@@ -1578,6 +1596,56 @@ function renderFac() {
 
 /* ---- edición de un renglón ---- */
 let lineaIdx = -1;
+let lineaEnBultos = false;
+
+/* El nombre impreso en la factura casi nunca es el del inventario («Base de
+   Salsa de Tomate 3,80 Kg» contra «Salsa de tomate mayo 3,8kg»), así que
+   adivinarlo por el texto saldría mal. Se elige de una lista, por categorías. */
+function llenarSelectorArticulos() {
+  const sel = $('ln-art');
+  if (sel.childElementCount) return;   // se arma una sola vez
+  sel.innerHTML = '<option value="">— no entra al inventario —</option>';
+  const porCat = new Map();
+  for (const a of articulosDelTramo()) {
+    const c = catDeArticulo(a);
+    if (!porCat.has(c)) porCat.set(c, []);
+    porCat.get(c).push(a);
+  }
+  for (const c of CATALOGO_FISICO.map(g => g.cat)) {
+    const as = porCat.get(c);
+    if (!as) continue;
+    const grp = document.createElement('optgroup');
+    grp.label = c;
+    for (const a of as) {
+      const o = document.createElement('option');
+      o.value = a.id;
+      o.textContent = a.nombre + ' (' + a.unidad + ')';
+      grp.appendChild(o);
+    }
+    sel.appendChild(grp);
+  }
+}
+
+// enseña u oculta el «viene en bultos», que solo tiene sentido si el artículo
+// tiene un tamaño de bulto sabido
+function refrescarCamposArticulo() {
+  const a = articulo($('ln-art').value);
+  const pb = a ? porBultoDe(a) : 0;
+  $('ln-bultos-campo').classList.toggle('hidden', !a || !pb);
+  if (a && pb) {
+    $('ln-bultos-lbl').textContent = 'La cantidad de arriba viene en… (1 ' +
+      nombreBulto1(a) + ' = ' + fmt(pb) + ' ' + a.unidad + ')';
+  }
+  for (const b of $('ln-bultos').querySelectorAll('button'))
+    b.classList.toggle('on', (b.dataset.b === '1') === lineaEnBultos);
+  $('ln-art-hint').textContent = !a
+    ? 'Si lo dices, esta cantidad entra sola al inventario.'
+    : pb
+      ? 'Entrará al inventario como ' + a.nombre.toLowerCase() + '.'
+      : 'Entrará como ' + a.nombre.toLowerCase() + ', en ' + a.unidad +
+        '. Para poder meterlo en bultos, di antes cuántas ' + a.unidad + ' trae un bulto.';
+}
+
 function editarLinea(i) {
   const fac = currentFac;
   lineaIdx = i;
@@ -1585,6 +1653,10 @@ function editarLinea(i) {
     ? { nombre: '', cantidad: '', unidad: '', precio: '', importe: '' }
     : fac.lineas[i];
   $('linea-title').textContent = i < 0 ? 'Nuevo producto' : 'Producto';
+  llenarSelectorArticulos();
+  $('ln-art').value = l.art || '';
+  lineaEnBultos = !!l.enBultos;
+  refrescarCamposArticulo();
   $('ln-nombre').value = l.nombre || '';
   $('ln-cant').value = l.cantidad === '' || l.cantidad == null ? '' : String(l.cantidad).replace('.', ',');
   $('ln-unidad').value = l.unidad || '';
@@ -1604,6 +1676,14 @@ function recalcularImporte() {
 }
 $('ln-cant').addEventListener('input', recalcularImporte);
 $('ln-precio').addEventListener('input', recalcularImporte);
+
+$('ln-art').addEventListener('change', () => { lineaEnBultos = false; refrescarCamposArticulo(); });
+$('ln-bultos').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  lineaEnBultos = b.dataset.b === '1';
+  refrescarCamposArticulo();
+});
 
 $('ln-cancel').onclick = () => { $('modal-linea').classList.remove('show'); lineaIdx = -1; };
 $('ln-del').onclick = () => {
@@ -1625,6 +1705,12 @@ $('ln-save').onclick = () => {
     precio: num($('ln-precio').value),
     importe: num($('ln-importe').value)
   };
+  // a qué artículo del inventario entra este renglón, y si viene en bultos
+  const artId = $('ln-art').value;
+  if (artId && articulo(artId)) {
+    l.art = artId;
+    if (lineaEnBultos && porBultoDe(articulo(artId))) l.enBultos = true;
+  }
   if (lineaIdx < 0) currentFac.lineas.push(l); else currentFac.lineas[lineaIdx] = l;
   touch(currentFac); save(); renderFac();
   $('modal-linea').classList.remove('show');
@@ -2303,6 +2389,11 @@ const CAT_ARTICULO = {
    (contarías dos veces el mismo refresco); los demás se convierten en un
    artículo de solo conteo: sin entrada y sin receta, así que de ellos la app
    sabe lo que había y lo que queda, no de dónde salió ni en qué se gastó. */
+/* En qué se cuenta un renglón cuando no es ni kg ni «unidades» sueltas. El
+   arroz Mary se cuenta en sacos y los vasos en paquetes: decirlo bien evita
+   leer «58 unidades» donde son 58 paquetes. */
+const UNIDAD_FISICO = { arroz_mary: 'sacos', vasos_v67: 'paquetes' };
+
 const ARTICULOS_FISICO = (() => {
   const out = [];
   for (const g of CATALOGO_FISICO) {
@@ -2312,7 +2403,7 @@ const ARTICULOS_FISICO = (() => {
       if (VINCULO_FISICO[id]) continue;
       out.push({
         id: 'f_' + id, nombre, emoji: '📦', cat: g.cat, soloConteo: true,
-        unidad: unidad === 'kg' ? 'kg' : unidad === 'lt' ? 'lt' : 'unidades'
+        unidad: UNIDAD_FISICO[id] || (unidad === 'kg' ? 'kg' : unidad === 'lt' ? 'lt' : 'unidades')
       });
     }
   }
@@ -2410,7 +2501,13 @@ function aporteFisico(it, v, a) {
      que falte: en la hoja las dos columnas son medidas paralelas de lo mismo,
      no se suman. Lo que sí bloquea es un número de bultos sin saber qué trae
      cada bulto: ahí el total saldría corto y callado. */
-  const mismaUnidad = (it.unidad === 'und' && a.unidad === 'unidades') || it.unidad === a.unidad;
+  // «und» quiere decir «lo que se cuente en ese renglón», así que vale para
+  // cualquier artículo que se cuente (unidades, piezas, sacos, paquetes…).
+  // Lo que no se puede mezclar es un peso o un volumen con algo contado.
+  const medida = it.unidad === 'kg' || it.unidad === 'lt';
+  const mismaUnidad = medida
+    ? it.unidad === a.unidad
+    : a.unidad !== 'kg' && a.unidad !== 'lt';
   let total = 0, falta = null;
   if (hayB) {
     if (pb) total += b * pb;
@@ -2474,17 +2571,39 @@ function normaliza(s) {
 // tener entradas o receta (los de solo conteo no tienen ni una cosa ni la otra)
 function articulosConFormula() { return articulosDelTramo().filter(esDeControl); }
 
+/* Lo que entra por los renglones de factura que se apuntaron a mano a un
+   artículo. Es la única vía de entrada de lo que solo está en la hoja del
+   local: esos productos no tienen pesada ni conteo de recepción. */
+function recibidoPorFacturaDirigida(inv, art) {
+  let n = 0;
+  const pb = porBultoDe(art);
+  for (const f of db.facturas) {
+    if (f.fecha < inv.semanaInicio || f.fecha > inv.semanaFin) continue;
+    for (const l of f.lineas || []) {
+      if (l.art !== art.id) continue;
+      const c = Number(l.cantidad) || 0;
+      // «8 cajas de 4 paquetes» son 32 paquetes; sin tamaño de bulto sabido no
+      // se multiplica por nada inventado
+      n += l.enBultos && pb ? c * pb : c;
+    }
+  }
+  return n;
+}
+
 function recibidoEnSemana(inv) {
   const out = {};
-  for (const art of articulosConFormula()) {
+  for (const art of articulosDelTramo()) {
     const e = art.entrada;
-    let n = 0;
+    let n = recibidoPorFacturaDirigida(inv, art);
+    if (!e) { out[art.id] = round2(n); continue; }
     if (e.tipo === 'factura') {
       // lo que entra por factura de proveedor, reconocido por el nombre
       const claves = e.nombres.map(normaliza);
       for (const f of db.facturas) {
         if (f.fecha < inv.semanaInicio || f.fecha > inv.semanaFin) continue;
         for (const l of f.lineas || []) {
+          // un renglón apuntado a mano ya se contó arriba: no se cuenta dos veces
+          if (l.art) continue;
           const nom = normaliza(l.nombre);
           if (claves.some(k => nom.includes(k))) n += Number(l.cantidad) || 0;
         }
@@ -3057,7 +3176,9 @@ function filaComparacion(f, base, inv) {
   // el inicial se teclea solo si no lo da ya la semana anterior ni la hoja del
   // local; si lo dan, se muestra y se dice de dónde salió
   const aMano = f.origenInicial !== 'semana' && f.origenInicial !== 'fisico';
-  const conRecibido = !!a.entrada;
+  // también hay «recibido» si un renglón de factura se apuntó a este producto,
+  // aunque el producto no tenga entrada propia
+  const conRecibido = !!a.entrada || !!f.recibido;
   const conVendido = tieneConsumoConocido(a.id);
   const conFormula = conRecibido || conVendido;
   const detC = detalleDeConteo(inv, 'conteo', a);

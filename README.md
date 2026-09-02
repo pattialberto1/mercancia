@@ -182,6 +182,15 @@ Los otros 200 y pico se cuentan cuando haga falta.
 
 ### De dónde sale «lo recibido»
 
+Un producto que solo está en la hoja del local no se pesa ni se cuenta en una
+recepción: **entra por un renglón de factura apuntado a él**. Al añadir o editar
+un renglón se elige *¿a qué producto del inventario entra?* de una lista por
+categorías, y si la cantidad viene en bultos. El nombre impreso en la factura
+casi nunca es el del inventario —*«Base de Salsa de Tomate 3,80 Kg»* contra
+*«Salsa de tomate mayo 3,8kg»*— así que se elige a mano en vez de adivinarlo.
+Un renglón apuntado no se vuelve a contar por su nombre.
+
+
 **Todo lo que se anota entra solo al inventario de la semana**: las recepciones
 de pollo, papas, verduras, alitas, bebidas, huevos e insumos, y también los
 renglones de las **facturas de proveedor** (el cilantro y el queso de Tierra

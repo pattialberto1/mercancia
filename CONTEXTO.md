@@ -107,6 +107,20 @@ dicho qué trae el bulto, la fila **pregunta el dato ahí mismo** («1 bulto =
 ¿cuántas unidades?») y lo guarda en `porBulto`, que **no se sincroniza**: es de
 cada teléfono.
 
+**Tamaños de bulto de la hoja, confirmados el 2/9** (van en `defaults.settings.
+porBulto`, no en cada teléfono, porque son del producto): arroz Mary → 24 sacos
+de 900 g · ajinomoto → 25 kg · tina salsera 1oz → 1.000 · vasos V67 → 25
+paquetes. El arroz Mary se cuenta en **sacos** y los vasos V67 en **paquetes**
+(`UNIDAD_FISICO`).
+
+**Un renglón de factura se puede apuntar a un producto (2/9).** Es la única vía
+de entrada de lo que solo está en la hoja: esos productos no se pesan ni se
+cuentan en una recepción. En el renglón se elige el artículo (`l.art`) y si la
+cantidad viene en bultos (`l.enBultos`). El nombre impreso casi nunca coincide
+—«Base de Salsa de Tomate 3,80 Kg» contra «Salsa de tomate mayo 3,8kg»— así que
+**se elige de una lista, no se adivina por el texto**. Un renglón apuntado no se
+vuelve a contar por nombre (`recibidoPorFacturaDirigida`).
+
 **Todo lo que se recibe entra solo**: cada producto de `PRODUCTOS` tiene su
 artículo, y las facturas de proveedor se reconocen por el nombre del renglón
 (`entrada: { tipo: 'factura', nombres: [...] }`).
