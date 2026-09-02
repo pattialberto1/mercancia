@@ -90,6 +90,23 @@ en la hoja). Un renglón en bultos sin saber qué trae el bulto **no da número:
 da el motivo** (`aporteFisico`). Manda siempre la última semana cerrada si la
 hay; el físico solo arranca cuando es el último inventario cerrado.
 
+**El tramo lleva los 242 productos (2/9).** No solo los del control: cada
+renglón de la hoja tiene su sitio. Los que ya recoge un artículo del control no
+se repiten (los 17 sabores de refresco van dentro de «Refrescos de 1L»); el
+resto se convierte en un artículo de **solo conteo** (`ARTICULOS_FISICO`, id
+`f_<renglón>`), sin entrada ni receta: de esos la app sabe lo que había y lo que
+queda, no de dónde salió ni en qué se gastó, y su fila enseña solo *Inicial* y
+*Conteo real*. **Solo lo marcado en Ajustes obliga a contar para cerrar la
+semana** (`f.activo`); lo demás se cuenta cuando haga falta.
+
+**Cómo se navega:** categorías del papel, plegadas, y solo se pinta el contenido
+de las abiertas — el teléfono no monta 240 filas para enseñar diez. Arriba, «⭐
+Control de la semana», abierto. Buscador que cruza todas las categorías y las
+abre solas. Lo mismo en la hoja del físico. Si un renglón trae bultos y no está
+dicho qué trae el bulto, la fila **pregunta el dato ahí mismo** («1 bulto =
+¿cuántas unidades?») y lo guarda en `porBulto`, que **no se sincroniza**: es de
+cada teléfono.
+
 **Todo lo que se recibe entra solo**: cada producto de `PRODUCTOS` tiene su
 artículo, y las facturas de proveedor se reconocen por el nombre del renglón
 (`entrada: { tipo: 'factura', nombres: [...] }`).

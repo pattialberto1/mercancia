@@ -162,6 +162,24 @@ renglones y nadie ha dicho cuáles cuentan) y el refresco de 1,5L y la pechuga
 Si un renglón trae bultos y no está dicho qué trae cada bulto, la app **no da un
 total corto**: dice cuál es el renglón y qué falta para poder convertirlo.
 
+### Los 242 productos, sin scroll infinito
+
+El tramo semanal lleva **todo lo que está en la hoja del local**, no solo los
+artículos del control. Cada renglón tiene su sitio: los que ya recoge un
+artículo del control no se repiten (los sabores de refresco van dentro de
+«Refrescos de 1L», así no se cuentan dos veces) y el resto entra como producto
+de **solo conteo** — sin «recibido» ni «vendido», porque no hay de dónde
+recibirlo ni receta que lo gaste. Su fila es corta: *Inicial* y *Conteo real*, y
+debajo lo que se consumió.
+
+Para que se pueda recorrer en un teléfono van **por las categorías del papel y
+plegadas**, y solo se pinta lo que está abierto. Arriba, un grupo **⭐ Control de
+la semana** con lo que hay que contar sí o sí; debajo, las diez categorías en el
+orden de la hoja. El buscador cruza todas y las abre solas.
+
+**Solo lo marcado en ⚙️ Equivalencias obliga a contar para cerrar la semana.**
+Los otros 200 y pico se cuentan cuando haga falta.
+
 ### De dónde sale «lo recibido»
 
 **Todo lo que se anota entra solo al inventario de la semana**: las recepciones

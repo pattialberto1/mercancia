@@ -26,6 +26,7 @@ error de JavaScript en la página.
 | `pechuga-test.js` | Pollo rojo y pechuga son el mismo insumo (con su migración) |
 | `fisico-test.js` | Inventario físico: la hoja completa de 242 productos |
 | `fisico-arranca-test.js` | El físico cerrado es el inicial del tramo siguiente |
+| `tramo-completo-test.js` | Los 242 productos en el tramo, agrupados y plegados |
 | `todo-entra-test.js` | Recepciones y facturas alimentando el inventario solas |
 
 `hoja-agosto.js` no es una prueba: es la transcripción del inventario físico de
