@@ -368,6 +368,10 @@
         <div class="seg-label">Cestas en esta pesada</div>
         <div class="seg" id="seg-cestas"></div>
       </div>
+      <div id="empaque-picker" class="hidden">
+        <div class="seg-label" id="empaque-label">Cómo llega</div>
+        <div class="seg" id="seg-empaque"></div>
+      </div>
       <div class="quick" id="quick-btns"></div>
       <div class="inputrow">
         <input id="weight-input" type="text" inputmode="numeric" placeholder="Peso en kg" autocomplete="off">
@@ -669,6 +673,13 @@ const defaults = {
 };
 const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 cestas
 
+/* Cómo viene empacado el huevo. La caja es la unidad con la que llega del
+   proveedor; el cartón y el huevo suelto están para cuando no llega caja
+   completa. En la app el huevo siempre se guarda contado en huevos. */
+const HUEVOS_POR_CARTON = 24;
+const CARTONES_POR_CAJA = 6;
+const HUEVOS_POR_CAJA = HUEVOS_POR_CARTON * CARTONES_POR_CAJA;   // 144
+
 /* Catálogo de productos.
    - neto: etiqueta del total · cestas: máximo de cestas por pesada (a granel)
    - todo lo que no es pollo se pesa a granel: peso con decimales, sin rango */
@@ -691,7 +702,14 @@ const PRODUCTOS = {
   agua_glacier:   { emoji: '💧', nombre: 'Agua Glacier 550ml', neto: 'AGUAS GLACIER', unidad: true },
   yuky:           { emoji: '🧃', nombre: 'Yuky-pack',     neto: 'YUKY-PACKS',     unidad: true },
   malta:          { emoji: '🍺', nombre: 'Malta',         neto: 'MALTAS',         unidad: true },
-  huevos:         { emoji: '🥚', nombre: 'Huevos',        neto: 'HUEVOS',         unidad: true },
+  // los huevos llegan en cajas: 6 cartones de 24 huevos cada uno (144 por caja).
+  // Se guardan siempre en huevos; la caja y el cartón son solo la forma de teclearlo.
+  huevos:         { emoji: '🥚', nombre: 'Huevos',        neto: 'HUEVOS',         unidad: true,
+                    empaques: [
+                      { id: 'caja',   uno: 'caja',   varias: 'cajas',    cuantos: 'Cuántas cajas',   unidades: HUEVOS_POR_CAJA },
+                      { id: 'carton', uno: 'cartón', varias: 'cartones', cuantos: 'Cuántos cartones', unidades: HUEVOS_POR_CARTON },
+                      { id: 'suelto', uno: 'huevo',  varias: 'huevos',   cuantos: 'Cuántos huevos',  unidades: 1 }
+                    ] },
   // insumos de las recetas: se pesan por bolsa, sin cestas ni tara
   // el pollo rojo del chino y el de los tenders salen de la misma pechuga
   pechuga:        { emoji: '🍗', nombre: 'Pechuga',       neto: 'PECHUGA NETA',   bolsa: true },
@@ -705,11 +723,25 @@ const PRODUCTOS = {
 function esBolsaTipo(tipo) { return !!(PRODUCTOS[tipo] || {}).bolsa; }
 // ¿se cuenta en unidades en vez de pesarse?
 function esUnidadTipo(tipo) { return !!(PRODUCTOS[tipo] || {}).unidad; }
+// formas de empaque con las que se puede teclear una entrada (huevos: caja/cartón/suelto)
+function empaquesDe(tipo) { return (PRODUCTOS[tipo] || {}).empaques || null; }
+function empaqueDe(tipo, id) { return (empaquesDe(tipo) || []).find(e => e.id === id) || null; }
+// «2 cajas», «1 cartón»: el nombre del empaque en singular o plural
+function fmtEmpaque(e, n) { return fmt(n) + ' ' + (n === 1 ? e.uno : e.varias); }
+// cómo se tecleó una entrada, si se guardó con su empaque: «2 cajas · 288 huevos»
+function detalleEntrada(rec, p) {
+  const e = p.emp && empaqueDe(rec.tipo, p.emp);
+  if (!e || !p.cant || e.unidades === 1) return null;
+  return fmtEmpaque(e, p.cant) + ' · ' + fmtMedida(p.peso, rec.tipo);
+}
 // cómo se mide un producto: los que se cuentan no llevan "kg"
 function fmtMedida(n, tipo) {
-  return esUnidadTipo(tipo)
-    ? fmt(round2(n)) + (round2(n) === 1 ? ' unidad' : ' unidades')
-    : fmtKg(n);
+  if (!esUnidadTipo(tipo)) return fmtKg(n);
+  const v = round2(n);
+  // si el producto tiene nombre propio para la pieza suelta (el huevo), se usa
+  const suelta = (empaquesDe(tipo) || []).find(e => e.unidades === 1);
+  if (suelta) return fmtEmpaque(suelta, v);
+  return fmt(v) + (v === 1 ? ' unidad' : ' unidades');
 }
 
 /* Pestañas del inicio: una puede agrupar varios productos.
@@ -801,6 +833,7 @@ let db = load();
 let current = null;        // recepción abierta en pantalla
 let currentFac = null;     // factura abierta en pantalla
 let mode = 2;              // cestas por pesada (pollo: 2 o 1 · granel: 1 a 5)
+let empaque = '';          // con qué empaque se está tecleando (huevos: caja / cartón / suelto)
 let showAllEntries = false;
 let homeTab = 'pollo';     // pestaña activa en inicio
 
@@ -933,6 +966,8 @@ function openRec(id) {
   current = db.recepciones.find(r => r.id === id);
   if (!current) return;
   mode = current.tipo === 'pollo' ? 2 : ((PRODUCTOS[current.tipo] || {}).cestas || 5);
+  const emps = empaquesDe(current.tipo);
+  empaque = emps ? emps[0].id : '';   // por defecto, como llega del proveedor: la caja
   showAllEntries = false;
   $('weight-input').value = '';
   renderRec();
@@ -946,13 +981,18 @@ function renderRec() {
   const esPollo = rec.tipo === 'pollo';
   const esBolsa = !!P.bolsa;
   const esUnidad = !!P.unidad;
+  const emps = P.empaques || null;                       // huevos: caja / cartón / suelto
+  const emp = emps ? (empaqueDe(rec.tipo, empaque) || emps[0]) : null;
+  if (emp) empaque = emp.id;
   // ambos comparten pantalla: una sola entrada, sin cestas ni tara
   const simple = esBolsa || esUnidad;
   $('rec-title').textContent = P.nombre + ' · ' + fmtDate(rec.fecha);
   $('rec-sub').textContent = rec.cerrada
     ? 'Recepción terminada'
     : esUnidad
-      ? 'Anota cuántas unidades llegan.'
+      ? (emps ? 'Una ' + emps[0].uno + ' trae ' + fmt(CARTONES_POR_CAJA) + ' cartones de ' +
+                fmt(HUEVOS_POR_CARTON) + ' huevos: ' + fmt(HUEVOS_POR_CAJA) + ' en total.'
+              : 'Anota cuántas unidades llegan.')
     : esBolsa
       ? 'Anota el peso de cada bolsa que llega.'
       : esPollo
@@ -982,8 +1022,25 @@ function renderRec() {
     for (const b of segC.querySelectorAll('button'))
       b.classList.toggle('on', +b.dataset.c === mode);
   }
+  $('empaque-picker').classList.toggle('hidden', !emp || rec.cerrada);
+  if (emp) {
+    const segE = $('seg-empaque');
+    if (segE.childElementCount !== emps.length) {
+      segE.innerHTML = '';
+      for (const e of emps) {
+        const b = document.createElement('button');
+        b.dataset.emp = e.id;
+        b.textContent = e.varias.charAt(0).toUpperCase() + e.varias.slice(1);
+        segE.appendChild(b);
+      }
+    }
+    for (const b of segE.querySelectorAll('button'))
+      b.classList.toggle('on', b.dataset.emp === emp.id);
+  }
+
   $('weight-input').setAttribute('inputmode', esPollo || esUnidad ? 'numeric' : 'decimal');
-  $('weight-input').placeholder = esUnidad ? 'Cuántas unidades'
+  $('weight-input').placeholder = emp ? emp.cuantos
+    : esUnidad ? 'Cuántas unidades'
     : esBolsa ? 'Peso de la bolsa en kg' : 'Peso en kg';
 
   // botones rápidos (solo pollo: enteros del rango, modo 2 cestas)
@@ -1006,7 +1063,12 @@ function renderRec() {
     $('range-hint').textContent = 'Cesta suelta: entre ' + fmt(lo1) + ' y ' + fmt(hi1) + ' kg.';
   } else if (esUnidad) {
     qb.classList.add('hidden');
-    $('range-hint').textContent = 'Escribe cuántas unidades llegan (números enteros).';
+    $('range-hint').textContent = emp
+      ? (emp.unidades === 1
+          ? 'Escribe ' + emp.cuantos.toLowerCase() + ' sueltos llegan (números enteros).'
+          : 'Escribe ' + emp.cuantos.toLowerCase() + ' llegan. Cada ' + emp.uno + ' son ' +
+            fmt(emp.unidades) + ' huevos.')
+      : 'Escribe cuántas unidades llegan (números enteros).';
   } else if (esBolsa) {
     qb.classList.add('hidden');
     $('range-hint').textContent = 'Escribe el peso de la bolsa (puede llevar decimales, ej. 4,25).';
@@ -1071,7 +1133,7 @@ function renderRec() {
     row.className = 'entry';
     const meta = simple ? ('#' + (idx + 1)) : ((p.cestas === 1 ? '1 cesta' : p.cestas + ' cestas') + ' · #' + (idx + 1));
     row.innerHTML =
-      '<div><span class="w">' + (esUnidad ? fmt(p.peso) + (p.peso === 1 ? ' unidad' : ' unidades') : fmt(p.peso) + ' kg') + '</span> ' +
+      '<div><span class="w">' + (esUnidad ? (detalleEntrada(rec, p) || fmtMedida(p.peso, rec.tipo)) : fmt(p.peso) + ' kg') + '</span> ' +
       '<span class="meta">· ' + meta + '</span>' +
       (inRange(p.peso, p.cestas, rec) ? '' : ' <span class="flag">fuera de rango</span>') + '</div>' +
       (rec.cerrada ? '' : '<button class="del">Borrar</button>');
@@ -1151,17 +1213,30 @@ $('seg-cestas').addEventListener('click', e => {
   renderRec();
 });
 
-function addEntry(peso, cestas) {
+$('seg-empaque').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  empaque = b.dataset.emp;
+  $('weight-input').value = '';
+  renderRec();
+});
+
+// `emp` (opcional) es cómo se tecleó: { emp: 'caja', cant: 2 }. El peso que se
+// guarda es siempre el total en la unidad del producto — las cajas solo se
+// anotan para poder volver a leer la entrada tal como se escribió.
+function addEntry(peso, cestas, emp) {
   const rec = current;
   if (!rec || rec.cerrada) return;
   const doAdd = () => {
-    rec.pesadas.push({ peso, cestas, ts: Date.now() });
+    const p = { peso, cestas, ts: Date.now() };
+    if (emp) { p.emp = emp.emp; p.cant = emp.cant; }
+    rec.pesadas.push(p);
     touch(rec);
     save();
     $('weight-input').value = '';
     renderRec();
     toast('✓ ' + (esUnidadTipo(rec.tipo)
-      ? fmt(peso) + (peso === 1 ? ' unidad añadida' : ' unidades añadidas')
+      ? (detalleEntrada(rec, p) || fmtMedida(peso, rec.tipo)) + ' añadido'
       : fmt(peso) + ' kg añadidos'));
     if (navigator.vibrate) navigator.vibrate(15);
   };
@@ -1193,11 +1268,14 @@ $('btn-add').onclick = () => {
   let v;
   if (esUnidadTipo(current.tipo)) {
     // no se pesan: se cuentan, y media unidad no existe
-    if (!/^\d+$/.test(s)) { toast('Escribe cuántas unidades, en número entero'); return; }
+    const e = empaqueDe(current.tipo, empaque);
+    const que = e ? e.cuantos.toLowerCase() : 'cuántas unidades';
+    if (!/^\d+$/.test(s)) { toast('Escribe ' + que + ', en número entero'); return; }
     v = parseInt(s, 10);
-    if (v <= 0) { toast('Escribe cuántas unidades'); return; }
-    if (v > 5000) { toast('Esa cantidad no parece correcta'); return; }
-    addEntry(v, 0);
+    if (v <= 0) { toast('Escribe ' + que); return; }
+    const total = e ? v * e.unidades : v;
+    if (total > 5000) { toast('Esa cantidad no parece correcta'); return; }
+    addEntry(total, 0, e && e.unidades > 1 ? { emp: e.id, cant: v } : null);
     return;
   }
   if (current.tipo === 'pollo') {
@@ -1253,7 +1331,9 @@ function buildResumen(rec) {
     // se cuentan: ni cestas, ni tara, ni kilos
     let txt = P.emoji + ' *' + P.nombre.toUpperCase() + '*\n📅 ' + fmtDate(rec.fecha) + '\n\n';
     if (!rec.pesadas.length) txt += '• (sin entradas todavía)\n';
-    else rec.pesadas.forEach((x, i) => { txt += '• Entrada ' + (i + 1) + ': ' + fmt(x.peso) + '\n'; });
+    else rec.pesadas.forEach((x, i) => {
+      txt += '• Entrada ' + (i + 1) + ': ' + (detalleEntrada(rec, x) || fmtMedida(x.peso, rec.tipo)) + '\n';
+    });
     txt += '\n✅ *' + P.neto + ': ' + fmtMedida(t.neto, rec.tipo) + '*';
     return txt;
   }
@@ -1912,7 +1992,7 @@ const ARTICULOS_TODOS = [
     entrada: { tipo: 'unidades', producto: 'yuky' } },
   { id: 'malta', nombre: 'Maltas', emoji: '🍺', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'malta' } },
-  // se cuentan por cartones de 24; una caja trae 12 cartones (288 huevos)
+  // se reciben por cajas de 6 cartones (144 huevos) y se cuentan por cartones de 24
   { id: 'huevos', nombre: 'Huevos', emoji: '🥚', unidad: 'unidades',
     bulto: 'cartones', bulto1: 'cartón',
     entrada: { tipo: 'unidades', producto: 'huevos' } },

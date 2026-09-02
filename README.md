@@ -46,8 +46,23 @@ Estos productos son los que alimentan el módulo de Inventario: como se compran 
 se venden en la misma unidad, lo recibido y lo vendido se pueden restar
 directamente, sin equivalencias de por medio.
 
+### Los huevos llegan por cajas
+
+Nadie cuenta huevo por huevo lo que llega: llegan en **cajas de 6 cartones de 24
+huevos cada uno**, o sea **144 huevos por caja**. La pantalla de recepción arranca
+pidiendo **cuántas cajas**, y encima del campo hay un selector para cambiar a
+**cartones** (24) o a **huevos sueltos** cuando no llega caja entera.
+
+Lo que se guarda son siempre **huevos** — la caja es solo la forma de teclearlo —
+así que el inventario, la receta del pote de chino y el conteo por cartones
+siguen funcionando igual. La entrada se relee tal como se escribió: *«2 cajas ·
+288 huevos»*. Las entradas viejas, anotadas antes de esto, se siguen leyendo en
+huevos: la app **no les inventa un número de cajas**.
+
 Para agregar otro producto que se cuente, se define con `unidad: true` en
-`PRODUCTOS` — igual que `bolsa: true` para los que se pesan sueltos.
+`PRODUCTOS` — igual que `bolsa: true` para los que se pesan sueltos. Si además
+llega empacado, se le pone una lista `empaques` con el nombre y cuántas unidades
+trae cada uno; el primero de la lista es el que sale marcado por defecto.
 
 ## Alitas — solo control de peso
 

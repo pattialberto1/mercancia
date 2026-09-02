@@ -15,10 +15,11 @@ const results = [];
 function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) console.log('   (falló)', desc); }
 
 const hoy = new Date().toISOString().slice(0, 10);
-// lo que llegó de verdad: 4 cajas de 12 cartones = 1.152 huevos, y cebollín en cestas
+// lo que llegó de verdad: 8 cajas de 6 cartones de 24 = 1.152 huevos, y cebollín en cestas
 const RECEPCIONES = [
   { id: 'r-huevos', tipo: 'huevos', fecha: hoy, creada: 1, mod: 1, cerrada: true,
-    tara: 0, cestasVacias: 0, pesadas: Array.from({ length: 4 }, () => ({ peso: 288, cestas: 0, ts: 1 })) },
+    tara: 0, cestasVacias: 0,
+    pesadas: Array.from({ length: 8 }, () => ({ peso: 144, cestas: 0, ts: 1, emp: 'caja', cant: 1 })) },
   // 3 cestas de cebollín: 30 kg brutos menos 2,3 de tara por cesta = 23,1 netos
   { id: 'r-cebollin', tipo: 'cebollin', fecha: hoy, creada: 1, mod: 1, cerrada: true,
     tara: 2.3, cestasVacias: 0, pesadas: [{ peso: 30, cestas: 3, ts: 1 }] }
@@ -56,7 +57,7 @@ const RECEPCIONES = [
     return { huevos: f.find(x => x.art.id === 'huevos').recibido,
              cebollin: f.find(x => x.art.id === 'cebollin').recibido };
   });
-  check('4 cajas de 12 cartones son 1.152 huevos', rec.huevos === 1152);
+  check('8 cajas de 144 huevos son 1.152 huevos', rec.huevos === 1152);
   check('el cebollín entra en neto, con la tara descontada', rec.cebollin === 23.1);
 
   // ---------- 3) la receta del pote de chino ----------

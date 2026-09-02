@@ -21,6 +21,7 @@ error de JavaScript en la página.
 | `conteo-bultos-test.js` | Conteo en bultos + sueltas y tamaños de bulto |
 | `primer-tramo-test.js` | El control arranca el día del conteo, no el día que se abre la app |
 | `huevos-chino-test.js` | Huevos, cebollín y la receta del pote de chino |
+| `huevos-cajas-test.js` | Entrada de huevos por cajas de 6 cartones (144) |
 | `recetas-test.js` | Tender, «LITRO Y MEDIO» y los dos códigos de agua de 600 |
 | `pechuga-test.js` | Pollo rojo y pechuga son el mismo insumo (con su migración) |
 | `fisico-test.js` | Inventario físico: la hoja completa de 242 productos |
