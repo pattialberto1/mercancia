@@ -1,4 +1,4 @@
-// Los huevos entran por CAJAS: cada caja trae 6 cartones de 24 huevos (144).
+// Los huevos entran por CAJAS: cada caja trae 12 cartones de 24 huevos (288).
 // Se sigue guardando todo contado en huevos; la caja y el cartón son solo la
 // forma de teclearlo, y el cartón y el huevo suelto quedan para cuando no
 // llega caja completa.
@@ -51,8 +51,8 @@ const RECEPCIONES = [
     porCarton: HUEVOS_POR_CARTON, cartones: CARTONES_POR_CAJA, porCaja: HUEVOS_POR_CAJA
   }));
   check('un cartón son 24 huevos', caja.porCarton === 24, caja.porCarton);
-  check('una caja trae 6 cartones', caja.cartones === 6, caja.cartones);
-  check('una caja son 144 huevos', caja.porCaja === 144, caja.porCaja);
+  check('una caja trae 12 cartones', caja.cartones === 12, caja.cartones);
+  check('una caja son 288 huevos', caja.porCaja === 288, caja.porCaja);
 
   // ---------- 2) la pantalla de recepción arranca en cajas ----------
   await page.click('#home-tabs button[data-t="unidades"]');
@@ -70,21 +70,21 @@ const RECEPCIONES = [
   check('el campo pide cajas',
     (await page.getAttribute('#weight-input', 'placeholder')) === 'Cuántas cajas');
   const sub = await page.textContent('#rec-sub');
-  check('el subtítulo explica la caja', sub.includes('6 cartones') && sub.includes('144'), sub);
+  check('el subtítulo explica la caja', sub.includes('12 cartones') && sub.includes('288'), sub);
   check('la pista dice cuántos huevos trae una caja',
-    (await page.textContent('#range-hint')).includes('144'));
+    (await page.textContent('#range-hint')).includes('288'));
 
-  // ---------- 3) 2 cajas son 288 huevos ----------
+  // ---------- 3) 2 cajas son 576 huevos ----------
   await page.fill('#weight-input', '2'); await page.click('#btn-add');
   await page.waitForTimeout(200);
-  check('2 cajas se guardan como 288 huevos',
-    (await page.evaluate(() => current.pesadas[0].peso)) === 288,
+  check('2 cajas se guardan como 576 huevos',
+    (await page.evaluate(() => current.pesadas[0].peso)) === 576,
     await page.evaluate(() => current.pesadas[0].peso));
   check('queda anotado que se tecleó en cajas',
     await page.evaluate(() => current.pesadas[0].emp === 'caja' && current.pesadas[0].cant === 2));
-  check('el total va en huevos', (await page.textContent('#t-neto')).includes('288 huevos'));
+  check('el total va en huevos', (await page.textContent('#t-neto')).includes('576 huevos'));
   check('la entrada se lee como se escribió',
-    (await page.textContent('#entries-list .entry')).includes('2 cajas · 288 huevos'));
+    (await page.textContent('#entries-list .entry')).includes('2 cajas · 576 huevos'));
 
   // ---------- 4) cartones y huevos sueltos, para lo que no es caja entera ----------
   await page.click('#seg-empaque button:has-text("Cartones")');
@@ -105,7 +105,7 @@ const RECEPCIONES = [
     (await page.evaluate(() => current.pesadas[2].peso)) === 7);
   check('el suelto no se anota con empaque',
     (await page.evaluate(() => current.pesadas[2].emp)) === undefined);
-  check('el total suma 367 huevos', (await page.textContent('#t-neto')).includes('367 huevos'));
+  check('el total suma 655 huevos', (await page.textContent('#t-neto')).includes('655 huevos'));
 
   // ---------- 5) no se aceptan medias cajas ----------
   await page.click('#seg-empaque button:has-text("Cajas")');
@@ -118,8 +118,8 @@ const RECEPCIONES = [
   // ---------- 6) el mensaje de WhatsApp lleva las cajas ----------
   await page.click('#btn-wa'); await page.waitForTimeout(250);
   const wa = decodeURIComponent((await page.evaluate(() => window.__abiertas[0] || '')).replace('https://wa.me/?text=', ''));
-  check('el mensaje detalla las 2 cajas', wa.includes('2 cajas · 288 huevos'), wa);
-  check('el mensaje lleva el total en huevos', wa.includes('367 huevos'));
+  check('el mensaje detalla las 2 cajas', wa.includes('2 cajas · 576 huevos'), wa);
+  check('el mensaje lleva el total en huevos', wa.includes('655 huevos'));
 
   // ---------- 7) el inventario recibe huevos, no cajas ----------
   await page.click('#btn-back'); await page.waitForTimeout(200);
@@ -128,7 +128,7 @@ const RECEPCIONES = [
   await page.waitForTimeout(400);
   const recibido = await page.evaluate(() =>
     calcular(currentInv).find(x => x.art.id === 'huevos').recibido);
-  check('al inventario entran los 367 huevos de hoy', recibido === 367, recibido);
+  check('al inventario entran los 655 huevos de hoy', recibido === 655, recibido);
   check('el conteo sigue siendo por cartones de 24',
     await page.evaluate(() => porBultoDe(articulo('huevos')) === 24 &&
                               nombreBulto(articulo('huevos')) === 'cartones'));

@@ -59,11 +59,11 @@ Rama de trabajo de este repo: **`claude/chicken-receiving-app-8z1rs2`**.
 
 **Tamaños de bulto:** refresco 1L y 2L → 6 · refresco 1,5L → 12 · agua Minalba
 600ml → 24 · agua Glacier 550ml → 24 · malta → 36 · yuky-pack → 24 ·
-huevos → 24 por cartón. **Los huevos llegan por cajas: 6 cartones de 24 cada
-uno, 144 huevos por caja** (corregido el 2/9: antes se creía que la caja traía
-12 cartones). La recepción se teclea en cajas, y se puede cambiar a cartones o
-a huevos sueltos cuando no llega caja entera; lo que se guarda son siempre
-huevos. El conteo del inventario sigue haciéndose por cartones.
+huevos → 24 por cartón. **Los huevos llegan por cajas de 12 cartones = 288
+huevos** (confirmado por Alberto el 2/9). La recepción se teclea en cajas, y se
+puede cambiar a cartones o a huevos sueltos cuando no llega caja entera; lo que
+se guarda son siempre huevos. El conteo del inventario sigue haciéndose por
+cartones.
 
 **Códigos del POS que costó aclarar:** `1630 LITRO Y MEDIO` es el refresco de
 1,5L · `1513 AGUA 600ML` es la **Glacier** y `1621 MINALBA 600ML` la Minalba

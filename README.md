@@ -48,15 +48,15 @@ directamente, sin equivalencias de por medio.
 
 ### Los huevos llegan por cajas
 
-Nadie cuenta huevo por huevo lo que llega: llegan en **cajas de 6 cartones de 24
-huevos cada uno**, o sea **144 huevos por caja**. La pantalla de recepción arranca
+Nadie cuenta huevo por huevo lo que llega: llegan en **cajas de 12 cartones de 24
+huevos cada uno**, o sea **288 huevos por caja**. La pantalla de recepción arranca
 pidiendo **cuántas cajas**, y encima del campo hay un selector para cambiar a
 **cartones** (24) o a **huevos sueltos** cuando no llega caja entera.
 
 Lo que se guarda son siempre **huevos** — la caja es solo la forma de teclearlo —
 así que el inventario, la receta del pote de chino y el conteo por cartones
 siguen funcionando igual. La entrada se relee tal como se escribió: *«2 cajas ·
-288 huevos»*. Las entradas viejas, anotadas antes de esto, se siguen leyendo en
+576 huevos»*. Las entradas viejas, anotadas antes de esto, se siguen leyendo en
 huevos: la app **no les inventa un número de cajas**.
 
 Para agregar otro producto que se cuente, se define con `unidad: true` en

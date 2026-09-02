@@ -677,8 +677,8 @@ const QUICK_POLLO = [67, 68, 69, 70, 71];  // botones rápidos de pesada de 2 ce
    proveedor; el cartón y el huevo suelto están para cuando no llega caja
    completa. En la app el huevo siempre se guarda contado en huevos. */
 const HUEVOS_POR_CARTON = 24;
-const CARTONES_POR_CAJA = 6;
-const HUEVOS_POR_CAJA = HUEVOS_POR_CARTON * CARTONES_POR_CAJA;   // 144
+const CARTONES_POR_CAJA = 12;
+const HUEVOS_POR_CAJA = HUEVOS_POR_CARTON * CARTONES_POR_CAJA;   // 288
 
 /* Catálogo de productos.
    - neto: etiqueta del total · cestas: máximo de cestas por pesada (a granel)
@@ -702,7 +702,7 @@ const PRODUCTOS = {
   agua_glacier:   { emoji: '💧', nombre: 'Agua Glacier 550ml', neto: 'AGUAS GLACIER', unidad: true },
   yuky:           { emoji: '🧃', nombre: 'Yuky-pack',     neto: 'YUKY-PACKS',     unidad: true },
   malta:          { emoji: '🍺', nombre: 'Malta',         neto: 'MALTAS',         unidad: true },
-  // los huevos llegan en cajas: 6 cartones de 24 huevos cada uno (144 por caja).
+  // los huevos llegan en cajas: 12 cartones de 24 huevos cada uno (288 por caja).
   // Se guardan siempre en huevos; la caja y el cartón son solo la forma de teclearlo.
   huevos:         { emoji: '🥚', nombre: 'Huevos',        neto: 'HUEVOS',         unidad: true,
                     empaques: [
@@ -1992,7 +1992,7 @@ const ARTICULOS_TODOS = [
     entrada: { tipo: 'unidades', producto: 'yuky' } },
   { id: 'malta', nombre: 'Maltas', emoji: '🍺', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'malta' } },
-  // se reciben por cajas de 6 cartones (144 huevos) y se cuentan por cartones de 24
+  // se reciben por cajas de 12 cartones (288 huevos) y se cuentan por cartones de 24
   { id: 'huevos', nombre: 'Huevos', emoji: '🥚', unidad: 'unidades',
     bulto: 'cartones', bulto1: 'cartón',
     entrada: { tipo: 'unidades', producto: 'huevos' } },
