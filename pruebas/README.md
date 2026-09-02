@@ -25,6 +25,7 @@ error de JavaScript en la página.
 | `recetas-test.js` | Tender, «LITRO Y MEDIO» y los dos códigos de agua de 600 |
 | `pechuga-test.js` | Pollo rojo y pechuga son el mismo insumo (con su migración) |
 | `fisico-test.js` | Inventario físico: la hoja completa de 242 productos |
+| `fisico-arranca-test.js` | El físico cerrado es el inicial del tramo siguiente |
 | `todo-entra-test.js` | Recepciones y facturas alimentando el inventario solas |
 
 `hoja-agosto.js` no es una prueba: es la transcripción del inventario físico de

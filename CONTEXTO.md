@@ -78,6 +78,18 @@ cartones.
   categorías (`CATALOGO_FISICO`). Dos columnas independientes, *por bulto* y
   *por unidad*, que **no se suman entre sí**, más la observación. Sin merma.
 
+**Cómo se enganchan (2/9):** al cerrar un inventario físico, **su conteo pasa a
+ser el inicial del tramo siguiente**, para los renglones vinculados a un
+artículo del control (`VINCULO_FISICO`: pollo marinado, los 17 sabores de
+refresco, aguas, malta, huevos, yuky-packs, papas, repollos, zanahoria, camarón,
+magia, alas). Varios renglones del mismo artículo se suman. Lo que la hoja no
+cubre se sigue tecleando a mano, y la pantalla dice de dónde salió cada inicial.
+Sin vincular a propósito, porque no hay respuesta única: **cebollín, azúcar y
+arroz** (varios renglones cada uno) y **refresco de 1,5L y pechuga** (no están
+en la hoja). Un renglón en bultos sin saber qué trae el bulto **no da número:
+da el motivo** (`aporteFisico`). Manda siempre la última semana cerrada si la
+hay; el físico solo arranca cuando es el último inventario cerrado.
+
 **Todo lo que se recibe entra solo**: cada producto de `PRODUCTOS` tiene su
 artículo, y las facturas de proveedor se reconocen por el nombre del renglón
 (`entrada: { tipo: 'factura', nombres: [...] }`).

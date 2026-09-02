@@ -140,6 +140,28 @@ esperado = lo que había al empezar la semana
          − lo vendido (del reporte del sistema)
 ```
 
+### De dónde sale «lo inicial»
+
+Cada tramo parte del **último inventario cerrado que haya antes**, y hay dos
+clases:
+
+- **De una semana cerrada** — su conteo real pasa entero al tramo siguiente.
+  Es el encadenado normal, semana tras semana.
+- **De un inventario físico cerrado** — la hoja del local se traduce a los
+  artículos del control: 17 cestas marinadas son 2.720 piezas, 10 bultos de
+  Coca-Cola 1L más 2 sueltas son 62 refrescos, y los sabores de un mismo tamaño
+  se suman en un solo artículo. Es lo que pasa después del conteo de cierre de
+  mes.
+
+Lo que la hoja **no** cubre se sigue escribiendo a mano en la casilla «Inicial»,
+y cada renglón de la pantalla dice de dónde salió el suyo. Quedan sin vincular a
+propósito el cebollín, el azúcar y el arroz (la hoja los trae en varios
+renglones y nadie ha dicho cuáles cuentan) y el refresco de 1,5L y la pechuga
+(no aparecen en la hoja).
+
+Si un renglón trae bultos y no está dicho qué trae cada bulto, la app **no da un
+total corto**: dice cuál es el renglón y qué falta para poder convertirlo.
+
 ### De dónde sale «lo recibido»
 
 **Todo lo que se anota entra solo al inventario de la semana**: las recepciones

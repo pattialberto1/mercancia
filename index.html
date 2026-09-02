@@ -272,6 +272,8 @@
   }
   .fis-nums em { font-size: 10px; font-style: normal; color: var(--muted); font-weight: 600; text-transform: uppercase; }
   .fis-eq { margin-top: 6px; font-size: 13px; color: var(--accent); font-weight: 600; }
+  .fis-eq.falta { color: var(--muted); font-weight: 600; }
+  .inv-origen { grid-column: 1 / -1; margin-top: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
   .fis-obs {
     width: 100%; margin-top: 6px; font: inherit; font-size: 13px; padding: 5px 9px;
     border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text);
@@ -2195,11 +2197,31 @@ const CATALOGO_FISICO = [
 /* Algunos renglones de la hoja son lo mismo que se controla por semana. Al
    vincularlos, el conteo físico muestra también las unidades vendibles: 17
    cestas marinadas no dicen nada, 2.720 piezas de pollo sí. */
+/* Qué renglón de la hoja del local es qué artículo del control. Varios
+   renglones pueden ir al mismo artículo (los sabores de refresco, los tres
+   yuky-packs): se suman. Lo que no está aquí no arranca el tramo solo — la app
+   lo pide a mano en vez de dar por hecho una equivalencia. */
 const VINCULO_FISICO = {
   pollo_en_cestas_marinado: 'pollo_pieza',
   agua_minalba_600ml: 'agua', agua_glacier_550ml: 'agua_glacier',
   malta_botella: 'malta', huevos: 'huevos',
-  yukki_pack_pera: 'yuky', yukki_pack_manzana: 'yuky', yukki_pack_durazno: 'yuky'
+  yukki_pack_pera: 'yuky', yukki_pack_manzana: 'yuky', yukki_pack_durazno: 'yuky',
+  // los refrescos van por sabor en la hoja, pero el control los lleva por tamaño
+  refresco_manzanita_1l: 'ref_1l', refresco_pina_1l: 'ref_1l', refresco_7up_1l: 'ref_1l',
+  refresco_chinoto_1l: 'ref_1l', refresco_coca_cola_1l: 'ref_1l', refresco_colita_1l: 'ref_1l',
+  refresco_naranja_1l: 'ref_1l', refresco_fanta_naranja_1l: 'ref_1l', refresco_uva_1l: 'ref_1l',
+  refresco_toronja_2l: 'ref_2l', refresco_manzanita_2l: 'ref_2l', refresco_7up_2l: 'ref_2l',
+  refresco_pepsi_2l: 'ref_2l', refresco_coca_cola_2l: 'ref_2l', refresco_colita_2l: 'ref_2l',
+  refresco_chinoto_2l: 'ref_2l', refresco_naranja_2l: 'ref_2l',
+  // verduras y demás, renglones que se llaman igual que su artículo
+  papas_cestas: 'papas', repollo_blanco: 'repollo_blanco', repollo_morado: 'repollo_morado',
+  zanahoria: 'zanahoria', camaron: 'camaron', magia: 'magia', alas: 'alitas'
+  /* Sin vincular a propósito, porque no hay una respuesta única:
+     - cebollín y azúcar y arroz: la hoja los trae en varios renglones (en cestas
+       y picado · cinco marcas de azúcar · tres de arroz) y nadie ha dicho cuáles
+       cuentan para el control
+     - refresco de 1,5L y pechuga: no aparecen en la hoja
+     Esos se siguen tecleando a mano, y la app dice cuáles son. */
 };
 /* El id sale del nombre, para que no haya que mantener una lista de códigos.
    Si se renombra un producto, lo contado antes queda huérfano: por eso el
@@ -2288,13 +2310,83 @@ function masDias(iso, n) {
 function semanasOrdenadas() {
   return [...db.inventarios].sort((a, b) => a.semanaInicio.localeCompare(b.semanaInicio));
 }
-// lo que se contó al cerrar la semana anterior es el punto de partida de esta
-function inicialDe(inv) {
+/* De dónde parte un tramo: del último inventario cerrado que haya antes, sea
+   una semana o un inventario físico. Son cosas distintas y se leen distinto —
+   una semana guarda su conteo por artículo; un físico guarda la hoja del local,
+   renglón por renglón, y hay que traducirla. */
+function previaCerrada(inv) {
   const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
-  const ultima = previas[previas.length - 1];
-  if (!ultima) return inv.inicialManual || {};
-  return ultima.conteo || {};
+  return previas[previas.length - 1] || null;
 }
+
+/* Un renglón de la hoja del local, traducido a la unidad del artículo del
+   control. Devuelve lo que se puede convertir y, si algo no se puede, por qué:
+   no se rellena con cero ni se adivina una equivalencia. */
+function aporteFisico(it, v, a) {
+  const pb = porBultoDe(a);
+  const hayB = v && v.b !== '' && v.b != null;
+  const hayU = v && v.u !== '' && v.u != null;
+  const b = hayB ? (parseNum(String(v.b)) || 0) : 0;
+  const u = hayU ? (parseNum(String(v.u)) || 0) : 0;
+  /* La 2ª columna solo suma si va en la misma unidad que el artículo. Cuando no
+     (los kg de una cesta marinada frente a las piezas de pollo) no es un dato
+     que falte: en la hoja las dos columnas son medidas paralelas de lo mismo,
+     no se suman. Lo que sí bloquea es un número de bultos sin saber qué trae
+     cada bulto: ahí el total saldría corto y callado. */
+  const mismaUnidad = (it.unidad === 'und' && a.unidad === 'unidades') || it.unidad === a.unidad;
+  let total = 0, falta = null;
+  if (hayB) {
+    if (pb) total += b * pb;
+    else if (b) falta = 'no está dicho cuántas ' + a.unidad + ' trae un ' + nombreBulto1(a);
+  }
+  if (hayU && mismaUnidad) total += u;
+  return { total: round2(total), falta, hay: hayB || hayU };
+}
+
+/* Lo que un inventario físico aporta como punto de partida. Solo los renglones
+   vinculados a un artículo y con algo escrito; si alguno de los renglones de un
+   artículo no se puede convertir, ese artículo no da número: da el motivo. */
+function inicialDesdeFisico(fis) {
+  const sumas = {}, avisos = {}, valores = {};
+  for (const g of catalogoFisico()) {
+    for (const it of g.items) {
+      if (!it.art) continue;
+      const a = articulo(it.art);
+      if (!a) continue;
+      const ap = aporteFisico(it, (fis.fisico || {})[it.id], a);
+      if (!ap.hay) continue;
+      sumas[a.id] = round2((sumas[a.id] || 0) + ap.total);
+      if (ap.falta) avisos[a.id] = '«' + it.nombre + '»: ' + ap.falta;
+    }
+  }
+  for (const [id, n] of Object.entries(sumas)) if (!avisos[id]) valores[id] = n;
+  return { valores, avisos };
+}
+
+/* El inicial del tramo, artículo por artículo, diciendo de dónde sale cada uno:
+   - 'semana': lo que se contó al cerrar la semana anterior (manda sobre todo)
+   - 'fisico': lo que contó la hoja del local, para los renglones vinculados
+   - 'manual': lo que se teclea en la casilla, para lo que no cubre ninguno */
+function baseInicial(inv) {
+  const ultima = previaCerrada(inv);
+  const valores = {}, origen = {}, avisos = {};
+  if (ultima && !esFisico(ultima)) {
+    Object.assign(valores, ultima.conteo || {});
+    for (const k of Object.keys(valores)) origen[k] = 'semana';
+    return { tipo: 'semana', fuente: ultima, valores, origen, avisos };
+  }
+  if (ultima) {
+    const f = inicialDesdeFisico(ultima);
+    Object.assign(valores, f.valores, {});
+    Object.assign(avisos, f.avisos);
+    for (const k of Object.keys(f.valores)) origen[k] = 'fisico';
+  }
+  for (const [k, v] of Object.entries(inv.inicialManual || {})) {
+    if (valores[k] === undefined) { valores[k] = v; origen[k] = 'manual'; }
+  }
+  return { tipo: ultima ? 'fisico' : 'manual', fuente: ultima, valores, origen, avisos };
+}
+function inicialDe(inv) { return baseInicial(inv).valores; }
 
 /* ---- lo recibido en la semana, de las recepciones que ya existen ---- */
 // para reconocer un renglón de factura sin que estorben tildes ni mayúsculas
@@ -2645,6 +2737,21 @@ function renderInv() {
     avisos.push('<div class="msg warn">Es el primer tramo: no hay conteo anterior del que partir. Escribe en «Inicial» lo que contaste al cerrar el ' +
       fmtDate(masDias(inv.semanaInicio, -1)) + '.</div>');
   }
+  /* Este tramo arranca de un inventario físico: decir cuántos artículos salen
+     de la hoja y cuáles hay que escribir, en vez de dejar ceros silenciosos. */
+  const base = baseInicial(inv);
+  if (base.tipo === 'fisico') {
+    const filasB = calcular(inv);
+    const deHoja = filasB.filter(f => f.origenInicial === 'fisico');
+    const faltan = filasB.filter(f => f.origenInicial !== 'fisico' && f.origenInicial !== 'semana');
+    avisos.push('<div class="msg">Este tramo arranca del inventario físico del ' +
+      fmtDate(base.fuente.semanaInicio) + ': ' + deHoja.length +
+      (deHoja.length === 1 ? ' artículo sale' : ' artículos salen') + ' de la hoja del local.' +
+      (faltan.length
+        ? ' Los otros ' + faltan.length + ' hay que escribirlos a mano: ' +
+          faltan.map(f => esc(f.art.nombre.toLowerCase())).join(', ') + '.'
+        : '') + '</div>');
+  }
   // el primer tramo suele arrancar a mitad de semana, tras el conteo físico
   if (!previas.length && inv.semanaInicio !== domingoDe(inv.semanaInicio)) {
     avisos.push('<div class="msg">Este primer tramo va del ' + fmtDate(inv.semanaInicio) + ' al ' +
@@ -2682,7 +2789,8 @@ function diferenciaTotal(inv) {
 
 // la tabla: inicial + recibido − vendido = esperado, contra el conteo real
 function calcular(inv) {
-  const inicial = inicialDe(inv);
+  const base = baseInicial(inv);
+  const inicial = base.valores;
   const recibido = recibidoEnSemana(inv);
   const vendido = vendidoEnSemana(inv);
   return articulosActivos().map(a => {
@@ -2694,6 +2802,9 @@ function calcular(inv) {
     const conteo = tieneConteo ? Number(inv.conteo[a.id]) || 0 : null;
     return {
       art: a, inicial: ini, recibido: rec, vendido: ven, esperado,
+      // de dónde salió el inicial, para poder decirlo en pantalla en vez de
+      // mostrar un número sin explicación (null = todavía no hay)
+      origenInicial: base.origen[a.id] || null, avisoInicial: base.avisos[a.id] || null,
       conteo, diferencia: tieneConteo ? round2(conteo - esperado) : null
     };
   });
@@ -2742,17 +2853,18 @@ function equivFisico(it, v) {
   const a = articulo(it.art);
   if (!a) return '';
   const pb = porBultoDe(a);
+  const ap = aporteFisico(it, v, a);
+  if (!ap.hay) return '';
+  // si el renglón no se puede traducir entero, se dice — no se muestra un total
+  // a medias que luego arrastraría el control
+  if (ap.falta) return '<div class="fis-eq falta">No se puede pasar a ' + a.unidad + ': ' + ap.falta + '</div>';
+  if (!ap.total) return '';
   const b = parseNum(String(v.b || '')) || 0;
-  // la 2ª columna solo se suma si son unidades sueltas: si es un peso (los
-  // kg de una cesta marinada, por ejemplo) no se puede sumar con las piezas
-  const u = it.unidad === 'und' ? (parseNum(String(v.u || '')) || 0) : 0;
-  if (!b && !u) return '';
-  const total = round2(b * pb + (pb ? u : 0));
-  if (!total) return '';
+  const u = parseNum(String(v.u || '')) || 0;
   const cuenta = b
     ? fmt(b) + ' ' + nombreBulto(a) + ' × ' + fmt(pb) + (u ? ' + ' + fmt(u) : '') + ' = '
     : '';
-  return '<div class="fis-eq">' + cuenta + '<b>' + fmt(total) + ' ' + a.unidad + '</b>' +
+  return '<div class="fis-eq">' + cuenta + '<b>' + fmt(ap.total) + ' ' + a.unidad + '</b>' +
     (a.entrada && a.entrada.tipo === 'cestas'
       ? ' · ' + fmt(b * POLLOS_POR_CESTA_MARINADA) + ' pollos' : '') + '</div>';
 }
@@ -2831,10 +2943,13 @@ function renderComparacion() {
   const inv = currentInv;
   const cont = $('inv-comparacion');
   const filas = calcular(inv);
-  const primera = !semanasOrdenadas().some(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
+  const base = baseInicial(inv);
   cont.innerHTML = '';
   for (const f of filas) {
     const a = f.art;
+    // el inicial se teclea solo si no lo da ya la semana anterior ni la hoja del
+    // local; si lo dan, se muestra y se dice de dónde salió
+    const aMano = f.origenInicial !== 'semana' && f.origenInicial !== 'fisico';
     const detC = detalleDeConteo(inv, 'conteo', a);
     const detI = detalleDeConteo(inv, 'inicialManual', a);
     const pct = f.esperado > 0 && f.diferencia !== null ? (f.diferencia / f.esperado) * 100 : 0;
@@ -2843,15 +2958,29 @@ function renderComparacion() {
     div.innerHTML =
       '<div class="inv-nom">' + a.emoji + ' ' + a.nombre + '</div>' +
       '<div class="inv-nums">' +
-        (primera
+        (aMano
           ? celdaConteo('inv-inicial', 'Inicial', a, detI, inv.cerrado)
           : '<div class="inv-cell"><span>Inicial</span><b>' + fmt(f.inicial) + '</b></div>') +
         '<div class="inv-cell"><span>Recibido</span><b>' + fmt(f.recibido) + '</b></div>' +
         '<div class="inv-cell"><span>Vendido</span><b>' + fmt(f.vendido) + '</b></div>' +
         '<div class="inv-cell esperado"><span>Debería quedar</span><b>' + fmt(f.esperado) + '</b></div>' +
         celdaConteo('inv-conteo', 'Conteo real', a, detC, inv.cerrado) +
-        (primera ? lineaTotal(a, detI, totalDe(a, detI)) : '') +
+        (aMano ? lineaTotal(a, detI, totalDe(a, detI)) : '') +
         lineaTotal(a, detC, f.conteo) +
+        // de dónde viene el inicial, o por qué hay que escribirlo
+        (f.origenInicial === 'fisico'
+          ? '<div class="inv-origen">Inicial tomado del inventario físico del ' +
+            fmtDate(base.fuente.semanaInicio) + '</div>'
+          : f.origenInicial === 'semana'
+          ? '<div class="inv-origen">Inicial: lo que se contó al cerrar la semana anterior</div>'
+          : f.avisoInicial
+          ? '<div class="inv-origen">La hoja del ' + fmtDate(base.fuente.semanaInicio) +
+            ' no se pudo traducir aquí (' + esc(f.avisoInicial) + '): este inicial va a mano.</div>'
+          : f.origenInicial === 'manual'
+          ? '<div class="inv-origen">Inicial escrito a mano</div>'
+          : '<div class="inv-origen">Falta el inicial' +
+            (base.fuente ? ': la hoja del ' + fmtDate(base.fuente.semanaInicio) +
+                           ' no trae este artículo' : '') + '. Escríbelo.</div>') +
       '</div>' +
       (f.esperado < 0
         // vendiste más de lo que la app sabe que entró: el número no es merma,
