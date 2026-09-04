@@ -81,6 +81,26 @@ const ACTIVOS = ['pollo_pieza', 'ref_1l'];
   check('ningún artículo sale repetido', dobles.rep.length === 0, dobles.rep);
   check('la Coca-Cola de 1L no sale aparte: la lleva «Refrescos de 1L»', !dobles.cocaSuelta);
 
+  /* Lo que ya tenía artículo propio alimentado por el nombre del renglón de la
+     factura (el aguacate, el tomate, el limón… de Tierra Santa) no puede salir
+     además como producto de la hoja: uno se llevaría el inicial y el otro lo
+     recibido, y el control diría cualquier cosa. */
+  const dup = await page.evaluate(() => {
+    const porNombre = ARTICULOS_TODOS.filter(a => a.entrada && a.entrada.tipo === 'factura');
+    const ids = new Set(calcular(currentInv).map(f => f.art.id));
+    return {
+      cuantos: porNombre.length,
+      // ninguno de ellos debe tener un gemelo generado desde la hoja
+      gemelos: porNombre.map(a => 'f_' + a.id).filter(id => articulo(id) || ids.has(id)),
+      // y los que sí recogen un renglón tienen que estar en el tramo
+      fuera: porNombre.filter(a => Object.values(VINCULO_FISICO).includes(a.id) && !ids.has(a.id))
+                      .map(a => a.id)
+    };
+  });
+  check('hay artículos que se alimentan del nombre del renglón de la factura', dup.cuantos > 10, dup.cuantos);
+  check('y ninguno tiene un gemelo generado desde la hoja', dup.gemelos.length === 0, dup.gemelos);
+  check('los que recogen un renglón de la hoja están en el tramo', dup.fuera.length === 0, dup.fuera);
+
   // ---------- 3) el inicial de la hoja llega a todos, no solo al control ----------
   const ini = await page.evaluate(() => {
     const g = n => calcular(currentInv).find(f => f.art.nombre === n) || null;

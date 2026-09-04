@@ -130,6 +130,14 @@ de descuadre admite **un céntimo por renglón** (`toleranciaFactura`), porque e
 papel redondea cada renglón y en una factura larga se separan unos céntimos sin
 que nadie se haya equivocado (Flor de Catia: 7 renglones, 3 céntimos).
 
+**Ojo con los duplicados (4/9).** Los 22 renglones de la hoja que ya tenían
+artículo propio alimentado por el nombre del renglón de la factura (aguacate,
+tomate, limón, melón, cilantro… de Tierra Santa) están ahora en
+`VINCULO_FISICO`. Sin ese vínculo salían **dos veces**: el artículo del control
+recibiendo de la factura y el renglón de la hoja llevándose el inicial, cada uno
+con la mitad del cuadro. Al añadir un artículo con `entrada: {tipo:'factura'}`
+hay que vincular su renglón, y `tramo-completo-test.js` lo comprueba.
+
 **Un renglón de factura se puede apuntar a un producto (2/9).** Es la única vía
 de entrada de lo que solo está en la hoja: esos productos no se pesan ni se
 cuentan en una recepción. En el renglón se elige el artículo (`l.art`) y si la
@@ -148,6 +156,10 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
 
 ## Estado de los datos (rama `datos`)
 
+- **Comprobante de Tierra Santa** nº 11017183 del 4/9/2026: 49,1 kg de verdura
+  y fruta (aguacate, lechuga, cilantro, apio España, ajo porro, tomate, guayaba,
+  tomate de árbol, melón, patilla, parchita, plátano, limón) más 5 $ de servicio
+  = **82,82 $**, exento de IVA y sin pagar.
 - **Facturas del 3/9/2026**, cargadas el 4/9. **Lácteos Flor de Catia** nº 107474:
   350 cajas de refresco de 1L (7 sabores × 50) = **2.100 unidades**, 1.316,56 +
   210,65 de IVA = 1.527,24 $. **Distribuidora Yaru 2012** nº 15149: gatorade
