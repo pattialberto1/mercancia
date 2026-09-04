@@ -190,6 +190,12 @@ casi nunca es el del inventario —*«Base de Salsa de Tomate 3,80 Kg»* contra
 *«Salsa de tomate mayo 3,8kg»*— así que se elige a mano en vez de adivinarlo.
 Un renglón apuntado no se vuelve a contar por su nombre.
 
+La factura tiene su **IVA** aparte: se copia el importe que dice el papel, no se
+calcula, porque cada proveedor trae el suyo y algunos van exentos. Los totales
+muestran *suma de renglones*, *IVA* y *total a pagar*. Si la suma no cuadra con
+el total impreso, la app avisa — admitiendo un céntimo por renglón, que es el
+redondeo del propio papel.
+
 
 **Todo lo que se anota entra solo al inventario de la semana**: las recepciones
 de pollo, papas, verduras, alitas, bebidas, huevos e insumos, y también los

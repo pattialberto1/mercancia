@@ -164,7 +164,53 @@ const INVENTARIOS = [
   check('el inicial de la hoja sigue siendo 6', rec.inicial === 6, rec);
   check('y debería quedar 6 + 32 = 38', rec.esperado === 38, rec);
 
-  // ---------- 6) nada se cuenta dos veces ----------
+  // ---------- 6) el IVA, que la app no tenía ----------
+  // la factura de Yaru del 3/9: 230,39 de renglones + 36,86 de IVA = 267,25
+  await page.evaluate(() => {
+    currentFac.iva = 36.86; currentFac.totalFactura = 267.25;
+    currentFac.lineas = [
+      { nombre: 'GATORADE TROPICAL PET 500ML', cantidad: 3, unidad: 'CJ', precio: 18.3103, importe: 54.93 },
+      { nombre: 'LIPTON DURAZNO PET 500MLX12UN', cantidad: 3, unidad: 'CJ', precio: 17.0517, importe: 51.16 },
+      { nombre: 'LIPTON TE VERDE PET 500MLX12UN', cantidad: 2, unidad: 'CJ', precio: 17.0517, importe: 34.10 },
+      { nombre: 'LIPTON LIMON PET 500MLX12UN', cantidad: 2, unidad: 'CJ', precio: 17.0517, importe: 34.10 },
+      { nombre: 'YUKYPAK DURAZNO LD250 X 24UND', cantidad: 2, unidad: 'CJ', precio: 18.6983, importe: 37.40 },
+      { nombre: 'YUKYPAK MANZANA LD250 X 24UND', cantidad: 1, unidad: 'CJ', precio: 18.6983, importe: 18.70 }
+    ];
+    touch(currentFac); save(); renderFac();
+  });
+  await page.waitForTimeout(300);
+  const iva = await page.evaluate(() => ({
+    base: facBase(currentFac), total: facTotal(currentFac),
+    aviso: document.getElementById('fac-aviso').textContent.trim()
+  }));
+  check('los renglones suman la base: 230,39', iva.base === 230.39, iva);
+  check('el total a pagar lleva el IVA: 267,25', iva.total === 267.25, iva);
+  check('y no avisa de nada, porque cuadra', iva.aviso === '', iva.aviso);
+  check('la pantalla enseña base, IVA y total a pagar',
+    (await page.textContent('#fac-t-base')).includes('230,39') &&
+    (await page.textContent('#fac-t-iva')).includes('36,86') &&
+    (await page.textContent('#fac-t-total')).includes('267,25'));
+
+  // los céntimos de redondeo del propio papel no son un error
+  await page.evaluate(() => { currentFac.totalFactura = 267.28; touch(currentFac); save(); renderFac(); });
+  await page.waitForTimeout(250);
+  check('3 céntimos en 6 renglones se admiten: es el redondeo del papel',
+    (await page.textContent('#fac-aviso')).trim() === '');
+  await page.evaluate(() => { currentFac.totalFactura = 300; touch(currentFac); save(); renderFac(); });
+  await page.waitForTimeout(250);
+  check('una diferencia de verdad sí avisa',
+    /renglones más el IVA dan/.test(await page.textContent('#fac-aviso')),
+    await page.textContent('#fac-aviso'));
+
+  // se deja como estaba para lo que viene
+  await page.evaluate(() => {
+    currentFac.iva = null; currentFac.totalFactura = null;
+    currentFac.lineas = [{ nombre: 'Base de Salsa de Tomate 3,80 Kg', cantidad: 8, unidad: 'Cajas',
+                           precio: 25.08, importe: 200.64, art: 'f_salsa_de_tomate_mayo_3_8kg', enBultos: true }];
+    touch(currentFac); save();
+  });
+
+  // ---------- 7) nada se cuenta dos veces ----------
   const dob = await page.evaluate(() => {
     // un renglón apuntado a mano no debe volver a contarse por su nombre
     db.facturas[0].lineas.push({ nombre: 'CILANTRO', cantidad: 3, unidad: 'kg', precio: 1, importe: 3 });

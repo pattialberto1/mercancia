@@ -470,9 +470,15 @@
         <div class="field"><label>Nº de factura</label><input id="fac-num" type="text" autocomplete="off" placeholder="—"></div>
         <div class="field"><label>Fecha</label><input id="fac-fecha" type="date"></div>
       </div>
-      <div class="field">
-        <label>Total que dice la factura (opcional)</label>
-        <input id="fac-total" type="text" inputmode="decimal" autocomplete="off" placeholder="Para comprobar la suma">
+      <div class="row2">
+        <div class="field">
+          <label>IVA (opcional)</label>
+          <input id="fac-iva" type="text" inputmode="decimal" autocomplete="off" placeholder="Lo que dice la factura">
+        </div>
+        <div class="field">
+          <label>Total que dice la factura</label>
+          <input id="fac-total" type="text" inputmode="decimal" autocomplete="off" placeholder="Para comprobar la suma">
+        </div>
       </div>
       <div class="seg-label">Moneda</div>
       <div class="seg" id="fac-moneda">
@@ -492,8 +498,10 @@
     <div class="card">
       <div class="totals">
         <div class="tot"><div class="lbl">Renglones</div><div class="val" id="fac-t-lineas">0</div></div>
+        <div class="tot"><div class="lbl">Suma de renglones</div><div class="val" id="fac-t-base">—</div></div>
+        <div class="tot" id="fac-tot-iva"><div class="lbl">IVA</div><div class="val" id="fac-t-iva">—</div></div>
         <div class="tot"><div class="lbl">Según la factura</div><div class="val" id="fac-t-factura">—</div></div>
-        <div class="net"><span class="lbl">TOTAL</span><span class="val" id="fac-t-total">—</span></div>
+        <div class="net"><span class="lbl">TOTAL A PAGAR</span><span class="val" id="fac-t-total">—</span></div>
       </div>
       <div class="hint" id="fac-aviso" style="color:var(--bad);text-align:left"></div>
     </div>
@@ -697,7 +705,9 @@
 const STORE_KEY = 'mercancia.v1';
 const defaults = {
   settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-              proveedores: ['Tierra Santa', 'Alimentos Natropic'], ultimoProveedor: 'Tierra Santa',
+              proveedores: ['Tierra Santa', 'Alimentos Natropic',
+                            'Lácteos Flor de Catia', 'Distribuidora Yaru 2012'],
+              ultimoProveedor: 'Tierra Santa',
               articulosActivos: ['pollo_pieza'],
               // cuántas unidades trae un bulto de cada bebida (editable en Equivalencias).
               // El de 1,5L queda sin poner a propósito: todavía no está confirmado.
@@ -720,7 +730,12 @@ const defaults = {
                           f_salsa_de_soya_negra_concentrado: 4,// «La caja trae 4 und»
                           f_salsa_soya_clara_caja_de_4: 4,     // «La caja trae 4 und»
                           f_vinagre_sansone: 4,                // «La caja trae 4 und»
-                          f_salsa_de_tomate_mayo_3_8kg: 4 } }, // «Cada bulto trae 4 und»
+                          f_salsa_de_tomate_mayo_3_8kg: 4,     // «Cada bulto trae 4 und»
+                          // los dice la factura de Yaru del 3/9: cajas y unidades por caja
+                          f_gatorade_de_tropical: 12,          // 3 CJ = 36 und
+                          f_te_lipton_durazno: 12,             // «PET 500MLX12UN»
+                          f_te_verde_lipton: 12,               // 2 CJ = 24 und
+                          f_te_lipton_limon: 12 } },           // 2 CJ = 24 und
                           /* Sin poner a propósito:
                              - Platos N10: la hoja dice «750 und» por bulto y Alberto dijo 150. Hasta
                                que no se aclare, la app lo sigue preguntando en vez de elegir una.
@@ -1489,10 +1504,24 @@ $('emp-input').addEventListener('change', e => {
    editables antes de enviar el resumen por WhatsApp.
    ================================================================ */
 
-function facTotal(fac) {
+// la base: lo que suman los renglones, sin impuestos
+function facBase(fac) {
   let n = 0;
   for (const l of fac.lineas) n += Number(l.importe) || 0;
   return round2(n);
+}
+// lo que de verdad se paga. El IVA no sale de los renglones: se copia del papel,
+// porque cada factura trae el suyo y hay proveedores que van exentos.
+function facTotal(fac) {
+  return round2(facBase(fac) + (Number(fac.iva) || 0));
+}
+/* Cada renglón del papel viene ya redondeado al céntimo, así que en una factura
+   larga la suma se separa del total impreso por unos céntimos sin que nadie se
+   haya equivocado (la de Flor de Catia del 3/9: 7 renglones, 3 céntimos). Se
+   admite un céntimo por renglón; un error de verdad —un renglón que falta— se
+   pasa de ahí con mucho. */
+function toleranciaFactura(fac) {
+  return Math.max(0.01, (fac.lineas || []).length * 0.01);
 }
 
 function nuevaFactura() {
@@ -1504,6 +1533,7 @@ function nuevaFactura() {
     moneda: 'USD',
     creada: Date.now(),
     pagada: false,
+    iva: null,            // el IVA que dice el papel (16 % en casi todas)
     totalFactura: null,   // el total que dice el papel, para comprobar la suma
     lineas: [],
     foto: ''              // solo en este teléfono: nunca se sincroniza
@@ -1575,6 +1605,7 @@ function renderFac() {
   $('fac-num').value = fac.numero || '';
   $('fac-fecha').value = fac.fecha;
   $('fac-total').value = fac.totalFactura == null ? '' : String(fac.totalFactura).replace('.', ',');
+  $('fac-iva').value = fac.iva == null ? '' : String(fac.iva).replace('.', ',');
   for (const b of $('fac-moneda').querySelectorAll('button'))
     b.classList.toggle('on', b.dataset.m === fac.moneda);
 
@@ -1601,12 +1632,16 @@ function renderFac() {
   });
 
   // totales
+  const base = facBase(fac);
   $('fac-t-lineas').textContent = fac.lineas.length;
+  $('fac-t-base').textContent = fmtDinero(base, fac.moneda);
+  $('fac-tot-iva').classList.toggle('hidden', fac.iva == null);
+  $('fac-t-iva').textContent = fac.iva == null ? '—' : fmtDinero(fac.iva, fac.moneda);
   $('fac-t-factura').textContent = fac.totalFactura == null ? '—' : fmtDinero(fac.totalFactura, fac.moneda);
   $('fac-t-total').textContent = fmtDinero(total, fac.moneda);
   const dif = fac.totalFactura == null ? 0 : round2(total - fac.totalFactura);
-  $('fac-aviso').textContent = Math.abs(dif) > 0.01
-    ? '⚠️ La suma de los renglones da ' + fmtDinero(total, fac.moneda) + ' y la factura dice ' +
+  $('fac-aviso').textContent = Math.abs(dif) > toleranciaFactura(fac)
+    ? '⚠️ Los renglones' + (fac.iva ? ' más el IVA dan ' : ' dan ') + fmtDinero(total, fac.moneda) + ' y la factura dice ' +
       fmtDinero(fac.totalFactura, fac.moneda) + ' (' + (dif > 0 ? 'sobran ' : 'faltan ') +
       fmtDinero(Math.abs(dif), fac.moneda) + '). Revisa los renglones.'
     : '';
@@ -1962,6 +1997,12 @@ $('fac-total').addEventListener('change', e => {
   currentFac.totalFactura = s === '' ? null : (isNaN(v) ? currentFac.totalFactura : round2(v));
   touch(currentFac); save(); renderFac();
 });
+$('fac-iva').addEventListener('change', e => {
+  const s = e.target.value.trim();
+  const v = parseNum(s);
+  currentFac.iva = s === '' ? null : (isNaN(v) ? currentFac.iva : round2(v));
+  touch(currentFac); save(); renderFac();
+});
 $('fac-moneda').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -2026,9 +2067,13 @@ function buildResumenFactura(fac) {
     }
   }
   txt += '\n📦 ' + fac.lineas.length + (fac.lineas.length === 1 ? ' renglón' : ' renglones') + '\n';
-  txt += '💵 *TOTAL: ' + fmtDinero(total, fac.moneda) + '*\n';
+  if (fac.iva) {
+    txt += '➕ Renglones: ' + fmtDinero(facBase(fac), fac.moneda) + '\n';
+    txt += '🧾 IVA: ' + fmtDinero(fac.iva, fac.moneda) + '\n';
+  }
+  txt += '💵 *TOTAL A PAGAR: ' + fmtDinero(total, fac.moneda) + '*\n';
   const dif = fac.totalFactura == null ? 0 : round2(total - fac.totalFactura);
-  if (Math.abs(dif) > 0.01)
+  if (Math.abs(dif) > toleranciaFactura(fac))
     txt += '⚠️ La factura dice ' + fmtDinero(fac.totalFactura, fac.moneda) + ' — hay que revisarla.\n';
   txt += fac.pagada ? '✅ *Pagada*' : '⏳ *Por pagar*';
   return txt;

@@ -123,6 +123,13 @@ dijo 150 — sin aclarar), **tapa de tina de ensalada** y **Platos N9** (se sabe
 que hay, no lo que trae un bulto) y **Harina Pan** («de 2 kg» es lo que pesa el
 paquete, no cuántos trae la caja).
 
+**Las facturas llevan IVA (4/9).** El campo `iva` es el importe que dice el
+papel, no un porcentaje calculado: cada factura trae el suyo y hay proveedores
+exentos. `facBase()` suma los renglones y `facTotal()` le añade el IVA. El aviso
+de descuadre admite **un céntimo por renglón** (`toleranciaFactura`), porque el
+papel redondea cada renglón y en una factura larga se separan unos céntimos sin
+que nadie se haya equivocado (Flor de Catia: 7 renglones, 3 céntimos).
+
 **Un renglón de factura se puede apuntar a un producto (2/9).** Es la única vía
 de entrada de lo que solo está en la hoja: esos productos no se pesan ni se
 cuentan en una recepción. En el renglón se elige el artículo (`l.art`) y si la
@@ -141,6 +148,12 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
 
 ## Estado de los datos (rama `datos`)
 
+- **Facturas del 3/9/2026**, cargadas el 4/9. **Lácteos Flor de Catia** nº 107474:
+  350 cajas de refresco de 1L (7 sabores × 50) = **2.100 unidades**, 1.316,56 +
+  210,65 de IVA = 1.527,24 $. **Distribuidora Yaru 2012** nº 15149: gatorade
+  tropical 36, Lipton durazno 36, té verde 24, Lipton limón 24 y **72 yuky-packs**
+  (48 durazno + 24 manzana), 230,39 + 36,86 = 267,25 $. Las dos a crédito, sin
+  pagar. Los dos proveedores ya son de fábrica.
 - **Nota de entrega de Alimentos Natropic**, nº 8483 del 1/9/2026: 8 cajas de
   «Base de Salsa de Tomate 3,80 Kg» a 25,08 $ = 200,64 $, sin IVA. Cargada el
   2/9 apuntando a `f_salsa_de_tomate_mayo_3_8kg` y marcada *en bultos*, así que
