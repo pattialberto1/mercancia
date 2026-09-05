@@ -126,6 +126,16 @@ const RECEPCIONES = [
   await page.click('#home-tabs button[data-t="inventario"]');
   await page.click('#btn-new');
   await page.waitForTimeout(400);
+  /* Abierto un sábado, el primer tramo arranca el domingo y los huevos de hoy
+     se quedarían fuera. Aquí no se está probando dónde empieza el tramo, sino
+     que lo recibido entre: se corre el arranque al domingo de esta semana. */
+  await page.evaluate(() => {
+    if (currentInv.semanaInicio > todayISO()) {
+      currentInv.semanaInicio = domingoDe(todayISO());
+      touch(currentInv); save(); renderInv();
+    }
+  });
+  await page.waitForTimeout(250);
   const recibido = await page.evaluate(() =>
     calcular(currentInv).find(x => x.art.id === 'huevos').recibido);
   check('al inventario entran los 655 huevos de hoy', recibido === 655, recibido);

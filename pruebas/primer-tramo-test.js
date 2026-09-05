@@ -69,8 +69,11 @@ const esSabado = hoy.getDay() === 6;
 
   // ---------- 3b) el arranque no depende del día en que se abrió la app ----------
   check('se puede decir qué día se contó', await page.isVisible('#inv-arranque-card'));
+  // el día anterior AL TRAMO, que abierto un sábado no es el día anterior a hoy:
+  // el tramo arranca el domingo, así que propone el propio sábado
+  const arranca = await page.evaluate(() => currentInv.semanaInicio);
   check('por defecto propone el día anterior al tramo',
-    (await page.inputValue('#inv-arranque')) === iso(mas(hoy, -1)));
+    (await page.inputValue('#inv-arranque')) === iso(mas(new Date(arranca + 'T12:00:00'), -1)));
   const anteayer = iso(mas(hoy, -2));
   await page.fill('#inv-arranque', anteayer);
   await page.dispatchEvent('#inv-arranque', 'change');

@@ -15,7 +15,16 @@ const results = [];
 function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) console.log('   (falló)', desc); }
 
 const iso = d => d.toISOString().slice(0, 10);
-const hoy = iso(new Date());
+/* El primer tramo arranca HOY, salvo que hoy sea sábado —el último día de la
+   semana—: entonces arranca el domingo, porque lo de hoy ya entró en el conteo.
+   Las recepciones de la prueba tienen que caer dentro del tramo, o los sábados
+   la prueba falla sola sin que nada esté roto. */
+function diaDelTramo() {
+  const d = new Date();
+  if (d.getDay() === 6) d.setDate(d.getDate() + 1);   // sábado → domingo
+  return d.toISOString().slice(0, 10);
+}
+const hoy = diaDelTramo();
 
 // 50 cestas recibidas hoy, como las que llegaron de verdad
 const RECEPCIONES = [{

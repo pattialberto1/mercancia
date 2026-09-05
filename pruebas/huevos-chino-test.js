@@ -14,7 +14,16 @@ const server = http.createServer((req, res) => {
 const results = [];
 function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) console.log('   (falló)', desc); }
 
-const hoy = new Date().toISOString().slice(0, 10);
+/* El primer tramo arranca HOY, salvo que hoy sea sábado —el último día de la
+   semana—: entonces arranca el domingo, porque lo de hoy ya entró en el conteo.
+   Las recepciones de la prueba tienen que caer dentro del tramo, o los sábados
+   la prueba falla sola sin que nada esté roto. */
+function diaDelTramo() {
+  const d = new Date();
+  if (d.getDay() === 6) d.setDate(d.getDate() + 1);   // sábado → domingo
+  return d.toISOString().slice(0, 10);
+}
+const hoy = diaDelTramo();
 // lo que llegó de verdad: 4 cajas de 12 cartones de 24 = 1.152 huevos, y cebollín en cestas
 const RECEPCIONES = [
   { id: 'r-huevos', tipo: 'huevos', fecha: hoy, creada: 1, mod: 1, cerrada: true,
