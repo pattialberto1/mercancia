@@ -87,9 +87,10 @@ const INVENTARIOS = [
   check('salsa BBQ 24, vinagre 4, Portumesa 12, sésamo 4, azúcar dulcería 15 kg',
     obs.bbq === 24 && obs.vinagre === 4 && obs.portumesa === 12 && obs.sesamo === 4 && obs.azucar === 15, obs);
   check('la salsa de tomate de 3,8kg: 1 bulto = 4 paquetes', obs.salsa === 4, obs);
-  check('Platos N10 NO se pone: la hoja dice 750 y Alberto dijo 150', !obs.platosN10, obs.platosN10);
-  check('tapa de tina y Platos N9 tampoco: nadie ha dicho qué trae su bulto',
-    !obs.tapa && !obs.platosN9, obs);
+  check('los dos platos van a 200 por bulto, como confirmó Alberto',
+    obs.platosN10 === 200 && obs.platosN9 === 200, obs);
+  check('la tapa de tina sigue sin ponerse: nadie ha dicho qué trae su bulto',
+    !obs.tapa, obs.tapa);
   check('ni la Harina Pan: «de 2 kg» es lo que pesa, no cuántas trae la caja', !obs.harina, obs.harina);
 
   // ---------- 2) y ya traducen la hoja sin preguntar nada ----------

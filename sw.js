@@ -1,5 +1,5 @@
 // Service worker: deja la app disponible sin conexión.
-const CACHE = 'mercancia-v28';
+const CACHE = 'mercancia-v29';
 const ASSETS = ['.', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', e => {

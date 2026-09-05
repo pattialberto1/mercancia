@@ -118,10 +118,14 @@ agosto** («La caja trae 4 und»); vale la pena mirar ahí antes de preguntar.
 El arroz Mary se cuenta en **sacos**, y los vasos V67 y los rollos térmicos en
 **paquetes** (`UNIDAD_FISICO`).
 
-Sin poner a propósito: **Platos N10** (la hoja dice «750 und» por bulto y Alberto
-dijo 150 — sin aclarar), **tapa de tina de ensalada** y **Platos N9** (se sabe lo
-que hay, no lo que trae un bulto) y **Harina Pan** («de 2 kg» es lo que pesa el
-paquete, no cuántos trae la caja).
+**Platos N10 y Platos N9 → 200 por bulto** (confirmado el 5/9). Ojo: la
+observación de la hoja de agosto en el renglón de Platos N10 dice «750 und», que
+no cuadra con eso; manda lo que dijo Alberto y la observación se queda como
+estaba, por si hay que revisarla.
+
+Sin poner a propósito: **tapa de tina de ensalada** (se sabe lo que hay —8 bultos
+y 92 sueltas— pero no lo que trae un bulto) y **Harina Pan** («de 2 kg» es lo que
+pesa el paquete, no cuántos trae la caja).
 
 **Las facturas llevan IVA (4/9).** El campo `iva` es el importe que dice el
 papel, no un porcentaje calculado: cada factura trae el suyo y hay proveedores
