@@ -55,9 +55,11 @@ ahí hay períodos ya cerrados con descuentos de nómina hechos.
 - Combo 1 y 2 → 4 piezas · Combo 3 y 4 → 8 piezas · Combo duo → 2 piezas
 - Combo 2 lleva además 1 refresco 1L; el combo 4, 2 ensaladas y 1 refresco 1L
 - **Combo duo + ref NO lleva refresco**
-- **Pote de chino**: 100 g de pechuga, 2 huevos, 50 g de cebollín, 400 g de
-  arroz, 2 cucharadas de magia, 1 de azúcar. El **camarón (120 g) solo en los
-  de pollo y camarón**
+- **Pote de chino**: 100 g de pechuga, **medio huevo** («medio cucharón», los
+  3-4 cartones que se rompen duran días; confirmado el 7/9 con la semana del 1
+  al 6, que con dos por pote pedía 2.366 huevos y solo entraron 871), 50 g de
+  cebollín, 400 g de arroz, 2 cucharadas de magia, 1 de azúcar. El **camarón
+  (120 g) solo en los de pollo y camarón**
 - **Los combos de chino traen 2 potes**, así que van al doble
 - **Tender**: 160 g de pechuga
 - El «pollo rojo» del chino y el de los tenders son **la misma pechuga**
@@ -66,6 +68,8 @@ ahí hay períodos ya cerrados con descuentos de nómina hechos.
 - **Papas fritas**: 350 g por ración (Alberto dijo «300-400 g aprox»,
   `RACION_PAPAS`). Solo llevan papas los **combos de pollo broaster** —duo,
   combo 1, 2, 3 y 4— y la ración aparte. Los combos de chino no llevan.
+  **Los combos 3 y 4 llevan una sola ración**, aunque traigan 8 piezas de pollo
+  (confirmado por Alberto el 7/9).
 - **Ensalada rallada**: una tanda son 21 kg de verduras (16 de repollo blanco,
   2,5 de zanahoria, 2,5 de repollo morado) más la mayonesa (3 licuadoras de 15
   huevos, 3 kg de azúcar, 40 g de limón, 80 g de sal, 160 g de vinagre, 25 g de

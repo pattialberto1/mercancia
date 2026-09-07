@@ -2524,11 +2524,18 @@ const NOMBRES_POS = { '1615': 'Ketchup botella' };
    La cucharada se toma como 15 g: es un promedio, y se puede afinar aquí. */
 const CUCHARADA = 0.015;
 const PECHUGA_TENDER = 0.16;      // 160 g de pechuga por tender
-// Un pote de chino. Los de pollo y camarón llevan además el camarón.
+/* Un pote de chino. Los de pollo y camarón llevan además el camarón.
+
+   El huevo va a MEDIO por pote, no a dos. Alberto siempre dijo «medio cucharón
+   por pote» y que los 3-4 cartones que se rompen duran varios días; con dos por
+   pote la semana del 1 al 6 de septiembre pedía 2.366 huevos y en el local solo
+   entraron 871. Puestos los 366 de la mayonesa de la ensalada, quedaban 505
+   para 1.000 potes: medio huevo cada uno, que es lo que él venía diciendo.
+   Confirmado por él el 7/9/2026. */
 function potesChino(potes, conCamaron) {
   const uno = {
     pechuga: 0.1, camaron: conCamaron ? 0.12 : 0,
-    huevos: 2, cebollin: 0.05, arroz: 0.4,
+    huevos: 0.5, cebollin: 0.05, arroz: 0.4,
     magia: 2 * CUCHARADA, azucar: 1 * CUCHARADA
   };
   const out = {};
@@ -2562,6 +2569,10 @@ function potesEnsalada(potes) {
 /* Una ración de papas fritas. Alberto la sitúa entre 300 y 400 g y pidió sacar
    un promedio, así que van 350. Solo la llevan los combos de pollo broaster y
    la ración aparte; los de chino no. */
+/* La ración de papas: Alberto dijo «de 300 a 400 g aprox», así que se toma el
+   promedio. Solo llevan papas los combos de pollo broaster y la ración aparte,
+   y los combos 3 y 4 llevan UNA sola ración aunque traigan 8 piezas de pollo
+   (confirmado el 7/9/2026). */
 const RACION_PAPAS = 0.35;
 
 const EQUIVALENCIAS_BASE = {

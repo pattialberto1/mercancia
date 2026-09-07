@@ -87,7 +87,8 @@ const RECEPCIONES = [
              pollo: g('pechuga'), arroz: g('arroz') };
   });
   // los combos traen 2 potes: 92 + 173 + 91×2 + 197×2 = 841 potes
-  check('los combos cuentan como dos potes cada uno (841 potes)', ven.huevos === 841 * 2);
+  // y cada pote lleva medio huevo, el «medio cucharón» de Alberto
+  check('los combos cuentan como dos potes cada uno (841 potes)', ven.huevos === 841 * 0.5);
   check('841 potes × 50 g = 42,05 kg de cebollín', ven.cebollin === 42.05);
   check('841 potes × 100 g = 84,1 kg de pechuga', ven.pollo === 84.1);
   check('841 potes × 400 g = 336,4 kg de arroz', ven.arroz === 336.4);
