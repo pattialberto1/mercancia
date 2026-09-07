@@ -73,7 +73,12 @@ const INVENTARIOS = [
 
   // los que estaban escritos en las observaciones de la hoja de agosto
   const obs = await page.evaluate(() => {
-    const g = id => porBultoDe(articulo('f_' + id));
+    // el tamaño del bulto se pregunta por RENGLÓN de la hoja: varios renglones
+    // pueden ir al mismo artículo con bultos distintos (CT1, CT2 y CT3)
+    const g = id => {
+      const it = catalogoFisico().flatMap(g => g.items).find(x => x.id === id);
+      return porBultoFisico(it, articulo(it.art));
+    };
     return { ct1: g('ct1_envases'), ct2: g('ct2_envases'), ct3: g('ct3_envases'),
              bbq: g('salsa_bbq'), vinagre: g('vinagre_sansone'), portumesa: g('aceite_portumesa'),
              sesamo: g('aceite_humo_sesamo_5l'), azucar: g('azucar_dulceria_blanca'),

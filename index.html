@@ -733,6 +733,12 @@ const defaults = {
                           f_salsa_de_tomate_mayo_3_8kg: 4,     // «Cada bulto trae 4 und»
                           // los dice la factura de Yaru del 3/9: cajas y unidades por caja
                           f_gatorade_de_tropical: 12,          // 3 CJ = 36 und
+                          /* Los dos sabores de Gatorade se controlan juntos, así que el
+                             montón necesita su propio tamaño de caja. Se toma el mismo 12
+                             de la factura: es el mismo PET de 500 ml del mismo proveedor.
+                             Si el de mandarina viniera de otra forma, se cambia en
+                             Equivalencias y el renglón del tropical manda sobre este. */
+                          gatorade: 12,
                           f_te_lipton_durazno: 12,             // «PET 500MLX12UN»
                           f_te_verde_lipton: 12,               // 2 CJ = 24 und
                           f_te_lipton_limon: 12,               // 2 CJ = 24 und
@@ -2209,6 +2215,17 @@ const ARTICULOS_TODOS = [
   // se anotan por unidad, como los refrescos
   { id: 'lumpias', nombre: 'Lumpias', emoji: '🥟', unidad: 'unidades',
     entrada: { tipo: 'unidades', producto: 'lumpias' } },
+  /* Bebidas que el punto de venta no separa por sabor: cobra «GATORADE 0,50»
+     sin decir si fue mandarina o tropical. Alberto pidió sumarlas y descontar
+     del total, así que cada una junta sus renglones de la hoja (ver
+     VINCULO_FISICO). Entran por factura, apuntando el renglón a mano o por el
+     nombre del proveedor. */
+  { id: 'gatorade', nombre: 'Gatorade', emoji: '🥤', unidad: 'unidades',
+    entrada: { tipo: 'factura', nombres: ['GATORADE'] } },
+  { id: 'jugo_barinas', nombre: 'Jugos Barinas 400ml', emoji: '🧃', unidad: 'unidades',
+    entrada: { tipo: 'factura', nombres: ['BARINAS'] } },
+  { id: 'tenta_te', nombre: 'Tenta té', emoji: '🧋', unidad: 'unidades',
+    entrada: { tipo: 'factura', nombres: ['TENTA TE', 'TENTA TÉ'] } },
   // de las facturas de proveedor: se reconocen por el nombre del renglón
   ...[
     ['queso', 'Queso', '🧀', ['QUESO']],
@@ -2267,8 +2284,18 @@ function articulosDelTramo() {
     for (const artId of Object.keys(regla.consume || {})) ids.add(artId);
   return ARTICULOS_TODOS.filter(a => ids.has(a.id)).concat(ARTICULOS_FISICO);
 }
+/* Los renglones de la hoja que alguna receta gasta. Un renglón normal solo se
+   cuenta (no se sabe en qué se fue), pero en cuanto hay receta ya se le puede
+   calcular la fórmula entera, y si no, su consumo se perdía sin decir nada:
+   vendidoEnSemana descarta lo que no lleva fórmula. */
+function idsConReceta() {
+  const ids = new Set();
+  for (const r of Object.values(equivalencias()))
+    for (const k of Object.keys(r.consume || {})) ids.add(k);
+  return ids;
+}
 // ¿este artículo lleva la fórmula completa, o solo se cuenta?
-function esDeControl(a) { return !a.soloConteo; }
+function esDeControl(a) { return !a.soloConteo || idsConReceta().has(a.id); }
 // ¿obliga a contarlo para cerrar la semana? Solo lo que se marcó en Ajustes
 function esActivo(a) { return (db.settings.articulosActivos || ['pollo_pieza']).includes(a.id); }
 
@@ -2291,6 +2318,14 @@ function piezasPorCestaMarinada() { return POLLOS_POR_CESTA_MARINADA * PIEZAS_PO
 function porBultoDe(a) {
   if (a.entrada && a.entrada.tipo === 'cestas') return piezasPorCestaMarinada();
   return Number((db.settings.porBulto || {})[a.id]) || 0;
+}
+/* Cuántas unidades trae un bulto de ESTE renglón de la hoja. Se mira primero el
+   renglón y solo después el artículo, porque varios renglones pueden ir al mismo
+   artículo con bultos bien distintos: los tres tamaños de envase van todos a
+   «Envases» y traen 88, 105 y 90 unidades. Si se mirara solo el artículo, los
+   tres se convertirían con el mismo número y el inicial saldría inventado. */
+function porBultoFisico(it, a) {
+  return Number((db.settings.porBulto || {})['f_' + it.id]) || (a ? porBultoDe(a) : 0);
 }
 function nombreBulto(a) {
   if (a.entrada && a.entrada.tipo === 'cestas') return 'cestas';
@@ -2376,6 +2411,7 @@ const CATALOGO_FISICO = [
     'Milanesa cocida|kg', 'Milanesa congelada|kg',
     'Pollo en cestas|kg', 'Pollo en cestas marinado|kg', 'Pollo picado|kg',
     'Polvo colorante 12U Brig-Red', 'Polvo colorante 12U Orangel Yelow',
+    'Picadillo de pollo|kg',
     'Polvo colorante amarillo Frutalia 500g', 'Tenders'
   ]},
   { cat: 'Detergentes y limpieza', items: [
@@ -2404,6 +2440,7 @@ const CATALOGO_FISICO = [
     'Stikers', 'Filtro', 'Toallín', 'Papel Alison'
   ]},
   { cat: 'Otros', items: [
+    'Arepitas fritas',
     'Lumpias', 'Postres Paolo', 'Postres tres leches', 'Pinzas'
   ]}
 ];
@@ -2430,6 +2467,16 @@ const VINCULO_FISICO = {
   papas_cestas: 'papas', repollo_blanco: 'repollo_blanco', repollo_morado: 'repollo_morado',
   zanahoria: 'zanahoria', camaron: 'camaron', magia: 'magia', alas: 'alitas',
   lumpias: 'lumpias',
+  /* Los envases para llevar van juntos: el punto de venta cobra «ENVASES» sin
+     decir cuál, y el reporte tampoco dice qué ventas fueron delivery, así que
+     los tres tamaños se controlan como un solo montón. */
+  ct1_envases: 'envases', ct2_envases: 'envases', ct3_envases: 'envases',
+  // y las bebidas que el POS no separa por sabor
+  gatorade_de_mandarina: 'gatorade', gatorade_de_tropical: 'gatorade',
+  jugo_naranja_400ml_barinas: 'jugo_barinas', jugo_pera_400ml_barinas: 'jugo_barinas',
+  jugo_manzana_400ml_barinas: 'jugo_barinas',
+  tenta_te_durazno_1l: 'tenta_te', tenta_te_limon_1l: 'tenta_te',
+  tenta_te_durazno_500ml: 'tenta_te', tenta_te_limon_500ml: 'tenta_te',
   /* Lo que ya tenía artículo propio alimentado por el nombre del renglón de la
      factura de Tierra Santa. Sin este vínculo saldrían dos veces: el artículo
      recibiendo de la factura y el renglón de la hoja llevándose el inicial. */
@@ -2513,6 +2560,23 @@ const ARTICULOS_FISICO = (() => {
 })();
 function catDeArticulo(a) { return a.cat || CAT_ARTICULO[a.id] || 'Otros'; }
 
+/* Un renglón de la hoja que pasa a controlarse dentro de un artículo (los tres
+   tamaños de envase, los sabores de Gatorade) deja de tener su propio
+   «f_loquesea», y lo que se le apuntó a mano en una factura se quedaría sin
+   dueño: los 36 Gatorade apuntados al renglón del tropical desaparecerían del
+   recibido. Se traducen al arrancar. No se guarda aquí a propósito —el guardado
+   normal ya lo persiste— y volver a pasar no hace daño: la traducción es la
+   misma. Va aquí y no en load() porque allí VINCULO_FISICO todavía no existe. */
+(function mudarLineasDeFactura() {
+  for (const f of db.facturas || []) {
+    for (const l of f.lineas || []) {
+      if (!l.art || !l.art.startsWith('f_')) continue;
+      const destino = VINCULO_FISICO[l.art.slice(2)];
+      if (destino) l.art = destino;
+    }
+  }
+})();
+
 /* Nombres que el reporte del POS no trae. El código 1615 sale con la casilla
    del producto en blanco y son las botellas de ketchup; ponerlo aquí es mejor
    que dejar «(sin nombre en el reporte)» en pantalla cada semana. */
@@ -2566,9 +2630,6 @@ function potesEnsalada(potes) {
   return out;
 }
 
-/* Una ración de papas fritas. Alberto la sitúa entre 300 y 400 g y pidió sacar
-   un promedio, así que van 350. Solo la llevan los combos de pollo broaster y
-   la ración aparte; los de chino no. */
 /* La ración de papas: Alberto dijo «de 300 a 400 g aprox», así que se toma el
    promedio. Solo llevan papas los combos de pollo broaster y la ración aparte,
    y los combos 3 y 4 llevan UNA sola ración aunque traigan 8 piezas de pollo
@@ -2585,6 +2646,40 @@ const EQUIVALENCIAS_BASE = {
   '1531': { nombre: 'PAPAS FRITAS',    consume: { papas: RACION_PAPAS } },
   '1612': { nombre: '1 LUMPIA',        consume: { lumpias: 1 } },
   '1615': { nombre: 'Ketchup botella', consume: { f_ketchup_botella: 1 } },
+  /* Lo que Alberto aclaró el 7/9/2026, código por código. */
+  // el picadillo se vende a 1 $ el kilo, así que cada unidad del reporte es 1 kg.
+  // Sale del pollo de las cestas; falta que él diga cuántas piezas hacen un kilo
+  // para poder descontarlo del pollo en vez de contarlo aparte.
+  '1572': { nombre: 'PICADILLO DE POLLO', consume: { f_picadillo_de_pollo: 1 } },
+  '1598': { nombre: 'LUMPIAS (ración)', consume: { lumpias: 2 } },
+  '1514': { nombre: 'AREPITAS FRITAS', consume: { f_arepitas_fritas: 10 } },
+  '1583': { nombre: 'ENVASES', consume: { envases: 1 } },
+  '1584': { nombre: '4 SALSAS', consume: { f_salsa_ketchup_chef_quality_sobre: 4 } },
+  // el POS no dice el sabor: se descuentan del montón
+  '1574': { nombre: 'GATORADE 0,50 LTS', consume: { gatorade: 1 } },
+  '1603': { nombre: 'JUGO BARINAS 400ML', consume: { jugo_barinas: 1 } },
+  '1609': { nombre: 'TENTA TE 1 L', consume: { tenta_te: 1 } },
+  '1608': { nombre: 'TENTA TE 0.5L', consume: { tenta_te: 1 } },
+  // «postre extra» son todos los postres menos el tres leches, que se cobra
+  // por el código de la marquesa
+  '1585': { nombre: 'POSTRE EXTRA', consume: { f_postres_paolo: 1 } },
+  '1528': { nombre: 'MARQUESA DE CHOCOLATE', consume: { f_postres_tres_leches: 1 } },
+  // estos el reporte los llama igual que la hoja, uno a uno
+  '1548': { nombre: 'TE LIPTON 500ML DURAZNO', consume: { f_te_lipton_durazno: 1 } },
+  '1547': { nombre: 'TE LIPTON 500ML LIMON', consume: { f_te_lipton_limon: 1 } },
+  '1542': { nombre: 'SALSA BBQ 280GR', consume: { f_salsa_bbq: 1 } },
+  '1620': { nombre: 'MINALBA 1.5L', consume: { f_agua_minalba_1_5l: 1 } },
+  /* Y los que a propósito no descuentan nada. No es que falte el dato: es que
+     no sale mercancía por ahí, y sin decirlo se quedaban para siempre en la
+     lista de pendientes. */
+  '1562': { nombre: 'DELIVERY 1', consume: {}, nada: true, porque: 'es el cobro del envío' },
+  '1563': { nombre: 'DELIVERY 2', consume: {}, nada: true, porque: 'es el cobro del envío' },
+  '1564': { nombre: 'DELIVERY 3', consume: {}, nada: true, porque: 'es el cobro del envío' },
+  '1565': { nombre: 'DELIVERY 4', consume: {}, nada: true, porque: 'es el cobro del envío' },
+  '1566': { nombre: 'DELIVERY 5', consume: {}, nada: true, porque: 'es el cobro del envío' },
+  '1567': { nombre: 'DELIVERY 6', consume: {}, nada: true, porque: 'es el cobro del envío' },
+  '1588': { nombre: 'PRINGLES', consume: {}, nada: true, porque: 'por ahí se cobran diferencias' },
+  '1592': { nombre: 'RACION IMPORTADAS PAPAS FRITAS', consume: {}, nada: true, porque: 'fue un error de cobro' },
   '1610': { nombre: 'COMBO DUO+REF',   consume: { pollo_pieza: 2, papas: RACION_PAPAS } },
   '1535': { nombre: 'REF. 1L COCA COLA',  consume: { ref_1l: 1 } },
   '1536': { nombre: 'REF. 1L CHINOTTO',   consume: { ref_1l: 1 } },
@@ -2643,7 +2738,7 @@ function previaCerrada(inv) {
    control. Devuelve lo que se puede convertir y, si algo no se puede, por qué:
    no se rellena con cero ni se adivina una equivalencia. */
 function aporteFisico(it, v, a) {
-  const pb = porBultoDe(a);
+  const pb = porBultoFisico(it, a);
   const hayB = v && v.b !== '' && v.b != null;
   const hayU = v && v.u !== '' && v.u != null;
   const b = hayB ? (parseNum(String(v.b)) || 0) : 0;
@@ -3223,7 +3318,7 @@ function equivFisico(it, v) {
   if (!it.art) return '';
   const a = articulo(it.art);
   if (!a) return '';
-  const pb = porBultoDe(a);
+  const pb = porBultoFisico(it, a);
   const ap = aporteFisico(it, v, a);
   if (!ap.hay) return '';
   // si el renglón no se puede traducir entero, se dice — no se muestra un total
@@ -3719,7 +3814,9 @@ function renderEquivalencias() {
                 ? num + ' kg de ' + art.nombre.toLowerCase()
                 : num + ' × ' + art.nombre.toLowerCase();
             }).join(' + ')
-          : '<span class="flag">sin asignar</span>') +
+          : regla && regla.nada
+            ? '<span class="sub">no descuenta nada' + (regla.porque ? ' · ' + esc(regla.porque) : '') + '</span>'
+            : '<span class="flag">sin asignar</span>') +
         (venta ? ' · ' + fmt(venta.cantidad) + ' vendidos' : '') + '</div>' +
       '</div>';
     cont.appendChild(row);

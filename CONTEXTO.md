@@ -80,6 +80,26 @@ ahí hay períodos ya cerrados con descuentos de nómina hechos.
   hay dos vinagres, dos sales y cuatro aceites, y elegir uno sería inventar.
 - **Lumpias**: se reciben y se cuentan **por unidad**; 1 lumpia por ración.
 - **Ketchup botella** (código 1615) se descuenta de la botella de la hoja.
+- **Picadillo de pollo** (1572): se vende a 1 $ el kilo, así que cada unidad del
+  reporte es 1 kg. Sale del pollo de las cestas, pero **falta cuántas piezas
+  hacen un kilo** para descontarlo del pollo en vez de contarlo aparte.
+- **Lumpias**: la ración (1598) son **2 unidades**; el código «1 LUMPIA» (1612)
+  es una. **Arepitas fritas** (1514): la ración son **10 unidades**.
+- **Envases** (1583): CT1, CT2 y CT3 se controlan **como un solo montón**,
+  porque el POS cobra «ENVASES» sin decir cuál y el reporte tampoco dice qué
+  ventas fueron delivery. En la hoja cada uno conserva su bulto (88, 105 y 90).
+  Por producto: CT1 para el combo duo, la ración de papas y los combos 1 y 2;
+  CT3 para los combos 3 y 4.
+- **Bebidas que el POS no separa por sabor** — Gatorade (1574), jugos Barinas
+  (1603) y Tenta té (1608 y 1609): cada una junta sus renglones de la hoja en un
+  artículo y se descuenta del total.
+- **Postres**: «POSTRE EXTRA» (1585) son los Paolo; el tres leches se cobra por
+  el código de la **marquesa de chocolate** (1528).
+- **«4 salsas»** (1584) son 4 sobres Chef Quality.
+- **No descuentan nada a propósito** (`nada: true`, con su porqué a la vista):
+  los seis DELIVERY —es el cobro del envío—, PRINGLES —ahí se cobran
+  diferencias— y RACION IMPORTADAS PAPAS FRITAS —fue un error de cobro—. No es
+  que falte el dato: es que por ahí no sale mercancía.
 
 El tramo trae además **todo lo que gasta una receta**, aunque no esté marcado
 activo ni recoja ningún renglón de la hoja. Si no, el azúcar de la ensalada —que
@@ -207,7 +227,7 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
 - 119 recepciones, 3 facturas de Tierra Santa
 - **Tramo del 1 al 5 de septiembre**, abierto, con el conteo del 31/08 como
   inicial (pollo 2.720 piezas = 17 cestas, y las bebidas e insumos cargados)
-- **Inventario físico del 31/08**, cerrado, 173 de 243 productos contados
+- **Inventario físico del 31/08**, cerrado, 173 de 245 productos contados
 
 ## Lo que falta
 
@@ -218,17 +238,29 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
    la semana cierra en **-1.495 huevos**. Alberto dijo que se usa *medio
    cucharón* por pote y que se rompen 3-4 cartones que «duran», pero no cuántos
    potes salen de esos cartones. Hasta que lo diga, ese renglón no cuadra.
-3. **Picadillo de pollo** — sale del pollo de las cestas y se vende a 1 $/kg,
-   pero falta cuántas piezas hacen 1 kg, y no tiene ni inicial ni entradas.
+3. **Cuántas piezas de pollo hacen 1 kg de picadillo.** Ya está el renglón y ya
+   se descuenta por kilo, pero mientras no se sepa la conversión, el picadillo
+   se lleva su propia cuenta en vez de salir del pollo de las cestas.
 4. **Recetas del repollo, la zanahoria y lo de Tierra Santa** fuera de la
    ensalada — sin ellas esos artículos muestran consumo, no merma.
-5. Cuatro renglones del inventario físico que no se pudieron cargar: refresco
+5. **Códigos del POS todavía sin equivalencia** (4 de 57):
+   - `1551 1 VASO DE REFRESCO` — el personal cobra ahí tanto vasos como platos
+     de plástico vendidos aparte, así que el código mezcla dos cosas. Lo suyo
+     sería separarlo en el punto de venta.
+   - `1614 1 VAS. SALSA TOMATE` y `1613 1 VAS. SALSA AGRIDULCE` — la hoja trae
+     dos racionadas («Salsa agridulce racionada» y «Salsa de la casa
+     racionada») y falta cuál es cuál.
+   - `1575 6 PIMPINA (20LTS)` — no está en la hoja del local.
+6. **El bulto del Tenta té.** La hoja trae 43 y 37 en la columna de bultos y
+   nadie ha dicho cuántas unidades trae uno, así que la app deja el inicial
+   vacío y lo avisa en vez de dar un número a medias.
+7. Cuatro renglones del inventario físico que no se pudieron cargar: refresco
    de 1,5L y pechuga (no aparecen en la hoja), arroz (70 bultos, sin saber los
    kg por bulto). Lo de *«HUEVOS 7»* quedó aclarado el 2/9: son **7 huevos
    sueltos**, no cartones.
-6. **Repasar la transcripción** de la hoja de agosto: son 173 renglones leídos a
+8. **Repasar la transcripción** de la hoja de agosto: son 173 renglones leídos a
    mano de un escaneo.
-7. Camarones: decidido que entran con 120 g por pote de P&C, pero **no se
+9. Camarones: decidido que entran con 120 g por pote de P&C, pero **no se
    registra su entrada** todavía.
 
 ## App de Vales — lo esencial
