@@ -2500,6 +2500,11 @@ const ARTICULOS_FISICO = (() => {
 })();
 function catDeArticulo(a) { return a.cat || CAT_ARTICULO[a.id] || 'Otros'; }
 
+/* Nombres que el reporte del POS no trae. El código 1615 sale con la casilla
+   del producto en blanco y son las botellas de ketchup; ponerlo aquí es mejor
+   que dejar «(sin nombre en el reporte)» en pantalla cada semana. */
+const NOMBRES_POS = { '1615': 'Ketchup botella' };
+
 /* Equivalencias: qué consume cada producto del POS, por su código.
    El código es la llave, no el nombre, porque el nombre puede cambiar. */
 /* Recetas, en la unidad de cada artículo (kg o unidades).
@@ -2883,7 +2888,7 @@ function aRenglon(fila) {
   if (r.cantidad == null || r.cantidad === '') return null;
   return {
     codigo: r.codigo,
-    descripcion: r.descripcion || '(sin nombre en el reporte)',
+    descripcion: r.descripcion || NOMBRES_POS[r.codigo] || '(sin nombre en el reporte)',
     cantidad: aNumero(r.cantidad),
     precio: aNumero(r.precio),
     total: aNumero(r.total)

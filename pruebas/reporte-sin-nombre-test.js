@@ -39,6 +39,9 @@ function pdfDePrueba() {
   // el renglón sin nombre: código y cantidad, la casilla del nombre vacía
   c += celda(18, 620, '1615') +
        celda(215, 620, '    18.000') + celda(268, 620, '     1.29') + celda(329, 620, '    23.22');
+  // uno sin nombre y desconocido: ese sí se queda con el hueco a la vista
+  c += celda(18, 600, '9999') +
+       celda(215, 600, '     5.000') + celda(268, 600, '     1.00') + celda(329, 600, '     5.00');
   // un pie que NO es un producto: lleva número pero no cantidad
   c += celda(18, 560, '1') + celda(76, 560, 'P\\341gina');
 
@@ -92,13 +95,16 @@ const RUTA = '/tmp/claude-0/-home-user-mercancia/ed6921a4-268b-55f5-8ada-49af9ca
   await page.waitForTimeout(1500);
 
   const v = await page.evaluate(() => currentInv.ventas);
-  check('lee los dos productos, no uno', v.length === 2, v);
+  check('lee los tres productos, no uno', v.length === 3, v);
   check('el renglón con nombre se lee entero',
     v.some(x => x.codigo === '1612' && x.descripcion === 'LUMPIA' && x.cantidad === 2), v);
   check('el renglón SIN nombre no se tira: se queda con sus 18 unidades',
     v.some(x => x.codigo === '1615' && x.cantidad === 18), v);
-  check('y dice que el nombre venía en blanco, en vez de inventarlo',
-    (v.find(x => x.codigo === '1615') || {}).descripcion === '(sin nombre en el reporte)', v);
+  // el 1615 es de los que la app ya sabe cómo se llaman aunque el reporte no lo diga
+  check('un código conocido se rellena con su nombre',
+    (v.find(x => x.codigo === '1615') || {}).descripcion === 'Ketchup botella', v);
+  check('uno sin nombre y sin conocer no se inventa: lo dice',
+    (v.find(x => x.codigo === '9999') || {}).descripcion === '(sin nombre en el reporte)', v);
   check('el pie de página no se cuela como producto',
     !v.some(x => x.codigo === '1'), v);
   check('el rango del reporte se lee del propio papel',
