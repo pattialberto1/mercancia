@@ -2258,6 +2258,13 @@ function articulo(id) {
 function articulosDelTramo() {
   const ids = new Set(articulosActivos().map(a => a.id));
   for (const art of Object.values(VINCULO_FISICO)) ids.add(art);
+  /* Y lo que gastan las recetas. Sin esto, un artículo que una receta consume
+     pero que nadie marcó activo ni recoge ningún renglón de la hoja —el azúcar
+     de la ensalada, por ejemplo— desaparecía del tramo, y con él su consumo:
+     vendidoEnSemana descarta lo que no está en la lista. Mejor que salga con lo
+     que falte a la vista que no salga. */
+  for (const regla of Object.values(equivalencias()))
+    for (const artId of Object.keys(regla.consume || {})) ids.add(artId);
   return ARTICULOS_TODOS.filter(a => ids.has(a.id)).concat(ARTICULOS_FISICO);
 }
 // ¿este artículo lleva la fórmula completa, o solo se cuenta?

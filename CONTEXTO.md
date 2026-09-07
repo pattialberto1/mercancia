@@ -77,6 +77,11 @@ ahí hay períodos ya cerrados con descuentos de nómina hechos.
 - **Lumpias**: se reciben y se cuentan **por unidad**; 1 lumpia por ración.
 - **Ketchup botella** (código 1615) se descuenta de la botella de la hoja.
 
+El tramo trae además **todo lo que gasta una receta**, aunque no esté marcado
+activo ni recoja ningún renglón de la hoja. Si no, el azúcar de la ensalada —que
+está sin vincular a propósito, porque en la hoja hay cinco marcas— se perdía sin
+que nada avisara: `vendidoEnSemana` descarta lo que no está en la lista.
+
 **Tamaños de bulto:** refresco 1L y 2L → 6 · refresco 1,5L → 12 · agua Minalba
 600ml → 24 · agua Glacier 550ml → 24 · malta → 36 · yuky-pack → 24 ·
 huevos → 24 por cartón. **Los huevos llegan por cajas de 12 cartones = 288
