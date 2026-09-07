@@ -16,6 +16,7 @@ error de JavaScript en la página.
 | `alitas-test.js` | Pestaña de alitas (peso por bolsa, sin cestas ni tara) |
 | `modulo1-test.js` | Productos por unidad, varios proveedores, validación de neto |
 | `parser-test.js` | Lectura del PDF de ventas del POS |
+| `reporte-sin-nombre-test.js` | Un renglón del reporte sin nombre no se tira |
 | `inventario-test.js` | Inventario semanal de punta a punta con el PDF real |
 | `cestas-test.js` | La cesta que llega (18 pollos) vs la que se cuenta (20) |
 | `conteo-bultos-test.js` | Conteo en bultos + sueltas y tamaños de bulto |

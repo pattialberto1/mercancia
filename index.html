@@ -2863,11 +2863,16 @@ function aRenglon(fila) {
     const col = COLS.find(k => Math.abs(c.x - k.x) <= TOLERANCIA_X);
     if (col && !r[col.k]) r[col.k] = c.t;
   }
-  // una fila de producto es la que tiene código numérico y descripción
-  if (!r.codigo || !/^\d+$/.test(r.codigo) || !r.descripcion) return null;
+  /* Una fila de producto es la que tiene código numérico y cantidad. Antes se
+     exigía también la descripción, y el reporte del 1 al 6 de septiembre traía
+     un renglón sin nombre (código 1615, 18 unidades) que se tiraba sin decir
+     nada. Se queda, con el hueco a la vista: 18 unidades vendidas que no
+     aparecen por ningún lado son peores que un nombre en blanco. */
+  if (!r.codigo || !/^\d+$/.test(r.codigo)) return null;
+  if (r.cantidad == null || r.cantidad === '') return null;
   return {
     codigo: r.codigo,
-    descripcion: r.descripcion,
+    descripcion: r.descripcion || '(sin nombre en el reporte)',
     cantidad: aNumero(r.cantidad),
     precio: aNumero(r.precio),
     total: aNumero(r.total)
