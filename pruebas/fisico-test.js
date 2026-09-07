@@ -51,14 +51,14 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   check('no muestra la comparación con merma', await page.isHidden('#inv-comparacion-card'));
   check('no ofrece equivalencias', await page.isHidden('#inv-equivalencias'));
   check('muestra el conteo', await page.isVisible('#inv-fisico-card'));
-  check('dice cuántos van de cuántos', (await page.textContent('#fis-resumen')).includes('173 de 242'));
+  check('dice cuántos van de cuántos', (await page.textContent('#fis-resumen')).includes('173 de 243'));
 
   // ---------- 3) las categorías de la hoja, plegadas ----------
   const cats = await page.$$eval('.inv-grupo', els => els.map(e => e.dataset.g));
   check('están las 10 categorías de la hoja', cats.length === 10, cats.length);
   check('en el mismo orden que el papel',
     cats[0] === 'Alimentos procesados y otros' && cats[2] === 'Bebidas' && cats[9] === 'Otros', cats);
-  check('arrancan cerradas: 242 renglones de golpe no se pueden recorrer',
+  check('arrancan cerradas: 243 renglones de golpe no se pueden recorrer',
     (await page.evaluate(() => document.querySelectorAll('.fis-row').length)) === 0);
   // a partir de aquí se abren todas, para poder comprobar los valores
   await page.evaluate(() => {
@@ -66,8 +66,8 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
     renderFisico();
   });
   await page.waitForTimeout(300);
-  check('abiertas, están los 242 renglones',
-    (await page.evaluate(() => document.querySelectorAll('.fis-row').length)) === 242);
+  check('abiertas, están los 243 renglones',
+    (await page.evaluate(() => document.querySelectorAll('.fis-row').length)) === 243);
 
   // ---------- 4) los valores reales de la hoja ----------
   const val = async (id, k) => page.inputValue('.fis-i[data-i="' + id + '"][data-k="' + k + '"]');
@@ -123,7 +123,7 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   await page.waitForTimeout(250);
   await page.click('#btn-fisico');
   await page.waitForTimeout(500);
-  check('el nuevo arranca vacío', (await page.textContent('#fis-resumen')).includes('0 de 242'));
+  check('el nuevo arranca vacío', (await page.textContent('#fis-resumen')).includes('0 de 243'));
   await page.fill('.fis-i[data-i="aceite_vatel_pro"][data-k="b"]', '40');
   await page.dispatchEvent('.fis-i[data-i="aceite_vatel_pro"][data-k="b"]', 'change');
   await page.fill('.fis-obs[data-i="aceite_vatel_pro"]', 'llegó ayer');
@@ -131,7 +131,7 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   await page.waitForTimeout(250);
   check('lo escrito se guarda', await page.evaluate(() =>
     currentInv.fisico.aceite_vatel_pro.b === '40' && currentInv.fisico.aceite_vatel_pro.obs === 'llegó ayer'));
-  check('y el contador sube', (await page.textContent('#fis-resumen')).includes('1 de 242'));
+  check('y el contador sube', (await page.textContent('#fis-resumen')).includes('1 de 243'));
   check('no se mezcla con el inventario de agosto', await page.evaluate(() =>
     db.inventarios.find(i => i.id === 'xfisico3108').fisico.aceite_vatel_pro.b === '38'));
 
@@ -141,7 +141,7 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   await page.fill('.fis-obs[data-i="aceite_vatel_pro"]', '');
   await page.dispatchEvent('.fis-obs[data-i="aceite_vatel_pro"]', 'change');
   await page.waitForTimeout(250);
-  check('vaciarlo lo quita del conteo', (await page.textContent('#fis-resumen')).includes('0 de 242'));
+  check('vaciarlo lo quita del conteo', (await page.textContent('#fis-resumen')).includes('0 de 243'));
 
   // ---------- 9) sobrevive a recargar ----------
   await page.fill('.fis-i[data-i="tenedores"][data-k="b"]', '22');

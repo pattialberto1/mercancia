@@ -113,8 +113,10 @@ const RUTA = '/tmp/claude-0/-home-user-mercancia/ed6921a4-268b-55f5-8ada-49af9ca
     await page.evaluate(() => currentInv.rangoReporte));
   check('y avisa de que no cuadra con el tramo',
     /reporte va del/.test(await page.textContent('#inv-msg')));
-  check('el renglón sin nombre sale entre los que no tienen equivalencia',
-    await page.evaluate(() => codigosSinAsignar(currentInv).some(x => x.codigo === '1615')));
+  // el 1615 ya tiene equivalencia (es el ketchup en botella); el que se queda
+  // sin asignar es el que no conocemos
+  check('el código desconocido sale entre los que no tienen equivalencia',
+    await page.evaluate(() => codigosSinAsignar(currentInv).some(x => x.codigo === '9999')));
 
   console.log('');
   for (const r of results) console.log((r.ok ? '  ✓ ' : '  ✗ ') + r.desc);

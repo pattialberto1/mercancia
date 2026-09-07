@@ -63,6 +63,19 @@ ahí hay períodos ya cerrados con descuentos de nómina hechos.
 - El «pollo rojo» del chino y el de los tenders son **la misma pechuga**
 - Una bandeja de arroz son 6 kg cocidos → **15 potes**
 - La **cucharada se toma como 15 g** (promedio, constante `CUCHARADA`)
+- **Papas fritas**: 350 g por ración (Alberto dijo «300-400 g aprox»,
+  `RACION_PAPAS`). Solo llevan papas los **combos de pollo broaster** —duo,
+  combo 1, 2, 3 y 4— y la ración aparte. Los combos de chino no llevan.
+- **Ensalada rallada**: una tanda son 21 kg de verduras (16 de repollo blanco,
+  2,5 de zanahoria, 2,5 de repollo morado) más la mayonesa (3 licuadoras de 15
+  huevos, 3 kg de azúcar, 40 g de limón, 80 g de sal, 160 g de vinagre, 25 g de
+  mostaza, 3 litros de aceite). Se raciona en potes de 170 g →
+  **172 potes por tanda** (`POTES_POR_TANDA`), y de ahí sale lo que gasta cada
+  pote. Solo llevan ensalada el **combo 2 (1 pote)** y el **combo 4 (2 potes)**.
+  Sal, vinagre, mostaza y aceite **no están en la receta de la app**: en la hoja
+  hay dos vinagres, dos sales y cuatro aceites, y elegir uno sería inventar.
+- **Lumpias**: se reciben y se cuentan **por unidad**; 1 lumpia por ración.
+- **Ketchup botella** (código 1615) se descuenta de la botella de la hoja.
 
 **Tamaños de bulto:** refresco 1L y 2L → 6 · refresco 1,5L → 12 · agua Minalba
 600ml → 24 · agua Glacier 550ml → 24 · malta → 36 · yuky-pack → 24 ·
@@ -185,22 +198,28 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
 - 119 recepciones, 3 facturas de Tierra Santa
 - **Tramo del 1 al 5 de septiembre**, abierto, con el conteo del 31/08 como
   inicial (pollo 2.720 piezas = 17 cestas, y las bebidas e insumos cargados)
-- **Inventario físico del 31/08**, cerrado, 173 de 242 productos contados
+- **Inventario físico del 31/08**, cerrado, 173 de 243 productos contados
 
 ## Lo que falta
 
 1. **Receta del tender** — 300 g de ajo, 150 g de mostaza, 100 g de marinado,
    pero no se sabe **para cuántos tenders**. Alberto quedó en verlo cuando los
    hagan.
-2. **Recetas de papas, repollo, zanahoria y lo de Tierra Santa** — sin ellas
-   esos artículos muestran consumo, no merma.
-3. Cuatro renglones del inventario físico que no se pudieron cargar: refresco
+2. **Cuántos huevos lleva un pote de chino.** La app tiene 2 por pote y con eso
+   la semana cierra en **-1.495 huevos**. Alberto dijo que se usa *medio
+   cucharón* por pote y que se rompen 3-4 cartones que «duran», pero no cuántos
+   potes salen de esos cartones. Hasta que lo diga, ese renglón no cuadra.
+3. **Picadillo de pollo** — sale del pollo de las cestas y se vende a 1 $/kg,
+   pero falta cuántas piezas hacen 1 kg, y no tiene ni inicial ni entradas.
+4. **Recetas del repollo, la zanahoria y lo de Tierra Santa** fuera de la
+   ensalada — sin ellas esos artículos muestran consumo, no merma.
+5. Cuatro renglones del inventario físico que no se pudieron cargar: refresco
    de 1,5L y pechuga (no aparecen en la hoja), arroz (70 bultos, sin saber los
    kg por bulto). Lo de *«HUEVOS 7»* quedó aclarado el 2/9: son **7 huevos
    sueltos**, no cartones.
-4. **Repasar la transcripción** de la hoja de agosto: son 173 renglones leídos a
+6. **Repasar la transcripción** de la hoja de agosto: son 173 renglones leídos a
    mano de un escaneo.
-5. Camarones: decidido que entran con 120 g por pote de P&C, pero **no se
+7. Camarones: decidido que entran con 120 g por pote de P&C, pero **no se
    registra su entrada** todavía.
 
 ## App de Vales — lo esencial

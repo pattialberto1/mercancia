@@ -74,7 +74,7 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   });
   check('el pollo de hoy: 50 cestas × 144 = 7.200 piezas', rec.pollo_pieza === 7200, rec.pollo_pieza);
   check('las papas de hoy: 430,2 kg netos', Math.abs(rec.papas - 430.2) < 0.01, rec.papas);
-  check('los huevos de hoy: 1.152', rec.huevos === 1152, rec.huevos);
+  check('los huevos de hoy: 4 cajas × 288 = 1.152', rec.huevos === 1152, rec.huevos);
 
   // ---------- 4) las facturas de proveedor también ----------
   await page.evaluate(() => {
@@ -115,19 +115,26 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   check('una factura de otra semana no se cuenta',
     (await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'cilantro').recibido)) === 0.3);
 
-  // ---------- 5) sin receta, la diferencia es consumo, no merma ----------
-  await page.fill('.inv-conteo[data-a="papas"][data-k="u"]', '100');
-  await page.dispatchEvent('.inv-conteo[data-a="papas"][data-k="u"]', 'change');
+  /* ---------- 5) sin receta, la diferencia es consumo, no merma ----------
+     Se usa el cilantro: las papas dejaron de servir de ejemplo cuando entraron
+     en la receta de los combos (7/9/2026). */
+  await page.evaluate(() => {
+    db.settings.articulosActivos = [...new Set([...db.settings.articulosActivos, 'cilantro'])];
+    save(false); renderInv();
+  });
+  await page.waitForTimeout(300);
+  await page.fill('.inv-conteo[data-a="cilantro"][data-k="u"]', '0,1');
+  await page.dispatchEvent('.inv-conteo[data-a="cilantro"][data-k="u"]', 'change');
   await page.waitForTimeout(350);
   const txt = await page.textContent('#inv-comparacion');
   check('lo que no tiene receta se llama consumo', txt.includes('Se consumieron'));
   check('y se explica por qué no es merma', txt.includes('todavía no hay receta'));
-  check('no dice «faltan» para las papas', !/Faltan 330/.test(txt));
+  check('no lo llama «faltan»', !/Faltan 0,2/.test(txt));
 
   // el pollo sí tiene receta: ahí sí es merma
   const conRec = await page.evaluate(() => tieneConsumoConocido('pollo_pieza'));
   check('el pollo sí tiene consumo conocido', conRec === true);
-  check('las papas no', (await page.evaluate(() => tieneConsumoConocido('papas'))) === false);
+  check('el cilantro no', (await page.evaluate(() => tieneConsumoConocido('cilantro'))) === false);
 
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);
