@@ -33,7 +33,14 @@ Rama de trabajo de este repo: **`claude/chicken-receiving-app-8z1rs2`**.
 
 ## Reglas del negocio (confirmadas por Alberto)
 
-**La semana va de domingo a sábado.** La misma en las dos apps.
+**La semana va de LUNES a DOMINGO** (cambiado el 7/9/2026; antes era de domingo
+a sábado). El inventario se hace **los lunes**, con lo vendido hasta el domingo
+incluido, que es como sale el reporte del POS. Con la semana anterior el domingo
+se quedaba fuera del control todas las semanas.
+
+⚠️ **La app de Vales sigue con la semana vieja (domingo a sábado).** Estaban
+alineadas a propósito; ahora no lo están. Falta decidir si se cambia también:
+ahí hay períodos ya cerrados con descuentos de nómina hechos.
 
 **Las dos cestas de pollo, que no son la misma:**
 

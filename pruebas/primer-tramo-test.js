@@ -17,9 +17,10 @@ const iso = d => d.toISOString().slice(0, 10);
 const mas = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const hoy = new Date();
 const hoyISO = iso(hoy);
-const domingo = iso(mas(hoy, -hoy.getDay()));
-const sabado = iso(mas(new Date(domingo + 'T12:00:00'), 6));
-const esSabado = hoy.getDay() === 6;
+// la semana del negocio va de LUNES a DOMINGO (cambiado el 7/9/2026)
+const lunes = iso(mas(hoy, -((hoy.getDay() + 6) % 7)));
+const domingo = iso(mas(new Date(lunes + 'T12:00:00'), 6));
+const esDomingo = hoy.getDay() === 0;
 
 (async () => {
   await new Promise(r => server.listen(8967, r));
@@ -38,17 +39,17 @@ const esSabado = hoy.getDay() === 6;
 
   // ---------- 1) el primer tramo empieza hoy ----------
   const inv = await page.evaluate(() => ({ ini: currentInv.semanaInicio, fin: currentInv.semanaFin }));
-  if (esSabado) {
-    check('contado un sábado, arranca el domingo siguiente', inv.ini > sabado);
+  if (esDomingo) {
+    check('contado un domingo, arranca el lunes siguiente', inv.ini > domingo);
   } else {
-    check('el primer tramo arranca hoy, no el domingo pasado', inv.ini === hoyISO);
-    check('y termina el sábado de esta semana', inv.fin === sabado);
+    check('el primer tramo arranca hoy, no el lunes pasado', inv.ini === hoyISO);
+    check('y termina el domingo de esta semana', inv.fin === domingo);
   }
 
   // ---------- 2) se explica por qué, y qué rango exportar ----------
   const msg = await page.textContent('#inv-msg');
   check('pide el conteo del día en que se contó', msg.includes('lo que contaste al cerrar el'));
-  if (!esSabado && hoyISO !== domingo) {
+  if (!esDomingo && hoyISO !== lunes) {
     check('explica que el tramo arranca el día del conteo', msg.includes('porque contaste al cerrar el'));
     check('y avisa de exportar el reporte con ese mismo rango', msg.includes('mismo rango'));
     check('el título no lo llama «semana»', (await page.textContent('#inv-title')).startsWith('Desde el'));
@@ -97,9 +98,45 @@ const esSabado = hoy.getDay() === 6;
   await page.click('#btn-new');
   await page.waitForTimeout(300);
   const seg = await page.evaluate(() => ({ ini: currentInv.semanaInicio, fin: currentInv.semanaFin }));
-  check('el siguiente ya va de domingo a sábado',
-    new Date(seg.ini + 'T12:00:00').getDay() === 0 && new Date(seg.fin + 'T12:00:00').getDay() === 6);
+  check('el siguiente ya va de lunes a domingo',
+    new Date(seg.ini + 'T12:00:00').getDay() === 1 && new Date(seg.fin + 'T12:00:00').getDay() === 0);
   check('y se llama «Semana»', (await page.textContent('#inv-title')).startsWith('Semana'));
+
+  // ---------- 5) la semana va de lunes a domingo, y los tramos abiertos se alargan ----------
+  const sem = await page.evaluate(() => ({
+    // el 1 de septiembre de 2026 fue martes: su semana va del 31/8 al 6/9
+    lunes: lunesDe('2026-09-01'),
+    finDeEsaSemana: masDias(lunesDe('2026-09-01'), 6),
+    // un domingo pertenece a la semana que empezó el lunes anterior
+    lunesDelDomingo: lunesDe('2026-09-06')
+  }));
+  check('el lunes de la semana del 1/9 es el 31/8', sem.lunes === '2026-08-31', sem);
+  check('y esa semana termina el domingo 6/9', sem.finDeEsaSemana === '2026-09-06', sem);
+  check('el domingo 6/9 cae en esa misma semana, no en la siguiente',
+    sem.lunesDelDomingo === '2026-08-31', sem);
+
+  /* Los tramos que quedaron abiertos con la semana vieja (que terminaba el
+     sábado) se alargan hasta el domingo al cargar los datos. Los CERRADOS no:
+     su corte quedó firmado. */
+  const mig = await page.evaluate(() => {
+    const guardado = JSON.parse(localStorage.getItem('mercancia.v1'));
+    guardado.inventarios = [
+      { id: 'viejo-abierto', semanaInicio: '2026-09-01', semanaFin: '2026-09-05',
+        creada: 1, mod: 1, cerrado: false, ventas: [], conteo: {}, inicialManual: {} },
+      { id: 'viejo-cerrado', semanaInicio: '2026-08-24', semanaFin: '2026-08-29',
+        creada: 1, mod: 1, cerrado: true, ventas: [], conteo: {}, inicialManual: {} }
+    ];
+    localStorage.setItem('mercancia.v1', JSON.stringify(guardado));
+    const d = load();
+    return {
+      abierto: d.inventarios.find(i => i.id === 'viejo-abierto').semanaFin,
+      cerrado: d.inventarios.find(i => i.id === 'viejo-cerrado').semanaFin
+    };
+  });
+  check('un tramo abierto que terminaba el sábado se alarga al domingo',
+    mig.abierto === '2026-09-06', mig);
+  check('uno cerrado NO se toca: su corte quedó firmado',
+    mig.cerrado === '2026-08-29', mig);
 
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);

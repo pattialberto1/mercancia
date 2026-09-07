@@ -234,7 +234,7 @@ entró la semana pasada. Con datos reales, una semana dio *−872 piezas* sin es
 arrastre. La primera semana se escribe a mano (el conteo con el que arranca:
 el sábado al cerrar, o el domingo antes de abrir); de ahí en adelante sale solo.
 
-La semana va de **domingo a sábado**, la misma que usa la app de Vales.
+La semana va de **lunes a domingo**, la misma que usa la app de Vales.
 
 ### Cómo se usa
 

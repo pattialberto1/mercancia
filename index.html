@@ -868,6 +868,15 @@ function load() {
       if (o.pechuga === undefined) o.pechuga = o.pollo_rojo;
       delete o.pollo_rojo;
     };
+    /* La semana pasó de domingo-sábado a lunes-domingo (7/9/2026). Los tramos
+       ABIERTOS se alargan hasta el domingo que les toca; los cerrados no se
+       tocan nunca: su corte quedó firmado y movería un control ya hecho.
+       Solo se alarga, nunca se recorta, para no dejar fuera lo ya anotado. */
+    for (const inv of d.inventarios) {
+      if (inv.tipo === 'fisico' || inv.cerrado || !inv.semanaInicio) continue;
+      const finNuevo = masDias(lunesDe(inv.semanaInicio), 6);
+      if (finNuevo > (inv.semanaFin || '')) inv.semanaFin = finNuevo;
+    }
     for (const inv of d.inventarios) {
       sumar(inv.conteo); sumar(inv.inicialManual);
       mudar(inv.conteoDet); mudar(inv.inicialManualDet);
@@ -2543,11 +2552,13 @@ function equivalencias() {
 }
 
 /* ---- semanas ---- */
-// La semana del negocio empieza el DOMINGO y termina el sábado. Es la misma
-// que usa la app de Vales, para que las dos hablen del mismo tramo de tiempo.
-function domingoDe(iso) {
+/* La semana del negocio empieza el LUNES y termina el domingo (cambiado el
+   7/9/2026). El inventario se hace los lunes con lo vendido hasta el domingo
+   incluido, que es como sale el reporte del POS: si la semana terminara el
+   sábado, el domingo se quedaría fuera del control todas las semanas. */
+function lunesDe(iso) {
   const d = new Date(iso + 'T12:00:00');
-  d.setDate(d.getDate() - d.getDay());       // día 0 = domingo
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));   // día 1 = lunes
   return d.toISOString().slice(0, 10);
 }
 function masDias(iso, n) {
@@ -2953,18 +2964,18 @@ function nuevaSemanaDesdeHoy() {
   const hoy = todayISO();
   /* La PRIMERA vez el control arranca el día que se contó, aunque caiga a
      mitad de semana: es el único momento del que se sabe con certeza qué
-     había. Ese tramo termina el sábado y de ahí en adelante ya son semanas
-     completas de domingo a sábado. */
+     había. Ese tramo termina el domingo y de ahí en adelante ya son semanas
+     completas de lunes a domingo. */
   if (!db.inventarios.length) {
-    const sabado = masDias(domingoDe(hoy), 6);
-    const arranca = hoy < sabado ? hoy : masDias(sabado, 1);   // contado un sábado: arranca el domingo
-    const termina = hoy < sabado ? sabado : masDias(sabado, 7);
+    const domingo = masDias(lunesDe(hoy), 6);
+    const arranca = hoy < domingo ? hoy : masDias(domingo, 1);   // contado un domingo: arranca el lunes
+    const termina = hoy < domingo ? domingo : masDias(domingo, 7);
     abrirInv(nuevaSemana(arranca, termina).id);
     return;
   }
-  // después, la semana pasada completa: es la que ya terminó el sábado
-  const domingoEsta = domingoDe(hoy);
-  const desde = masDias(domingoEsta, -7), hasta = masDias(desde, 6);
+  // después, la semana pasada completa: es la que ya terminó el domingo
+  const lunesEsta = lunesDe(hoy);
+  const desde = masDias(lunesEsta, -7), hasta = masDias(desde, 6);
   const ya = db.inventarios.find(i => i.semanaInicio === desde);
   if (ya) { abrirInv(ya.id); return; }
   abrirInv(nuevaSemana(desde, hasta).id);
@@ -2991,7 +3002,7 @@ function renderInv() {
   }
   $('inv-cerrar').textContent = 'Cerrar la semana';
   // el primer tramo puede arrancar a mitad de semana: no llamarlo «semana»
-  $('inv-title').textContent = inv.semanaInicio === domingoDe(inv.semanaInicio)
+  $('inv-title').textContent = inv.semanaInicio === lunesDe(inv.semanaInicio)
     ? 'Semana ' + fmtDate(inv.semanaInicio)
     : 'Desde el ' + fmtDate(inv.semanaInicio);
   $('inv-sub').textContent = fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
@@ -3048,10 +3059,10 @@ function renderInv() {
         : '') + '</div>');
   }
   // el primer tramo suele arrancar a mitad de semana, tras el conteo físico
-  if (!previas.length && inv.semanaInicio !== domingoDe(inv.semanaInicio)) {
+  if (!previas.length && inv.semanaInicio !== lunesDe(inv.semanaInicio)) {
     avisos.push('<div class="msg">Este primer tramo va del ' + fmtDate(inv.semanaInicio) + ' al ' +
       fmtDate(inv.semanaFin) + ', porque contaste al cerrar el ' + fmtDate(masDias(inv.semanaInicio, -1)) +
-      '. Exporta el reporte de ventas con ese mismo rango. A partir del domingo ya son semanas completas.</div>');
+      '. Exporta el reporte de ventas con ese mismo rango. A partir del lunes ya son semanas completas.</div>');
   }
   // que el arranque no dependa del día en que se abrió la app, sino del conteo
   const primerTramo = !previas.length && !inv.cerrado;
@@ -3471,7 +3482,7 @@ $('inv-arranque').onchange = e => {
   if (conteo > todayISO()) { toast('Esa fecha todavía no ha llegado'); renderInv(); return; }
   const desde = masDias(conteo, 1);
   currentInv.semanaInicio = desde;
-  currentInv.semanaFin = masDias(domingoDe(desde), 6);
+  currentInv.semanaFin = masDias(lunesDe(desde), 6);
   touch(currentInv); save(); renderInv();
 };
 $('inv-equivalencias').onclick = () => { renderEquivalencias(); show('eq'); };
