@@ -51,6 +51,11 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
       { codigo: '1551', descripcion: '1 VASO DE REFRESCO', cantidad: 7 } // sin equivalencia
     ];
     currentInv.rangoReporte = { desde: currentInv.semanaInicio, hasta: currentInv.semanaFin };
+    /* El caso de Alberto: recibe refresco DESPUÉS de que terminó la semana que
+       está cuadrando. No tiene que sumar aquí, y la app tiene que decirlo. */
+    db.recepciones.push({ id: 'rposterior', tipo: 'refresco_1l', fecha: masDias(currentInv.semanaFin, 1),
+      creada: 1, mod: 1, cerrada: true, tara: 2.3, min: 65, max: 75, min1: 32, max1: 37,
+      cestasVacias: 0, pesadas: [{ peso: 90, cestas: 0, ts: 1 }] });
     // el pollo cuadra clavado, las lumpias faltan, el refresco sobra
     currentInv.conteo = { pollo_pieza: 1200, lumpias: 75, ref_1l: 60 };
     touch(currentInv); save(false); renderInv();
@@ -65,25 +70,37 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('y se abre el cuadre', await page.isVisible('#view-dash'));
 
   // ---------- dice lo mismo que el tramo ----------
+  /* Las cifras de arriba son SOLO del control de la semana. Contar los 50 y pico
+     que tienen fórmula daba un «51 productos por contar» que no significaba nada:
+     casi todos son renglones de la hoja que él no eligió llevar. */
   const real = await page.evaluate(() => {
     const o = { cuadra: 0, falta: 0, sobra: 0, 'sin-contar': 0, imposible: 0 };
-    for (const f of calcular(currentInv)) { const e = estadoCuadre(f); if (e.estado in o) o[e.estado]++; }
-    return o;
+    const todos = { 'sin-contar': 0 };
+    for (const f of calcular(currentInv)) {
+      const e = estadoCuadre(f);
+      if (e.estado in todos) todos[e.estado]++;
+      if (f.activo && e.estado in o) o[e.estado]++;
+    }
+    return { control: o, todosSinContar: todos['sin-contar'] };
   });
   const kpis = await page.$$eval('.dash-kpi', els => els.map(e => ({
     v: e.querySelector('.v').textContent, t: e.querySelector('.t').textContent })));
   const kpi = n => Number((kpis.find(k => k.t.includes(n)) || {}).v);
-  check('el KPI de «cuadran» es el que sale de calcular', kpi('Cuadran') === real.cuadra, [kpis, real]);
-  check('el de «faltan» también', kpi('Faltan') === real.falta, [kpis, real]);
-  check('el de «sobran» también', kpi('Sobran') === real.sobra, [kpis, real]);
-  check('y el de «por contar»', kpi('Por contar') === real['sin-contar'], [kpis, real]);
-  check('el pollo cuadra clavado', real.cuadra >= 1, real);
-  check('las lumpias faltan y el refresco sobra', real.falta === 1 && real.sobra === 1, real);
+  check('el KPI de «cuadran» es el que sale de calcular', kpi('Cuadran') === real.control.cuadra, [kpis, real]);
+  check('el de «faltan» también', kpi('Faltan') === real.control.falta, [kpis, real]);
+  check('el de «sobran» también', kpi('Sobran') === real.control.sobra, [kpis, real]);
+  check('y el de «por contar» cuenta solo el control, no la hoja entera',
+    kpi('Por contar') === real.control['sin-contar'] && real.todosSinContar > real.control['sin-contar'],
+    [kpis, real]);
+  check('y se dice de cuántos son esas cifras', /De los 3 productos del ⭐ control/.test(
+    await page.textContent('.dash-kpis + .sub')));
+  check('el pollo cuadra clavado', real.control.cuadra >= 1, real);
+  check('las lumpias faltan y el refresco sobra', real.control.falta === 1 && real.control.sobra === 1, real);
 
   // ---------- la cifra grande es la que decide si hay que hacer algo ----------
   const hero = await page.textContent('.dash-hero .n');
   check('la cifra grande son los que no cuadran',
-    Number(hero) === real.falta + real.sobra, hero);
+    Number(hero) === real.control.falta + real.control.sobra, hero);
 
   const body = await page.textContent('#dash-body');
   // ---------- la cuenta a la vista, no solo el resultado ----------
@@ -96,7 +113,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   // ---------- la barra va al lado que le toca y no se sale ----------
   const barras = await page.$$eval('.dash-bar i', els => els.map(e => ({
     cls: e.className, w: parseFloat(e.style.width) })));
-  check('hay una barra por cada producto que no cuadra', barras.length === real.falta + real.sobra, barras);
+  check('hay una barra por cada producto que no cuadra', barras.length === real.control.falta + real.control.sobra, barras);
   check('ninguna pasa de la mitad del carril (el cero está en medio)',
     barras.every(b => b.w <= 50 + 0.001), barras);
   check('la de las lumpias mide el 6,25% / 2', barras.some(b => b.cls === 'mal' && Math.abs(b.w - 3.125) < 0.01), barras);
@@ -108,6 +125,13 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('avisa de los códigos que no descuentan nada',
     /1 códigos? del reporte no descuentan nada|no descuentan nada/.test(body) && /VASO DE REFRESCO/.test(body));
   check('y de que el reporte sí cubre la semana', /El reporte cubre la semana entera/.test(body));
+  // lo que más le costaba entender: qué entra y qué no entra en la semana
+  check('dice qué recepciones y facturas entran', /recepciones y \d+ facturas con fecha de esos días/.test(body), body);
+  check('y avisa de las entradas posteriores, que NO entran',
+    /1 entradas posteriores quedan fuera/.test(body), body);
+  // y de verdad no suman: el refresco sobra 5, no 95
+  check('los 90 refrescos de después no se cuelan en el recibido',
+    (await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'ref_1l').recibido)) === 0);
   check('los de solo conteo se explican aparte',
     /solo se cuentan: no tienen entradas ni receta/.test(body));
 

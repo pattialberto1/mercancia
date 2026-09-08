@@ -240,11 +240,18 @@ sin pedir nada nuevo: lee lo mismo que la pantalla del tramo (`calcular` +
 puedan discrepar) y lo ordena por lo que hay que mirar primero.
 
 - Arriba la cifra que decide si hay que hacer algo hoy: cuántos productos no
-  cuadran de los revisados. **Mientras no haya un solo conteo escrito, la cifra
+  cuadran de los contados. **Mientras no haya un solo conteo escrito, la cifra
   es lo que falta por contar** — decir «0 no cuadran» sería mentir por omisión.
-- Cuatro casillas: cuadran, faltan, sobran, por contar.
-- **Antes de cerrar la semana**: si está el reporte, si cubre el mismo rango, qué
-  códigos no descuentan nada y qué queda del control sin contar.
+- Cuatro casillas: cuadran, faltan, sobran, por contar. **Todas cuentan solo el
+  ⭐ control de la semana**, que son los que hay que contar para poder cerrar.
+  Contar los 51 que tienen fórmula daba un «51 por contar» que no significaba
+  nada: casi todos son renglones de la hoja que nadie eligió llevar. El resto va
+  aparte y al final.
+- **Qué entra en esta semana**: cuántas recepciones y facturas caen dentro, y
+  —lo que más costaba entender— **cuántas quedan fuera por ser posteriores**.
+  Lo recibido hoy no suma en la semana que se está cuadrando; la app siempre lo
+  hizo bien, pero no lo decía en ningún sitio. Ahí van también el reporte, su
+  rango y los códigos que no descuentan nada.
 - **No cuadran**, ordenados por desviación, con la cuenta entera a la vista
   (`inicial + recibido − vendido`), lo contado, y una barra con el cero en el
   centro: a la izquierda lo que falta, a la derecha lo que sobra, cortada al 100%
