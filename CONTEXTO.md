@@ -95,7 +95,10 @@ ahí hay períodos ya cerrados con descuentos de nómina hechos.
   artículo y se descuenta del total.
 - **Postres**: «POSTRE EXTRA» (1585) son los Paolo; el tres leches se cobra por
   el código de la **marquesa de chocolate** (1528).
-- **«4 salsas»** (1584) son 4 sobres Chef Quality.
+- **«4 salsas»** (1584) son 4 sobres Chef Quality. **«1 vas. salsa tomate»**
+  (1614) sale de la *Salsa de la casa racionada* y **«1 vas. salsa agridulce»**
+  (1613) de la *Salsa agridulce racionada* (confirmado el 8/9; los dos renglones
+  se parecen tanto que conviene no tocarlos de memoria).
 - **No descuentan nada a propósito** (`nada: true`, con su porqué a la vista):
   los seis DELIVERY —es el cobro del envío—, PRINGLES —ahí se cobran
   diferencias— y RACION IMPORTADAS PAPAS FRITAS —fue un error de cobro—. No es
@@ -243,17 +246,17 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
    se lleva su propia cuenta en vez de salir del pollo de las cestas.
 4. **Recetas del repollo, la zanahoria y lo de Tierra Santa** fuera de la
    ensalada — sin ellas esos artículos muestran consumo, no merma.
-5. **Códigos del POS todavía sin equivalencia** (4 de 57):
+5. **Códigos del POS todavía sin equivalencia** (2 de 57):
    - `1551 1 VASO DE REFRESCO` — el personal cobra ahí tanto vasos como platos
      de plástico vendidos aparte, así que el código mezcla dos cosas. Lo suyo
      sería separarlo en el punto de venta.
-   - `1614 1 VAS. SALSA TOMATE` y `1613 1 VAS. SALSA AGRIDULCE` — la hoja trae
-     dos racionadas («Salsa agridulce racionada» y «Salsa de la casa
-     racionada») y falta cuál es cuál.
    - `1575 6 PIMPINA (20LTS)` — no está en la hoja del local.
-6. **El bulto del Tenta té.** La hoja trae 43 y 37 en la columna de bultos y
-   nadie ha dicho cuántas unidades trae uno, así que la app deja el inicial
-   vacío y lo avisa en vez de dar un número a medias.
+6. **Tamaños de bulto que faltan en la hoja de agosto.** 39 renglones traen un
+   número en la columna de bultos sin que se sepa qué trae un bulto. Casi todos
+   solo se cuentan, pero el **agua Minalba de 1,5L** ya tiene receta (código
+   1620), así que su inicial sale vacío y avisado hasta que se diga si esos «3
+   bultos» son bultos o unidades. Lo del **Tenta té** era eso mismo: los 43 y 37
+   eran unidades y estaban escritos en la columna de bultos (corregido el 8/9).
 7. Cuatro renglones del inventario físico que no se pudieron cargar: refresco
    de 1,5L y pechuga (no aparecen en la hoja), arroz (70 bultos, sin saber los
    kg por bulto). Lo de *«HUEVOS 7»* quedó aclarado el 2/9: son **7 huevos

@@ -64,6 +64,8 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
       { codigo: '1585', descripcion: 'POSTRE EXTRA', cantidad: 19 },
       { codigo: '1528', descripcion: 'MARQUESA DE CHOCOLATE', cantidad: 3 },
       { codigo: '1584', descripcion: '4 SALSAS', cantidad: 2 },
+      { codigo: '1614', descripcion: '1 VAS. SALSA TOMATE', cantidad: 13 },
+      { codigo: '1613', descripcion: '1 VAS. SALSA AGRIDULCE', cantidad: 3 },
       { codigo: '1564', descripcion: 'DELIVERY 3', cantidad: 196 },
       { codigo: '1588', descripcion: 'PRINGLES', cantidad: 1 }
     ];
@@ -90,6 +92,11 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
     f.f_postres_tres_leches.ven === 3, f.f_postres_tres_leches);
   check('«4 salsas» son 4 sobres Chef Quality: 2×4 = 8',
     f.f_salsa_ketchup_chef_quality_sobre.ven === 8, f.f_salsa_ketchup_chef_quality_sobre);
+  // las dos racionadas de la hoja se parecen mucho: que no se crucen
+  check('el vaso de salsa de tomate sale de la salsa de la casa racionada',
+    f.f_salsa_de_la_casa_racionada.ven === 13, f.f_salsa_de_la_casa_racionada);
+  check('y el de agridulce, de la agridulce racionada',
+    f.f_salsa_agridulce_racionada.ven === 3, f.f_salsa_agridulce_racionada);
 
   // un renglón de la hoja con receta deja de ser «solo conteo»: si no, su
   // consumo se perdía sin que nada lo dijera
