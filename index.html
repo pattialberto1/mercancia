@@ -295,6 +295,55 @@
     width: 100%; margin-top: 6px; font: inherit; font-size: 13px; padding: 5px 9px;
     border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text);
   }
+  /* ---- Cuadre: el panel que resume cómo va la semana ---- */
+  .dash-hero { text-align: center; padding: 2px 0 16px; }
+  /* cifra grande: proporcional, no tabular — a este tamaño los dígitos de ancho
+     fijo se ven sueltos */
+  .dash-hero .n { font-size: 52px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .dash-hero .n.ok { color: var(--ok); }
+  .dash-hero .n.mal { color: var(--bad); }
+  .dash-hero .lbl { font-size: 14px; color: var(--muted); font-weight: 600; margin-top: 8px; }
+  .dash-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(74px, 1fr)); gap: 8px; }
+  .dash-kpi { border: 1px solid var(--line); border-radius: 12px; padding: 10px 4px; text-align: center; }
+  .dash-kpi .v { font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .dash-kpi .t { font-size: 11px; color: var(--muted); font-weight: 700; margin-top: 3px; }
+  .dash-kpi.ok { background: var(--ok-soft); border-color: transparent; }
+  .dash-kpi.ok .v { color: var(--ok); }
+  .dash-kpi.mal { background: var(--bad-soft); border-color: transparent; }
+  .dash-kpi.mal .v { color: var(--bad); }
+  .dash-kpi.sobra { background: var(--accent-soft); border-color: transparent; }
+  .dash-kpi.sobra .v { color: var(--accent); }
+
+  .dash-check { display: flex; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .dash-check:last-child { border-bottom: none; }
+  .dash-check .ic { flex: none; width: 18px; text-align: center; }
+  .dash-check .tx { flex: 1; min-width: 0; }
+  .dash-check .tx b { font-weight: 700; }
+
+  .dash-row { padding: 13px 0; border-bottom: 1px solid var(--line); }
+  .dash-row:last-child { border-bottom: none; }
+  .dash-nom { display: flex; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 700; }
+  .dash-nom .ver { margin-left: auto; font-size: 13px; font-weight: 800; white-space: nowrap; }
+  .dash-nom .ver.ok { color: var(--ok); }
+  .dash-nom .ver.mal { color: var(--bad); }
+  .dash-nom .ver.sobra { color: var(--accent); }
+  .dash-cadena { font-size: 12.5px; color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .dash-cadena b { color: var(--text); font-weight: 700; }
+  .dash-nota { font-size: 12.5px; color: var(--muted); margin-top: 5px; font-weight: 600; }
+
+  /* barra divergente: a la izquierda lo que falta, a la derecha lo que sobra,
+     con el cero en el centro. La punta de fuera va redondeada; la del cero, recta. */
+  .dash-bar { position: relative; height: 8px; margin: 9px 0 4px; background: var(--line); border-radius: 4px; }
+  .dash-bar .cero { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--muted); opacity: .45; }
+  .dash-bar i { position: absolute; top: 0; bottom: 0; display: block; }
+  .dash-bar i.mal { right: 50%; background: var(--bad); border-radius: 4px 0 0 4px; }
+  .dash-bar i.sobra { left: 50%; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .dash-escala { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); font-weight: 700; }
+
+  .dash-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dash-chip { border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; }
+  .dash-chip.ok { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
+
   .inv-dif { margin-top: 10px; font-size: 14px; font-weight: 700; }
   .inv-dif.ok { color: var(--ok); }
   .inv-dif.mal { color: var(--bad); }
@@ -522,6 +571,8 @@
       <button class="iconbtn btn-danger" id="inv-del" aria-label="Eliminar">🗑️</button>
     </div>
 
+    <button class="btn-secondary hidden" id="inv-dash" style="margin-bottom:14px">📊 Ver el cuadre de la semana</button>
+
     <div id="inv-msg"></div>
 
     <div class="card hidden" id="inv-arranque-card">
@@ -561,6 +612,18 @@
     <button class="btn-primary" id="inv-cerrar" style="margin-bottom:10px">Cerrar la semana</button>
     <button class="btn-wa" id="inv-wa" style="margin-bottom:10px">📲 Enviar por WhatsApp</button>
     <button class="btn-secondary" id="inv-equivalencias">⚙️ Equivalencias</button>
+  </section>
+
+  <!-- ================= CUADRE ================= -->
+  <section id="view-dash" class="hidden">
+    <div class="topbar">
+      <button class="iconbtn" id="dash-back" aria-label="Volver">←</button>
+      <div style="flex:1">
+        <h1>📊 Cuadre</h1>
+        <div class="sub" id="dash-sub"></div>
+      </div>
+    </div>
+    <div id="dash-body"></div>
   </section>
 
   <!-- ================= EQUIVALENCIAS ================= -->
@@ -998,6 +1061,7 @@ function show(view) {
   $('view-fac').classList.toggle('hidden', view !== 'fac');
   $('view-inv').classList.toggle('hidden', view !== 'inv');
   $('view-eq').classList.toggle('hidden', view !== 'eq');
+  $('view-dash').classList.toggle('hidden', view !== 'dash');
   window.scrollTo(0, 0);
 }
 
@@ -3144,7 +3208,7 @@ function renderInv() {
   const inv = currentInv;
   // el inventario físico es otra cosa: la hoja completa, sin fórmula ni merma
   const fis = esFisico(inv);
-  for (const id of ['inv-reporte-card', 'inv-comparacion-card', 'inv-arranque-card', 'inv-equivalencias'])
+  for (const id of ['inv-reporte-card', 'inv-comparacion-card', 'inv-arranque-card', 'inv-equivalencias', 'inv-dash'])
     $(id).classList.toggle('hidden', fis);
   $('inv-fisico-card').classList.toggle('hidden', !fis);
   if (fis) {
@@ -3423,6 +3487,31 @@ function tieneConsumoConocido(id) {
   return Object.values(equivalencias()).some(r => r.consume && r.consume[id]);
 }
 
+/* Qué se le puede calcular a un artículo y en qué estado está su cuadre. Vive
+   en un solo sitio porque lo leen la fila del tramo y el panel de cuadre: si
+   cada pantalla lo dedujera por su cuenta, tarde o temprano dirían cosas
+   distintas del mismo producto. */
+function estadoCuadre(f) {
+  // también hay «recibido» si un renglón de factura se apuntó a este producto,
+  // aunque el producto no tenga entrada propia
+  const conRecibido = !!f.art.entrada || !!f.recibido;
+  const conVendido = tieneConsumoConocido(f.art.id);
+  const conFormula = conRecibido || conVendido;
+  const estado =
+    !conFormula ? 'solo-conteo'
+    // vendiste más de lo que la app sabe que entró: no es merma, falta cargar algo
+    : f.esperado < 0 ? 'imposible'
+    : f.conteo === null ? 'sin-contar'
+    : Math.abs(f.diferencia) < 0.01 ? 'cuadra'
+    : f.diferencia < 0 ? 'falta' : 'sobra';
+  return {
+    conRecibido, conVendido, conFormula, estado,
+    // sin receta que diga cuánto gasta cada plato, la diferencia es consumo, no merma
+    esMerma: conVendido,
+    pct: f.esperado > 0 && f.diferencia !== null ? (f.diferencia / f.esperado) * 100 : null
+  };
+}
+
 /* Una fila del tramo. Las casillas que no aplican no se pintan: de un producto
    de solo conteo no hay «recibido» ni «vendido» que enseñar, y una fila con dos
    casillas se lee de un vistazo en el teléfono. */
@@ -3431,11 +3520,7 @@ function filaComparacion(f, base, inv) {
   // el inicial se teclea solo si no lo da ya la semana anterior ni la hoja del
   // local; si lo dan, se muestra y se dice de dónde salió
   const aMano = f.origenInicial !== 'semana' && f.origenInicial !== 'fisico';
-  // también hay «recibido» si un renglón de factura se apuntó a este producto,
-  // aunque el producto no tenga entrada propia
-  const conRecibido = !!a.entrada || !!f.recibido;
-  const conVendido = tieneConsumoConocido(a.id);
-  const conFormula = conRecibido || conVendido;
+  const { conRecibido, conVendido, conFormula } = estadoCuadre(f);
   const detC = detalleDeConteo(inv, 'conteo', a);
   const detI = detalleDeConteo(inv, 'inicialManual', a);
   const pct = f.esperado > 0 && f.diferencia !== null ? (f.diferencia / f.esperado) * 100 : 0;
@@ -3492,6 +3577,188 @@ function filaComparacion(f, base, inv) {
             (f.esperado > 0 ? ' (' + fmt(Math.abs(pct)) + '%)' : '')) + '</div>') +
     '</div>';
 }
+
+/* ================================================================
+   EL CUADRE: cómo va la semana de un vistazo.
+   No calcula nada por su cuenta — lee lo mismo que la pantalla del tramo
+   (calcular + estadoCuadre) y lo ordena por lo que hay que mirar primero.
+   Si las dos pantallas dedujeran el estado por separado, tarde o temprano
+   dirían cosas distintas del mismo producto. */
+const VERDICTO = {
+  cuadra: { ic: '✓', cls: 'ok',    uno: 'Cuadra' },
+  falta:  { ic: '▼', cls: 'mal',   uno: 'Faltan' },
+  sobra:  { ic: '▲', cls: 'sobra', uno: 'Sobran' }
+};
+
+// «Inicial 2.720 + recibido 15.120 − vendido 12.564»: la cuenta a la vista, no
+// solo su resultado, que es lo que deja ver de dónde sale un descuadre
+function dashCadena(f, e) {
+  const t = ['Inicial ' + fmt(f.inicial)];
+  if (e.conRecibido) t.push('+ recibido ' + fmt(f.recibido));
+  if (e.conVendido) t.push('− vendido ' + fmt(f.vendido));
+  return t.join(' ');
+}
+
+/* La barra: el cero en el centro, lo que falta a la izquierda y lo que sobra a
+   la derecha, en porcentaje de lo que debería quedar. Se corta al 100% y ahí se
+   pone una punta, para que un −400% no aplaste al resto de la lista. */
+function dashBarra(pct, cls) {
+  if (pct === null) return '';
+  const tope = Math.min(Math.abs(pct), 100) / 2;
+  return '<div class="dash-bar"><span class="cero"></span>' +
+    '<i class="' + cls + '" style="width:' + tope.toFixed(2) + '%"></i></div>';
+}
+
+function dashFila(f) {
+  const e = f.e, v = VERDICTO[e.estado];
+  const u = f.art.unidad;
+  const dif = Math.abs(f.diferencia);
+  return '<div class="dash-row">' +
+    '<div class="dash-nom"><span>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</span>' +
+      '<span class="ver ' + v.cls + '">' + v.ic + ' ' + v.uno + ' ' + fmt(dif) + ' ' + u +
+      (e.pct === null ? '' : ' · ' + fmt(Math.abs(e.pct)) + '%') + '</span></div>' +
+    dashBarra(e.pct, v.cls) +
+    '<div class="dash-cadena">' + dashCadena(f, e) + '</div>' +
+    '<div class="dash-cadena">Debería quedar <b>' + fmt(f.esperado) + ' ' + u +
+      '</b> · contados <b>' + fmt(f.conteo) + '</b></div>' +
+    (e.esMerma ? '' :
+      '<div class="dash-nota">Es consumo, no merma: todavía no hay receta que diga cuánto gasta cada plato.</div>') +
+    '</div>';
+}
+
+function dashCheck(bien, texto, detalle) {
+  return '<div class="dash-check"><span class="ic">' + (bien ? '✅' : '⚠️') + '</span>' +
+    '<span class="tx"><b>' + texto + '</b>' +
+    (detalle ? '<div class="sub">' + detalle + '</div>' : '') + '</span></div>';
+}
+
+function dashChips(filas, cls) {
+  const tope = 30;
+  const chips = filas.slice(0, tope).map(f =>
+    '<span class="dash-chip' + (cls ? ' ' + cls : '') + '">' + f.art.emoji + ' ' + esc(f.art.nombre) + '</span>').join('');
+  return '<div class="dash-chips">' + chips + '</div>' +
+    (filas.length > tope ? '<div class="sub" style="margin-top:8px">y ' + (filas.length - tope) + ' más.</div>' : '');
+}
+
+function renderDash() {
+  const inv = currentInv;
+  $('dash-sub').textContent = fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
+    (inv.cerrado ? ' · cerrada' : ' · abierta');
+
+  const filas = calcular(inv).map(f => { f.e = estadoCuadre(f); return f; });
+  const de = k => filas.filter(f => f.e.estado === k);
+  const cuadran = de('cuadra'), faltan = de('falta'), sobran = de('sobra');
+  const sinContar = de('sin-contar'), imposibles = de('imposible'), soloConteo = de('solo-conteo');
+  const revisados = cuadran.length + faltan.length + sobran.length;
+  const noCuadran = faltan.length + sobran.length;
+  const h = [];
+
+  /* La cifra grande es la que decide si hay que hacer algo hoy. Mientras no haya
+     un solo conteo escrito no hay cuadre que enseñar, y decir «0 no cuadran»
+     sería mentir por omisión: ahí la cifra es lo que falta por contar. */
+  h.push('<div class="card"><div class="dash-hero">');
+  if (revisados) {
+    h.push('<div class="n ' + (noCuadran ? 'mal' : 'ok') + '">' + noCuadran + '</div>' +
+      '<div class="lbl">' + (noCuadran === 1 ? 'producto no cuadra' : 'productos no cuadran') +
+      ' · de ' + revisados + ' revisado' + (revisados === 1 ? '' : 's') + '</div>');
+  } else {
+    h.push('<div class="n">' + sinContar.length + '</div>' +
+      '<div class="lbl">' + (sinContar.length === 1 ? 'producto por contar' : 'productos por contar') +
+      '<br>El cuadre sale solo en cuanto escribas el conteo real.</div>');
+  }
+  h.push('</div><div class="dash-kpis">' +
+    '<div class="dash-kpi ok"><div class="v">' + cuadran.length + '</div><div class="t">✓ Cuadran</div></div>' +
+    '<div class="dash-kpi mal"><div class="v">' + faltan.length + '</div><div class="t">▼ Faltan</div></div>' +
+    '<div class="dash-kpi sobra"><div class="v">' + sobran.length + '</div><div class="t">▲ Sobran</div></div>' +
+    '<div class="dash-kpi"><div class="v">' + sinContar.length + '</div><div class="t">Por contar</div></div>' +
+    '</div></div>');
+
+  // ---- lo que hace falta para que el cuadre valga algo ----
+  const ventas = inv.ventas || [];
+  const unidades = ventas.reduce((n, v) => n + (Number(v.cantidad) || 0), 0);
+  const sinAsignar = codigosSinAsignar(inv);
+  const rango = inv.rangoReporte;
+  const activosSinContar = filas.filter(f => f.activo && f.conteo === null);
+  h.push('<div class="card"><h2>Antes de cerrar la semana</h2><div style="margin-top:6px">');
+  h.push(dashCheck(ventas.length > 0,
+    ventas.length ? 'Reporte de ventas cargado' : 'Falta el reporte de ventas',
+    ventas.length ? ventas.length + ' productos · ' + fmt(unidades) + ' unidades vendidas'
+      : 'Sin él no hay «vendido» que restar, así que no hay merma que calcular.'));
+  if (ventas.length) {
+    const cuadraRango = rango && rango.desde === inv.semanaInicio && rango.hasta === inv.semanaFin;
+    h.push(dashCheck(!!cuadraRango,
+      cuadraRango ? 'El reporte cubre la semana entera'
+        : rango ? 'El reporte no cubre la misma semana' : 'El reporte no dice qué rango cubre',
+      rango ? 'Del ' + fmtDate(rango.desde) + ' al ' + fmtDate(rango.hasta) +
+              (cuadraRango ? '' : ', y la semana va del ' + fmtDate(inv.semanaInicio) + ' al ' + fmtDate(inv.semanaFin) +
+                             '. Vuelve a exportarlo con ese rango o faltarán ventas.')
+            : 'Compruébalo al exportarlo: si sobran o faltan días, la merma sale torcida.'));
+  }
+  h.push(dashCheck(!sinAsignar.length,
+    sinAsignar.length ? sinAsignar.length + ' códigos del reporte no descuentan nada'
+      : 'Todos los códigos del reporte tienen equivalencia',
+    sinAsignar.length ? sinAsignar.slice(0, 4).map(v => esc(v.descripcion)).join(', ') +
+      (sinAsignar.length > 4 ? ' y ' + (sinAsignar.length - 4) + ' más' : '') +
+      '. Se venden pero no bajan de ningún producto.' : ''));
+  h.push(dashCheck(!activosSinContar.length,
+    activosSinContar.length ? activosSinContar.length + ' del control sin contar'
+      : 'Todo el control de la semana está contado',
+    activosSinContar.length ? activosSinContar.slice(0, 4).map(f => esc(f.art.nombre)).join(', ') +
+      (activosSinContar.length > 4 ? ' y ' + (activosSinContar.length - 4) + ' más' : '') : ''));
+  h.push('</div></div>');
+
+  // ---- lo que no cuadra, lo primero y con la cuenta a la vista ----
+  const malos = faltan.concat(sobran).sort((a, b) => {
+    const pa = a.e.pct === null ? Math.abs(a.diferencia) : Math.abs(a.e.pct);
+    const pb = b.e.pct === null ? Math.abs(b.diferencia) : Math.abs(b.e.pct);
+    return pb - pa;
+  });
+  if (malos.length) {
+    h.push('<div class="card"><div class="listhead"><h2>No cuadran</h2>' +
+      '<span class="sub">' + malos.length + ' de ' + revisados + '</span></div>' +
+      '<div class="dash-escala" style="margin-top:8px"><span>−100%</span><span>0</span><span>+100%</span></div>' +
+      malos.map(dashFila).join('') + '</div>');
+  }
+
+  if (cuadran.length) {
+    h.push('<div class="card"><div class="listhead"><h2>Cuadran</h2>' +
+      '<span class="sub">' + cuadran.length + '</span></div><div style="margin-top:10px">' +
+      dashChips(cuadran, 'ok') + '</div></div>');
+  }
+
+  // ---- lo que no se puede cuadrar todavía, y por qué ----
+  const conAviso = filas.filter(f => f.e.conFormula && f.avisoInicial);
+  const sinDatos = imposibles.concat(conAviso.filter(f => !imposibles.includes(f)));
+  if (sinDatos.length) {
+    h.push('<div class="card"><div class="listhead"><h2>Sin datos para cuadrar</h2>' +
+      '<span class="sub">' + sinDatos.length + '</span></div>' +
+      '<div class="sub" style="margin:2px 0 6px">Se venden pero la app no tiene de dónde restarlos: falta cargarles el inicial o las entradas de la semana. Hasta entonces su diferencia no significa nada.</div>' +
+      sinDatos.map(f => '<div class="dash-check"><span class="ic">⚠️</span><span class="tx">' +
+        '<b>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</b><div class="sub">' +
+        (f.esperado < 0
+          ? 'Se vendieron ' + fmt(Math.abs(f.esperado)) + ' ' + f.art.unidad + ' más de lo registrado'
+          : 'La hoja del local no se pudo traducir: ' + esc(f.avisoInicial)) +
+        '</div></span></div>').join('') + '</div>');
+  }
+
+  if (sinContar.length) {
+    h.push('<div class="card"><div class="listhead"><h2>Falta contarlos</h2>' +
+      '<span class="sub">' + sinContar.length + '</span></div>' +
+      '<div class="sub" style="margin:2px 0 10px">Se les puede calcular la fórmula, pero sin el conteo real no hay diferencia que enseñar.</div>' +
+      dashChips(sinContar) + '</div>');
+  }
+
+  if (soloConteo.length) {
+    h.push('<div class="card"><div class="sub">' + soloConteo.length +
+      ' productos de la hoja del local solo se cuentan: no tienen entradas ni receta que los gaste, ' +
+      'así que de ellos no hay merma que calcular.</div></div>');
+  }
+
+  $('dash-body').innerHTML = h.join('');
+}
+
+$('dash-back').onclick = () => { renderInv(); show('inv'); };
+$('inv-dash').onclick = () => { renderDash(); show('dash'); };
 
 /* La hoja del local son 242 productos: en una lista plana no se encuentra nada.
    Van agrupados por las mismas categorías del papel, cerradas, y solo se pinta

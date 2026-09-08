@@ -232,6 +232,29 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
   inicial (pollo 2.720 piezas = 17 cestas, y las bebidas e insumos cargados)
 - **Inventario físico del 31/08**, cerrado, 173 de 245 productos contados
 
+## El cuadre
+
+Dentro de cada semana hay un botón **«📊 Ver el cuadre»** que resume cómo va,
+sin pedir nada nuevo: lee lo mismo que la pantalla del tramo (`calcular` +
+`estadoCuadre`, que vive en un solo sitio justo para que las dos pantallas no
+puedan discrepar) y lo ordena por lo que hay que mirar primero.
+
+- Arriba la cifra que decide si hay que hacer algo hoy: cuántos productos no
+  cuadran de los revisados. **Mientras no haya un solo conteo escrito, la cifra
+  es lo que falta por contar** — decir «0 no cuadran» sería mentir por omisión.
+- Cuatro casillas: cuadran, faltan, sobran, por contar.
+- **Antes de cerrar la semana**: si está el reporte, si cubre el mismo rango, qué
+  códigos no descuentan nada y qué queda del control sin contar.
+- **No cuadran**, ordenados por desviación, con la cuenta entera a la vista
+  (`inicial + recibido − vendido`), lo contado, y una barra con el cero en el
+  centro: a la izquierda lo que falta, a la derecha lo que sobra, cortada al 100%
+  para que un −400% no aplaste al resto.
+- **Sin datos para cuadrar**: lo que se vende pero no tiene de dónde restarse.
+  Sale dicho, no escondido.
+
+Los colores solo acompañan: cada estado lleva además su símbolo y su palabra
+(«▼ Faltan», «▲ Sobran», «✓ Cuadran»), así que nada se lee por el color a secas.
+
 ## Lo que falta
 
 1. **Receta del tender** — 300 g de ajo, 150 g de mostaza, 100 g de marinado,
