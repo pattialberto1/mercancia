@@ -635,6 +635,7 @@
     <div class="card">
       <div class="listhead"><h2>Qué controlar</h2></div>
       <div class="sub" style="margin:2px 0 12px">Activa solo lo que estés registrando de verdad al recibir. Si activas algo sin anotar sus entradas, las cuentas saldrán en negativo.</div>
+      <button class="btn-secondary" id="eq-simple" style="margin-bottom:12px">⭐ Llevar todo lo que entra por la app</button>
       <div id="eq-articulos"></div>
     </div>
     <div class="card">
@@ -2624,6 +2625,43 @@ const ARTICULOS_FISICO = (() => {
 })();
 function catDeArticulo(a) { return a.cat || CAT_ARTICULO[a.id] || 'Otros'; }
 
+/* El control de la semana, simplificado (9/9/2026). La hoja del local son 245
+   renglones y llevarlos todos cada semana no funcionaba: Alberto pidió llevar
+   «lo que es pollo, papas, refrescos de todo tipo, agua de todo tipo, postres,
+   gatorade, yukipack, jugo barinas, Lipton, té verde, malta, tenta té,
+   ensaladas, verduras y todo lo que se recibe en la app».
+   Eso es, exactamente, TODO lo que tiene forma de entrar —recepción propia o
+   renglón de factura— más los pocos renglones de la hoja que nombró y que solo
+   viven ahí. Lo demás se sigue contando en el inventario físico cuando toque,
+   pero no obliga a nada cada semana. */
+const CONTROL_EXTRA = [
+  'f_postres_paolo', 'f_postres_tres_leches',
+  'f_te_lipton_durazno', 'f_te_lipton_limon', 'f_te_verde_lipton',
+  'f_agua_minalba_1_5l', 'f_ensalada'
+];
+const CONTROL_SEMANAL = ARTICULOS_TODOS.map(a => a.id)
+  .concat(CONTROL_EXTRA.filter(id => ARTICULOS_FISICO.some(a => a.id === id)));
+
+/* Se aplica una sola vez por teléfono. Los ajustes no se sincronizan, así que
+   cada uno lo hace al abrir la versión nueva; después se puede tocar a mano sin
+   que esto lo vuelva a pisar. */
+(function simplificarControl() {
+  if (db.settings.controlSimplificado) return;
+  db.settings.articulosActivos = CONTROL_SEMANAL.slice();
+  db.settings.controlSimplificado = 1;
+  save(false);
+})();
+
+/* Qué se puede marcar para llevar: todo lo que entra por la app, más los
+   renglones de la hoja que ya se llevan o que alguna receta gasta. Los otros
+   200 renglones no salen aquí — serían una lista imposible de recorrer. */
+function articulosElegibles() {
+  const activos = db.settings.articulosActivos || [];
+  const conReceta = idsConReceta();
+  return ARTICULOS_TODOS.concat(
+    ARTICULOS_FISICO.filter(a => activos.includes(a.id) || conReceta.has(a.id)));
+}
+
 /* Un renglón de la hoja que pasa a controlarse dentro de un artículo (los tres
    tamaños de envase, los sabores de Gatorade) deja de tener su propio
    «f_loquesea», y lo que se le apuntó a mano en una factura se quedaría sin
@@ -3496,7 +3534,11 @@ function estadoCuadre(f) {
   // aunque el producto no tenga entrada propia
   const conRecibido = !!f.art.entrada || !!f.recibido;
   const conVendido = tieneConsumoConocido(f.art.id);
-  const conFormula = conRecibido || conVendido;
+  /* Marcar un artículo para llevarlo es decir «de este sigo las entradas», así
+     que lleva la fórmula entera aunque esta semana no haya entrado nada y
+     aunque sea un renglón de la hoja. Sin esto, un renglón elegido a mano (los
+     postres, el té verde) desaparecía del cuadre las semanas flojas. */
+  const conFormula = conRecibido || conVendido || esActivo(f.art);
   const estado =
     !conFormula ? 'solo-conteo'
     // vendiste más de lo que la app sabe que entró: no es merma, falta cargar algo
@@ -3798,6 +3840,13 @@ function renderDash() {
   $('dash-body').innerHTML = h.join('');
 }
 
+$('eq-simple').onclick = () => {
+  db.settings.articulosActivos = CONTROL_SEMANAL.slice();
+  save(false);
+  renderEquivalencias();
+  toast('Se lleva todo lo que entra por la app: ' + CONTROL_SEMANAL.length + ' productos');
+};
+
 $('dash-back').onclick = () => { renderInv(); show('inv'); };
 $('inv-dash').onclick = () => { renderDash(); show('dash'); };
 
@@ -4047,7 +4096,7 @@ function renderArticulosActivos() {
   const activos = (db.settings.articulosActivos || ['pollo_pieza']);
   const cont = $('eq-articulos');
   cont.innerHTML = '';
-  for (const a of ARTICULOS_TODOS) {
+  for (const a of articulosElegibles()) {
     const on = activos.includes(a.id);
     const fijo = a.entrada && a.entrada.tipo === 'cestas';   // el pollo sale del rendimiento
     const pb = porBultoDe(a);
@@ -4061,6 +4110,7 @@ function renderArticulosActivos() {
                   POLLOS_POR_CESTA + ' pollos (' + fmt(piezasPorCestaRecibida()) + ' piezas).'
                 : a.unidad === 'kg' ? 'Se controla · se cuenta en kg'
                 : pb ? 'Se controla · 1 ' + nombreBulto1(a) + ' = ' + fmt(pb) + ' ' + a.unidad
+                : a.soloConteo ? 'Se controla · renglón de la hoja del local'
                      : 'Se controla · falta decir cuántas unidades trae un bulto')
         : 'No se controla') + '</div></div>' +
       (on && !fijo && a.unidad !== 'kg'

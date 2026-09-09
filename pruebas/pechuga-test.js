@@ -19,7 +19,7 @@ const hoy = new Date().toISOString().slice(0, 10);
 const VIEJO = {
   v: 2,
   settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-              articulosActivos: ['pollo_rojo', 'pechuga', 'camaron'] },
+              articulosActivos: ['pollo_rojo', 'pechuga', 'camaron'], controlSimplificado: 1 },
   recepciones: [{ id: 'r1', tipo: 'pollo_rojo', fecha: hoy, creada: 1, mod: 1, cerrada: true,
                   tara: 0, cestasVacias: 0, pesadas: [{ peso: 40, cestas: 0, ts: 1 }] }],
   facturas: [],

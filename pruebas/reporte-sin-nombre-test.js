@@ -79,7 +79,7 @@ const RUTA = '/tmp/claude-0/-home-user-mercancia/ed6921a4-268b-55f5-8ada-49af9ca
     localStorage.setItem('mercancia.pin', '7070');
     localStorage.setItem('mercancia.v1', JSON.stringify({
       v: 2, settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-                        articulosActivos: ['pollo_pieza'] },
+                        articulosActivos: ['pollo_pieza'], controlSimplificado: 1 },
       recepciones: [], facturas: [],
       // una semana distinta a propósito, para que el rango NO cuadre con el reporte
       inventarios: [{ id: 't1', semanaInicio: '2026-08-24', semanaFin: '2026-08-30',

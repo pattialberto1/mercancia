@@ -232,6 +232,31 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
   inicial (pollo 2.720 piezas = 17 cestas, y las bebidas e insumos cargados)
 - **Inventario físico del 31/08**, cerrado, 173 de 245 productos contados
 
+## Qué se lleva cada semana
+
+Alberto el 9/9: *«vamos a simplificar el inventario… porque no me está
+funcionando el inventario entero»*. Llevar los 245 renglones de la hoja cada
+semana no era realista. El **control de la semana** pasa a ser, por defecto,
+**todo lo que tiene forma de entrar en la app** —recepción propia o renglón de
+factura— más los pocos renglones que él nombró y que solo viven en la hoja:
+postres Paolo y tres leches, Lipton durazno y limón, té verde, agua Minalba de
+1,5L y la ensalada. Son **54 productos**, no 245.
+
+- Se aplica **una sola vez por teléfono** (`settings.controlSimplificado`), y
+  después se puede tocar a mano sin que vuelva a pisarse. Los ajustes no se
+  sincronizan, así que cada teléfono lo hace al abrir la versión nueva.
+- El botón **«⭐ Llevar todo lo que entra por la app»** en Equivalencias lo
+  vuelve a poner entero cuando haga falta.
+- **Marcar un artículo es decir «de este sigo las entradas»**, así que lleva la
+  fórmula entera aunque esa semana no haya entrado nada. Sin eso, un renglón de
+  la hoja elegido a mano desaparecía del cuadre las semanas flojas.
+- La lista de «Qué controlar» enseña lo que entra por la app **más** los
+  renglones de la hoja que ya se llevan o que alguna receta gasta. Los otros 200
+  no salen ahí: sería una lista imposible de recorrer.
+
+El resto de la hoja se sigue contando en el **inventario físico** cuando toque,
+pero no obliga a nada cada semana.
+
 ## El cuadre
 
 Dentro de cada semana hay un botón **«📊 Ver el cuadre»** que resume cómo va,

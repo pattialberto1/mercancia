@@ -48,7 +48,8 @@ const INVENTARIOS = [
     localStorage.setItem('mercancia.pin', '7070');
     localStorage.setItem('mercancia.v1', JSON.stringify({
       v: 2, settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-        articulosActivos: ['pollo_pieza'], proveedores: ['Tierra Santa', 'Alimentos Natropic'] },
+        articulosActivos: ['pollo_pieza'], controlSimplificado: 1,
+        proveedores: ['Tierra Santa', 'Alimentos Natropic'] },
       recepciones: [], facturas: [], inventarios: JSON.parse(invs), borradas: {}
     }));
   }, [JSON.stringify(INVENTARIOS)]);

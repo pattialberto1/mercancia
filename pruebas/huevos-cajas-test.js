@@ -37,7 +37,7 @@ const RECEPCIONES = [
     localStorage.setItem('mercancia.pin', '7070');
     localStorage.setItem('mercancia.v1', JSON.stringify({
       v: 2, settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-                        articulosActivos: ['huevos'] },
+                        articulosActivos: ['huevos'], controlSimplificado: 1 },
       recepciones: JSON.parse(recs), facturas: [], inventarios: [], borradas: {}
     }));
   }, [JSON.stringify(RECEPCIONES)]);

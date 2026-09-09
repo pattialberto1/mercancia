@@ -70,7 +70,7 @@ const ACTIVOS = ['pollo_pieza', 'ref_1l', 'ref_15l', 'agua', 'papas', 'cebollin'
     localStorage.setItem('mercancia.pin', '7070');
     localStorage.setItem('mercancia.v1', JSON.stringify({
       v: 2, settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '',
-        articulosActivos: JSON.parse(activos),
+        articulosActivos: JSON.parse(activos), controlSimplificado: 1,
         porBulto: { ref_1l: 6, ref_15l: 12, ref_2l: 6, agua: 24, agua_glacier: 24, malta: 36, yuky: 24, huevos: 24 } },
       recepciones: JSON.parse(recs), facturas: [],
       inventarios: JSON.parse(invs), borradas: {}
