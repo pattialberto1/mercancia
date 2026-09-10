@@ -330,6 +330,7 @@
   .dash-cadena { font-size: 12.5px; color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
   .dash-cadena b { color: var(--text); font-weight: 700; }
   .dash-nota { font-size: 12.5px; color: var(--muted); margin-top: 5px; font-weight: 600; }
+  .dash-nota b { color: var(--text); font-weight: 800; }
 
   /* barra divergente: a la izquierda lo que falta, a la derecha lo que sobra,
      con el cero en el centro. La punta de fuera va redondeada; la del cero, recta. */
@@ -3664,6 +3665,64 @@ function dashBarra(pct, cls) {
     '<i class="' + cls + '" style="width:' + tope.toFixed(2) + '%"></i></div>';
 }
 
+/* Cuántas veces ha entrado cada artículo por la app, en toda su historia. Es
+   el orden que pidió Alberto: «lo más importante, que es lo que más se recibe».
+   Se cuenta por veces y no por cantidad porque las cantidades no se pueden
+   comparar entre sí: 2.251 kg de papas y 2.280 refrescos no dicen lo mismo. */
+// bebidas, postres y todo lo que se recibe: lo que se enseña en el panel
+function entraPorLaApp(a) { return !!a.entrada || CONTROL_EXTRA.includes(a.id); }
+
+function vecesRecibido() {
+  const veces = {};
+  const suma = id => { veces[id] = (veces[id] || 0) + 1; };
+  for (const r of db.recepciones) {
+    const a = ARTICULOS_TODOS.find(x => x.entrada && x.entrada.producto === r.tipo);
+    if (a) suma(a.id);
+  }
+  for (const f of db.facturas) for (const l of f.lineas || []) {
+    if (l.art) { suma(artDeLineaVinculado(l)); continue; }
+    const nom = normaliza(l.nombre);
+    const a = ARTICULOS_TODOS.find(x => x.entrada && x.entrada.tipo === 'factura' &&
+      x.entrada.nombres.map(normaliza).some(k => nom.includes(k)));
+    if (a) suma(a.id);
+  }
+  return veces;
+}
+function artDeLineaVinculado(l) {
+  return l.art && l.art.startsWith('f_') ? (VINCULO_FISICO[l.art.slice(2)] || l.art) : l.art;
+}
+
+/* Cuántos kg trae de media una cesta de este producto. No es una constante del
+   producto: sale de dividir todo lo que se ha recibido entre todas las cestas
+   que trajo. Sirve para decir «te quedan 1.929 kg, o sea unas 89 cestas», que
+   es como se mira en la cava. */
+function kgPorCesta(tipo) {
+  let kg = 0, cestas = 0;
+  for (const r of db.recepciones) {
+    if (r.tipo !== tipo) continue;
+    const t = totals(r);
+    kg += t.neto; cestas += t.cestas;
+  }
+  return cestas ? { kg: round2(kg / cestas), cestas } : null;
+}
+
+/* «5.276 piezas» no se ve en la cava; «33 cestas de 20 pollos» sí. Se redondea
+   a cesta entera cuando son muchas —nadie busca 89,21 cestas— y a un decimal
+   cuando son pocas, que ahí sí importa la media. */
+function cestasFmt(n) { return n >= 10 ? fmt(Math.round(n), 0) : fmt(round2(n), 1); }
+function enCestas(art, n) {
+  if (!n || n < 0) return '';
+  if (art.entrada && art.entrada.tipo === 'cestas') {
+    return '<b>≈ ' + cestasFmt(n / piezasPorCestaMarinada()) + ' cestas</b> de ' +
+      POLLOS_POR_CESTA_MARINADA + ' pollos · ' + fmt(round2(n / PIEZAS_POR_POLLO)) + ' pollos';
+  }
+  if (!art.entrada || art.entrada.tipo !== 'peso') return '';
+  const k = kgPorCesta(art.entrada.producto);
+  if (!k) return '';
+  return '<b>≈ ' + cestasFmt(n / k.kg) + ' cestas</b> · a ' + fmt(k.kg) +
+    ' kg por cesta, el promedio de las ' + fmt(k.cestas) + ' recibidas';
+}
+
 /* Un producto, con la frase entera: «tenías esto, recibiste esto, vendiste esto,
    te queda tanto». Antes solo se pintaba la fila de los que no cuadraban, así
    que un producto sin contar no enseñaba nada — y contar no hace falta para
@@ -3689,10 +3748,15 @@ function dashFila(f) {
         (e.pct === null ? '' : ' · ' + fmt(Math.abs(e.pct)) + '%')) + '</span></div>' +
       (e.esMerma ? '' : '<div class="dash-nota">Es consumo, no merma: todavía no hay receta que diga cuánto gasta cada plato.</div>');
   }
+  const cestas = enCestas(f.art, f.esperado);
   return '<div class="dash-row">' +
-    '<div class="dash-nom"><span>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</span></div>' +
+    '<div class="dash-nom"><span>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</span>' +
+      (f.veces ? '<span class="ver" style="color:var(--muted);font-weight:600">' + f.veces +
+        (f.veces === 1 ? ' entrada' : ' entradas') + '</span>' : '') + '</div>' +
     '<div class="dash-cifras">' + n(f.inicial) + n(f.recibido) + n(f.vendido) + n(f.esperado, 'queda') + '</div>' +
-    '<div class="dash-uni">' + esc(u) + '</div>' + pie + '</div>';
+    '<div class="dash-uni">' + esc(u) + '</div>' +
+    (cestas ? '<div class="dash-nota">' + cestas + '</div>' : '') +
+    pie + '</div>';
 }
 
 function dashCheck(bien, texto, detalle) {
@@ -3730,8 +3794,14 @@ function renderDash() {
   /* Las cifras de arriba son SOLO del control de la semana: son los productos
      que se decidió llevar y los únicos que hay que contar para poder cerrar.
      Contar los 51 con fórmula daba un número que no significaba nada. */
-  const control = filas.filter(f => f.activo);
-  const resto = filas.filter(f => !f.activo && f.e.conFormula);
+  /* En el panel solo va lo que se recibe por la app —bebidas, postres y todo lo
+     que tiene entrada— que es lo que Alberto pidió ver. Los renglones de la
+     hoja que solo se cuentan no pintan nada aquí: para eso está el físico. */
+  const veces = vecesRecibido();
+  for (const f of filas) f.veces = veces[f.art.id] || 0;
+  const control = filas.filter(f => f.activo && entraPorLaApp(f.art));
+  const fuera = filas.filter(f => !control.includes(f) && f.e.conFormula &&
+    ['falta', 'sobra', 'imposible'].includes(f.e.estado));
   const de = (lista, k) => lista.filter(f => f.e.estado === k);
   const cuadran = de(control, 'cuadra'), faltan = de(control, 'falta'), sobran = de(control, 'sobra');
   const sinContar = de(control, 'sin-contar');
@@ -3761,8 +3831,7 @@ function renderDash() {
     '<div class="dash-kpi sobra"><div class="v">' + sobran.length + '</div><div class="t">▲ Sobran</div></div>' +
     '<div class="dash-kpi"><div class="v">' + sinContar.length + '</div><div class="t">Por contar</div></div>' +
     '</div><div class="sub" style="margin-top:10px;text-align:center">' +
-    'De los <b>' + control.length + '</b> productos del ⭐ control de la semana' +
-    (resto.length ? ' · hay ' + resto.length + ' más de la hoja, abajo' : '') + '</div></div>');
+    'De los <b>' + control.length + '</b> productos que entran por la app</div></div>');
 
   // ---- qué entra y qué NO entra en esta semana ----
   const mov = movimientosDeLaSemana(inv);
@@ -3802,24 +3871,13 @@ function renderDash() {
       '. Se venden pero no bajan de ningún producto.' : ''));
   h.push('</div></div>');
 
-  // ---- la tabla: todos los del control, con la frase entera ----
-  const porDesviacion = (a, b) => {
-    const pa = a.e.pct === null ? Math.abs(a.diferencia) : Math.abs(a.e.pct);
-    const pb = b.e.pct === null ? Math.abs(b.diferencia) : Math.abs(b.e.pct);
-    return pb - pa;
-  };
-  const porTamano = (a, b) => (b.inicial + b.recibido) - (a.inicial + a.recibido);
-  const imposibles = de(control, 'imposible');
-  const conMovimiento = sinContar.filter(f => f.inicial || f.recibido || f.vendido);
-  const quietos = sinContar.filter(f => !f.inicial && !f.recibido && !f.vendido);
-  /* El orden es el de la atención: primero lo que no cuadra, luego lo que no se
-     puede cuadrar, después lo que falta contar y sí se movió, y al final lo que
-     ya cuadró. Lo que no se movió nada va como lista de nombres: pintarle
-     cuatro ceros a cada uno solo estorba. */
-  const tabla = faltan.concat(sobran).sort(porDesviacion)
-    .concat(imposibles.sort(porTamano))
-    .concat(conMovimiento.sort(porTamano))
-    .concat(cuadran.sort(porTamano));
+  /* ---- la tabla ----
+     El orden lo pidió él: de lo que más entra por la app a lo que menos, y no
+     por lo que peor pinta. Se enseña el número de entradas al lado del nombre
+     para que se vea de dónde sale el orden y no parezca caprichoso. */
+  const tabla = control.slice().sort((a, b) =>
+    (b.veces - a.veces) || ((b.inicial + b.recibido) - (a.inicial + a.recibido)) ||
+    a.art.nombre.localeCompare(b.art.nombre));
   const CAB = '<div class="dash-cab"><span>Tenías</span><span>Recibiste</span>' +
     '<span>Vendiste</span><span>Te queda</span></div>';
   if (tabla.length) {
@@ -3831,40 +3889,21 @@ function renderDash() {
         ? '«Tenías» es lo que se contó en el inventario físico del ' + fmtDate(b.fuente.semanaInicio) + '.'
         : b.tipo === 'semana' && b.fuente
         ? '«Tenías» es lo que quedó al cerrar la semana del ' + fmtDate(b.fuente.semanaInicio) + '.'
-        : '«Tenías» es lo que se escribió a mano como inicial.') + '</div>' +
+        : '«Tenías» es lo que se escribió a mano como inicial.') +
+      ' De lo que más entra por la app a lo que menos.</div>' +
       CAB + tabla.map(dashFila).join('') + '</div>');
   }
-  if (quietos.length) {
-    h.push('<div class="card"><div class="listhead"><h2>Sin movimiento</h2>' +
-      '<span class="sub">' + quietos.length + '</span></div>' +
-      '<div class="sub" style="margin:2px 0 10px">Ni había, ni entró, ni se vendió. Cuéntalos igual por si queda algo guardado.</div>' +
-      dashChips(quietos) + '</div>');
-  }
 
-  /* El resto de la hoja va aparte y al final: se le puede calcular la fórmula,
-     pero no se eligió para el control, así que ni obliga a contar nada ni tiene
-     por qué inflar las cifras de arriba. */
-  // los de fuera que dan problema salen igual: uno que se vendió sin tener de
-  // dónde restarlo no puede desaparecer solo por no estar en el control
-  const restoMalos = resto.filter(f => ['falta', 'sobra', 'imposible'].includes(f.e.estado))
-    .sort(porDesviacion);
-  const restoSinContar = resto.filter(f => f.e.estado === 'sin-contar');
-  if (restoMalos.length) {
-    h.push('<div class="card"><div class="listhead"><h2>Fuera del control</h2>' +
-      '<span class="sub">' + restoMalos.length + ' con lío</span></div>' +
-      '<div class="sub" style="margin:2px 0 0">Productos de la hoja que no elegiste controlar esta semana, pero que sí se pueden calcular.</div>' +
-      CAB + restoMalos.map(dashFila).join('') + '</div>');
-  }
-  if (restoSinContar.length) {
-    h.push('<div class="card"><div class="sub"><b>' + restoSinContar.length +
-      '</b> productos más de la hoja se podrían cuadrar, pero no están en el control de la semana ' +
-      'y no se han contado. Se activan en ⚙️ Equivalencias si los quieres llevar.</div></div>');
-  }
-  const soloConteo = filas.filter(f => f.e.estado === 'solo-conteo');
-  if (soloConteo.length) {
-    h.push('<div class="card"><div class="sub">' + soloConteo.length +
-      ' productos de la hoja del local solo se cuentan: no tienen entradas ni receta que los gaste, ' +
-      'así que de ellos no hay merma que calcular.</div></div>');
+  /* Lo de fuera del panel no se pinta, pero tampoco se calla: si algo que se
+     vende está descuadrado y no está aquí, hay que poder enterarse. */
+  if (fuera.length) {
+    h.push('<div class="card"><div class="sub"><b>' + fuera.length + '</b> ' +
+      (fuera.length === 1 ? 'producto de la hoja del local está descuadrado y no sale aquí'
+                          : 'productos de la hoja del local están descuadrados y no salen aquí') +
+      ' porque no se reciben por la app: ' +
+      fuera.slice(0, 5).map(f => esc(f.art.nombre)).join(', ') +
+      (fuera.length > 5 ? ' y ' + (fuera.length - 5) + ' más' : '') +
+      '. Se ven en el tramo.</div></div>');
   }
 
   $('dash-body').innerHTML = h.join('');

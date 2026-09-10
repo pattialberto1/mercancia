@@ -267,11 +267,22 @@ puedan discrepar) y lo ordena por lo que hay que mirar primero.
 
 - **Producto por producto**, la frase entera: «tenías esto, recibiste esto,
   vendiste esto, te queda tanto», en cuatro columnas y con la unidad debajo.
-  Sale para TODOS los del control, se hayan contado o no —contar solo hace falta
-  para la diferencia, no para saber lo que debería haber— ordenados por lo que
-  hay que mirar antes: lo que no cuadra, lo que no se puede cuadrar, lo que
-  falta contar y sí se movió, y al final lo que ya cuadró. Lo que no se movió
-  nada va como lista de nombres: pintarle cuatro ceros a cada uno solo estorba.
+  Sale se haya contado o no: contar solo hace falta para la diferencia, no para
+  saber lo que debería haber.
+- **Solo lo que se recibe por la app** —bebidas, postres y todo lo que tiene
+  entrada—, que es lo que pidió Alberto el 10/9. Los renglones que solo se
+  cuentan no pintan nada ahí: para eso está el físico. Lo de fuera no se pinta
+  pero tampoco se calla: una línea al final nombra lo que está descuadrado y no
+  sale.
+- **Ordenado por lo que más entra por la app**, no por lo que peor pinta. Se
+  cuenta por VECES que ha entrado y no por cantidad, porque las cantidades no se
+  pueden comparar entre sí (2.251 kg de papas y 2.280 refrescos no dicen lo
+  mismo); al lado del nombre va el número de entradas para que se vea de dónde
+  sale el orden.
+- **En cestas, además de en su unidad.** «5.276 piezas» no se ve en la cava;
+  «33 cestas de 20 pollos» sí. En lo que va por peso, los kg por cesta salen del
+  **promedio real de todo lo recibido** (las papas, 21,63 kg de 968 cestas), no
+  de una cifra puesta a mano.
 - Arriba la cifra que decide si hay que hacer algo hoy: cuántos productos no
   cuadran de los contados. **Mientras no haya un solo conteo escrito, la cifra
   es lo que falta por contar** — decir «0 no cuadran» sería mentir por omisión.

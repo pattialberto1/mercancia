@@ -93,7 +93,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('y el de «por contar» cuenta solo el control, no la hoja entera',
     kpi('Por contar') === real.control['sin-contar'] && real.todosSinContar > real.control['sin-contar'],
     [kpis, real]);
-  check('y se dice de cuántos son esas cifras', /De los 5 productos del ⭐ control/.test(
+  check('y se dice de cuántos son esas cifras', /De los 5 productos que entran por la app/.test(
     await page.textContent('.dash-kpis + .sub')));
   check('el pollo cuadra clavado', real.control.cuadra >= 1, real);
   check('las lumpias faltan y el refresco sobra', real.control.falta === 1 && real.control.sobra === 1, real);
@@ -138,9 +138,9 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('y dice por qué en vez de dar un número falso',
     agua && /Se vendieron 4 unidades más de lo registrado: faltan entradas por cargar/.test(agua.txt),
     agua && agua.txt);
-  // los que no se movieron nada no gastan cuatro ceros cada uno
-  check('lo que no se movió va aparte, como lista de nombres',
-    /Sin movimiento[\s\S]*Maltas/.test(body), body.slice(-500));
+  const malta = await fila('Maltas');
+  check('lo que no se movió sale igual, con sus ceros y sin inventar nada',
+    malta && malta.cifras.join('|') === '0|0|0|0' && /Falta contarlo/.test(malta.txt), malta);
   check('avisa de los códigos que no descuentan nada',
     /1 códigos? del reporte no descuentan nada|no descuentan nada/.test(body) && /VASO DE REFRESCO/.test(body));
   check('y de que el reporte sí cubre la semana', /El reporte cubre la semana entera/.test(body));
@@ -151,8 +151,34 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   // y de verdad no suman: el refresco sobra 5, no 95
   check('los 90 refrescos de después no se cuelan en el recibido',
     (await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'ref_1l').recibido)) === 0);
-  check('los de solo conteo se explican aparte',
-    /solo se cuentan: no tienen entradas ni receta/.test(body));
+  /* En el panel solo va lo que se recibe por la app. Lo de fuera no se pinta,
+     pero tampoco se calla: si algo que se vende está descuadrado, hay que
+     poder enterarse. */
+  check('lo descuadrado que no se recibe por la app no se pinta pero se avisa',
+    /está descuadrado y no sale aquí porque no se recibe/.test(body) ||
+    /están descuadrados y no salen aquí porque no se reciben/.test(body), body.slice(-400));
+  check('y no se cuelan los cientos de renglones que solo se cuentan',
+    !/Coleto|Teipe|Servilletas/.test(body));
+  // «5.276 piezas» no se ve en la cava; «33 cestas» sí
+  const pollo = await fila('Piezas de pollo');
+  check('el pollo dice también cuántas cestas de 20 pollos son',
+    pollo && /≈ 7,5 cestas de 20 pollos · 150 pollos/.test(pollo.txt), pollo && pollo.txt);
+  /* Y en lo que va por peso, el promedio real de kg por cesta: en la cava se
+     miran cestas, no kilos. El promedio sale de todo lo recibido, no de una
+     cifra puesta a mano. */
+  const kgc = await page.evaluate(() => {
+    db.recepciones.push({ id: 'rp1', tipo: 'papas', fecha: currentInv.semanaInicio, creada: 1, mod: 1,
+      cerrada: true, tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
+      pesadas: [{ peso: 106.5, cestas: 5, ts: 1 }] });        // neto 95 kg en 5 cestas = 19 kg/cesta
+    db.settings.articulosActivos = [...db.settings.articulosActivos, 'papas'];
+    save(false); renderDash();
+    return kgPorCesta('papas');
+  });
+  check('el kg por cesta sale de lo recibido: 95 kg en 5 cestas = 19',
+    kgc && kgc.kg === 19 && kgc.cestas === 5, kgc);
+  const pap = await fila('Papas');
+  check('y con eso dice cuántas cestas quedan',
+    pap && /cestas.*19 kg por cesta, el promedio de las 5 recibidas/.test(pap.txt), pap && pap.txt);
 
   // ---------- sin conteo no se inventa un cuadre ----------
   await page.click('#dash-back');
