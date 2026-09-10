@@ -338,7 +338,18 @@
   .dash-bar i { position: absolute; top: 0; bottom: 0; display: block; }
   .dash-bar i.mal { right: 50%; background: var(--bad); border-radius: 4px 0 0 4px; }
   .dash-bar i.sobra { left: 50%; background: var(--accent); border-radius: 0 4px 4px 0; }
-  .dash-escala { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); font-weight: 700; }
+
+  /* «tenías · recibiste · vendiste · te queda»: la frase entera en cuatro
+     columnas, con la cabecera una sola vez arriba de la tarjeta */
+  .dash-cab, .dash-cifras { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .dash-cab { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .dash-cab span { font-size: 10px; color: var(--muted); font-weight: 700;
+                   text-transform: uppercase; letter-spacing: .03em; text-align: right; }
+  .dash-cifras { margin-top: 6px; }
+  .dash-cifras b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+  .dash-cifras b.cero { color: var(--muted); font-weight: 500; }
+  .dash-cifras b.queda { color: var(--accent); }
+  .dash-uni { font-size: 11px; color: var(--muted); font-weight: 600; text-align: right; margin-top: 1px; }
 
   .dash-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .dash-chip { border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; }
@@ -807,7 +818,9 @@ const defaults = {
                           f_te_verde_lipton: 12,               // 2 CJ = 24 und
                           f_te_lipton_limon: 12,               // 2 CJ = 24 und
                           // confirmados por Alberto el 5/9: los dos platos van igual
-                          f_platos_n10: 200, f_platos_n9: 200 } },
+                          f_platos_n10: 200, f_platos_n9: 200,
+                          // y el 9/9, repasando los bultos de las bebidas
+                          f_agua_minalba_1_5l: 12 } },
                           /* Sin poner a propósito:
                              - Tapa de tina de ensalada: se sabe lo que hay (8 bultos y 92 sueltas)
                                pero no lo que trae un bulto.
@@ -3651,21 +3664,35 @@ function dashBarra(pct, cls) {
     '<i class="' + cls + '" style="width:' + tope.toFixed(2) + '%"></i></div>';
 }
 
+/* Un producto, con la frase entera: «tenías esto, recibiste esto, vendiste esto,
+   te queda tanto». Antes solo se pintaba la fila de los que no cuadraban, así
+   que un producto sin contar no enseñaba nada — y contar no hace falta para
+   saber lo que debería haber. */
 function dashFila(f) {
-  const e = f.e, v = VERDICTO[e.estado];
-  const u = f.art.unidad;
-  const dif = Math.abs(f.diferencia);
+  const e = f.e, u = f.art.unidad;
+  const v = VERDICTO[e.estado];
+  const n = (x, cls) => '<b class="' + (x ? (cls || '') : 'cero') + '">' + fmt(x) + '</b>';
+  let pie;
+  if (e.estado === 'imposible') {
+    pie = '<div class="dash-nota" style="color:var(--bad)">⚠️ Se vendieron ' +
+      fmt(Math.abs(f.esperado)) + ' ' + u + ' más de lo registrado: faltan entradas por cargar.</div>';
+  } else if (f.conteo === null) {
+    pie = '<div class="dash-nota">Falta contarlo para saber si cuadra.</div>';
+  } else {
+    const dif = Math.abs(f.diferencia);
+    // en el que cuadra no se pinta barra: no hay desviación que enseñar
+    pie = (e.estado === 'cuadra' ? '' : dashBarra(e.pct, v.cls)) +
+      '<div class="dash-nota">Contaste <b style="color:var(--text)">' + fmt(f.conteo) + '</b> · ' +
+      '<span class="' + v.cls + '" style="color:var(--' +
+        (v.cls === 'ok' ? 'ok' : v.cls === 'mal' ? 'bad' : 'accent') + ')">' + v.ic + ' ' + v.uno +
+      (e.estado === 'cuadra' ? ' exacto' : ' ' + fmt(dif) + ' ' + u +
+        (e.pct === null ? '' : ' · ' + fmt(Math.abs(e.pct)) + '%')) + '</span></div>' +
+      (e.esMerma ? '' : '<div class="dash-nota">Es consumo, no merma: todavía no hay receta que diga cuánto gasta cada plato.</div>');
+  }
   return '<div class="dash-row">' +
-    '<div class="dash-nom"><span>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</span>' +
-      '<span class="ver ' + v.cls + '">' + v.ic + ' ' + v.uno + ' ' + fmt(dif) + ' ' + u +
-      (e.pct === null ? '' : ' · ' + fmt(Math.abs(e.pct)) + '%') + '</span></div>' +
-    dashBarra(e.pct, v.cls) +
-    '<div class="dash-cadena">' + dashCadena(f, e) + '</div>' +
-    '<div class="dash-cadena">Debería quedar <b>' + fmt(f.esperado) + ' ' + u +
-      '</b> · contados <b>' + fmt(f.conteo) + '</b></div>' +
-    (e.esMerma ? '' :
-      '<div class="dash-nota">Es consumo, no merma: todavía no hay receta que diga cuánto gasta cada plato.</div>') +
-    '</div>';
+    '<div class="dash-nom"><span>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</span></div>' +
+    '<div class="dash-cifras">' + n(f.inicial) + n(f.recibido) + n(f.vendido) + n(f.esperado, 'queda') + '</div>' +
+    '<div class="dash-uni">' + esc(u) + '</div>' + pie + '</div>';
 }
 
 function dashCheck(bien, texto, detalle) {
@@ -3775,55 +3802,58 @@ function renderDash() {
       '. Se venden pero no bajan de ningún producto.' : ''));
   h.push('</div></div>');
 
-  // ---- lo que no cuadra, con la cuenta a la vista ----
+  // ---- la tabla: todos los del control, con la frase entera ----
   const porDesviacion = (a, b) => {
     const pa = a.e.pct === null ? Math.abs(a.diferencia) : Math.abs(a.e.pct);
     const pb = b.e.pct === null ? Math.abs(b.diferencia) : Math.abs(b.e.pct);
     return pb - pa;
   };
-  const malos = faltan.concat(sobran).sort(porDesviacion);
-  const escala = '<div class="dash-escala" style="margin-top:8px"><span>−100%</span><span>0</span><span>+100%</span></div>';
-  if (malos.length) {
-    h.push('<div class="card"><div class="listhead"><h2>⭐ No cuadran</h2>' +
-      '<span class="sub">' + malos.length + ' de ' + revisados + '</span></div>' +
-      escala + malos.map(dashFila).join('') + '</div>');
+  const porTamano = (a, b) => (b.inicial + b.recibido) - (a.inicial + a.recibido);
+  const imposibles = de(control, 'imposible');
+  const conMovimiento = sinContar.filter(f => f.inicial || f.recibido || f.vendido);
+  const quietos = sinContar.filter(f => !f.inicial && !f.recibido && !f.vendido);
+  /* El orden es el de la atención: primero lo que no cuadra, luego lo que no se
+     puede cuadrar, después lo que falta contar y sí se movió, y al final lo que
+     ya cuadró. Lo que no se movió nada va como lista de nombres: pintarle
+     cuatro ceros a cada uno solo estorba. */
+  const tabla = faltan.concat(sobran).sort(porDesviacion)
+    .concat(imposibles.sort(porTamano))
+    .concat(conMovimiento.sort(porTamano))
+    .concat(cuadran.sort(porTamano));
+  const CAB = '<div class="dash-cab"><span>Tenías</span><span>Recibiste</span>' +
+    '<span>Vendiste</span><span>Te queda</span></div>';
+  if (tabla.length) {
+    const b = baseInicial(inv);
+    h.push('<div class="card"><div class="listhead"><h2>Producto por producto</h2>' +
+      '<span class="sub">' + tabla.length + '</span></div>' +
+      '<div class="sub" style="margin:2px 0 10px">' +
+      (b.tipo === 'fisico' && b.fuente
+        ? '«Tenías» es lo que se contó en el inventario físico del ' + fmtDate(b.fuente.semanaInicio) + '.'
+        : b.tipo === 'semana' && b.fuente
+        ? '«Tenías» es lo que quedó al cerrar la semana del ' + fmtDate(b.fuente.semanaInicio) + '.'
+        : '«Tenías» es lo que se escribió a mano como inicial.') + '</div>' +
+      CAB + tabla.map(dashFila).join('') + '</div>');
   }
-  if (cuadran.length) {
-    h.push('<div class="card"><div class="listhead"><h2>⭐ Cuadran</h2>' +
-      '<span class="sub">' + cuadran.length + '</span></div><div style="margin-top:10px">' +
-      dashChips(cuadran, 'ok') + '</div></div>');
-  }
-  if (sinContar.length) {
-    h.push('<div class="card"><div class="listhead"><h2>⭐ Falta contarlos</h2>' +
-      '<span class="sub">' + sinContar.length + '</span></div>' +
-      '<div class="sub" style="margin:2px 0 10px">Sin el conteo real no hay diferencia que enseñar. Se escriben en el tramo.</div>' +
-      dashChips(sinContar) + '</div>');
-  }
-
-  // ---- lo que no se puede cuadrar todavía, y por qué ----
-  const sinDatos = filas.filter(f => f.e.estado === 'imposible' || (f.e.conFormula && f.avisoInicial));
-  if (sinDatos.length) {
-    h.push('<div class="card"><div class="listhead"><h2>Sin datos para cuadrar</h2>' +
-      '<span class="sub">' + sinDatos.length + '</span></div>' +
-      '<div class="sub" style="margin:2px 0 6px">Se venden pero la app no tiene de dónde restarlos: falta cargarles el inicial o las entradas de la semana. Hasta entonces su diferencia no significa nada.</div>' +
-      sinDatos.map(f => '<div class="dash-check"><span class="ic">⚠️</span><span class="tx">' +
-        '<b>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</b><div class="sub">' +
-        (f.esperado < 0
-          ? 'Se vendieron ' + fmt(Math.abs(f.esperado)) + ' ' + f.art.unidad + ' más de lo registrado'
-          : 'La hoja del local no se pudo traducir: ' + esc(f.avisoInicial)) +
-        '</div></span></div>').join('') + '</div>');
+  if (quietos.length) {
+    h.push('<div class="card"><div class="listhead"><h2>Sin movimiento</h2>' +
+      '<span class="sub">' + quietos.length + '</span></div>' +
+      '<div class="sub" style="margin:2px 0 10px">Ni había, ni entró, ni se vendió. Cuéntalos igual por si queda algo guardado.</div>' +
+      dashChips(quietos) + '</div>');
   }
 
   /* El resto de la hoja va aparte y al final: se le puede calcular la fórmula,
      pero no se eligió para el control, así que ni obliga a contar nada ni tiene
      por qué inflar las cifras de arriba. */
-  const restoMalos = resto.filter(f => f.e.estado === 'falta' || f.e.estado === 'sobra').sort(porDesviacion);
+  // los de fuera que dan problema salen igual: uno que se vendió sin tener de
+  // dónde restarlo no puede desaparecer solo por no estar en el control
+  const restoMalos = resto.filter(f => ['falta', 'sobra', 'imposible'].includes(f.e.estado))
+    .sort(porDesviacion);
   const restoSinContar = resto.filter(f => f.e.estado === 'sin-contar');
   if (restoMalos.length) {
     h.push('<div class="card"><div class="listhead"><h2>Fuera del control</h2>' +
-      '<span class="sub">' + restoMalos.length + ' no cuadran</span></div>' +
+      '<span class="sub">' + restoMalos.length + ' con lío</span></div>' +
       '<div class="sub" style="margin:2px 0 0">Productos de la hoja que no elegiste controlar esta semana, pero que sí se pueden calcular.</div>' +
-      escala + restoMalos.map(dashFila).join('') + '</div>');
+      CAB + restoMalos.map(dashFila).join('') + '</div>');
   }
   if (restoSinContar.length) {
     h.push('<div class="card"><div class="sub"><b>' + restoSinContar.length +

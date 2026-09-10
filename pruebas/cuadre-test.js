@@ -28,7 +28,8 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   await page.waitForTimeout(250);
 
   await page.evaluate(() => {
-    db.settings.articulosActivos = ['pollo_pieza', 'ref_1l', 'lumpias'];
+    // «malta» va a propósito sin nada: ni inicial, ni entradas, ni ventas
+    db.settings.articulosActivos = ['pollo_pieza', 'ref_1l', 'lumpias', 'malta', 'f_agua_minalba_1_5l'];
     db.settings.porBulto = Object.assign({}, db.settings.porBulto, { lumpias: 0 });
     save(false);
   });
@@ -92,7 +93,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('y el de «por contar» cuenta solo el control, no la hoja entera',
     kpi('Por contar') === real.control['sin-contar'] && real.todosSinContar > real.control['sin-contar'],
     [kpis, real]);
-  check('y se dice de cuántos son esas cifras', /De los 3 productos del ⭐ control/.test(
+  check('y se dice de cuántos son esas cifras', /De los 5 productos del ⭐ control/.test(
     await page.textContent('.dash-kpis + .sub')));
   check('el pollo cuadra clavado', real.control.cuadra >= 1, real);
   check('las lumpias faltan y el refresco sobra', real.control.falta === 1 && real.control.sobra === 1, real);
@@ -103,25 +104,43 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
     Number(hero) === real.control.falta + real.control.sobra, hero);
 
   const body = await page.textContent('#dash-body');
-  // ---------- la cuenta a la vista, no solo el resultado ----------
-  check('enseña la cuenta entera de las lumpias',
-    /Inicial 100 \+ recibido 0 − vendido 20/.test(body), body.slice(0, 400));
-  check('y lo que debería quedar contra lo contado',
-    /Debería quedar 80 unidades · contados 75/.test(body));
-  check('con el porcentaje al lado', /Faltan 5 unidades · 6,25%/.test(body), body);
+  /* ---------- la frase entera, producto por producto ----------
+     «tenías esto, recibiste esto, vendiste esto, te queda tanto»: es lo que
+     Alberto pidió ver, y no hace falta haber contado para poder enseñarlo. */
+  const cab = await page.evaluate(() => [...document.querySelector('.dash-cab').children].map(e => e.textContent));
+  check('la tabla se encabeza con la frase', cab.join('|') === 'Tenías|Recibiste|Vendiste|Te queda', cab);
+  check('y dice de dónde sale el «tenías»',
+    /«Tenías» es lo que se contó en el inventario físico del/.test(body), body.slice(0, 400));
+  const fila = async nombre => page.evaluate(n => {
+    const r = [...document.querySelectorAll('.dash-row')].find(x => x.textContent.includes(n));
+    return r ? { cifras: [...r.querySelectorAll('.dash-cifras b')].map(b => b.textContent),
+                 uni: r.querySelector('.dash-uni').textContent, txt: r.textContent } : null;
+  }, nombre);
+  const lum = await fila('Lumpias');
+  check('las lumpias: tenías 100, recibiste 0, vendiste 20, te quedan 80',
+    lum && lum.cifras.join('|') === '100|0|20|80', lum && lum.cifras);
+  check('con su unidad', lum && lum.uni === 'unidades', lum && lum.uni);
+  check('y debajo lo contado y la diferencia',
+    lum && /Contaste 75/.test(lum.txt) && /Faltan 5 unidades · 6,25%/.test(lum.txt), lum && lum.txt);
 
   // ---------- la barra va al lado que le toca y no se sale ----------
   const barras = await page.$$eval('.dash-bar i', els => els.map(e => ({
     cls: e.className, w: parseFloat(e.style.width) })));
-  check('hay una barra por cada producto que no cuadra', barras.length === real.control.falta + real.control.sobra, barras);
+  check('hay una barra por cada producto que no cuadra, y ninguna en los que cuadran',
+    barras.length === real.control.falta + real.control.sobra, barras);
   check('ninguna pasa de la mitad del carril (el cero está en medio)',
     barras.every(b => b.w <= 50 + 0.001), barras);
   check('la de las lumpias mide el 6,25% / 2', barras.some(b => b.cls === 'mal' && Math.abs(b.w - 3.125) < 0.01), barras);
 
   // ---------- lo que no se puede cuadrar sale dicho, no escondido ----------
-  check('el agua de 1,5L sale como que no se puede cuadrar',
-    /Sin datos para cuadrar[\s\S]*Agua Minalba 1,5L/.test(body));
-  check('y dice por qué', /se vendieron 4 unidades más de lo registrado/i.test(body), body);
+  const agua = await fila('Agua Minalba 1,5L');
+  check('el agua de 1,5L también sale, aunque no se pueda cuadrar', !!agua);
+  check('y dice por qué en vez de dar un número falso',
+    agua && /Se vendieron 4 unidades más de lo registrado: faltan entradas por cargar/.test(agua.txt),
+    agua && agua.txt);
+  // los que no se movieron nada no gastan cuatro ceros cada uno
+  check('lo que no se movió va aparte, como lista de nombres',
+    /Sin movimiento[\s\S]*Maltas/.test(body), body.slice(-500));
   check('avisa de los códigos que no descuentan nada',
     /1 códigos? del reporte no descuentan nada|no descuentan nada/.test(body) && /VASO DE REFRESCO/.test(body));
   check('y de que el reporte sí cubre la semana', /El reporte cubre la semana entera/.test(body));
@@ -144,6 +163,13 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   const vacio = await page.textContent('#dash-body');
   check('sin un solo conteo, la cifra grande es lo que falta por contar',
     /productos por contar/.test(vacio), vacio.slice(0, 300));
+  // pero la frase entera se sigue viendo: contar no hace falta para saber
+  // lo que debería haber
+  const lum2 = await fila('Lumpias');
+  check('y aun sin contar nada se ve tenías/recibiste/vendiste/te queda',
+    lum2 && lum2.cifras.join('|') === '100|0|20|80', lum2 && lum2.cifras);
+  check('con un «falta contarlo» en vez de una diferencia inventada',
+    lum2 && /Falta contarlo para saber si cuadra/.test(lum2.txt), lum2 && lum2.txt);
   check('y no dice «0 no cuadran», que sería mentir por omisión',
     !/no cuadran/.test(await page.textContent('.dash-hero')));
 

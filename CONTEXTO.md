@@ -110,8 +110,9 @@ está sin vincular a propósito, porque en la hoja hay cinco marcas— se perdí
 que nada avisara: `vendidoEnSemana` descarta lo que no está en la lista.
 
 **Tamaños de bulto:** refresco 1L y 2L → 6 · refresco 1,5L → 12 · agua Minalba
-600ml → 24 · agua Glacier 550ml → 24 · malta → 36 · yuky-pack → 24 ·
-huevos → 24 por cartón. **Los huevos llegan por cajas de 12 cartones = 288
+600ml → 24 · agua Glacier 550ml (la de tapa blanca) → 24 · **agua Minalba 1,5L →
+12** · malta → 36 · yuky-pack → 24 · **Gatorade → 12** · **Lipton (durazno,
+limón y té verde) → 12** · huevos → 24 por cartón. Los repasó Alberto el 9/9. **Los huevos llegan por cajas de 12 cartones = 288
 huevos** (confirmado por Alberto el 2/9). La recepción se teclea en cajas, y se
 puede cambiar a cartones o a huevos sueltos cuando no llega caja entera; lo que
 se guarda son siempre huevos. El conteo del inventario sigue haciéndose por
@@ -264,6 +265,13 @@ sin pedir nada nuevo: lee lo mismo que la pantalla del tramo (`calcular` +
 `estadoCuadre`, que vive en un solo sitio justo para que las dos pantallas no
 puedan discrepar) y lo ordena por lo que hay que mirar primero.
 
+- **Producto por producto**, la frase entera: «tenías esto, recibiste esto,
+  vendiste esto, te queda tanto», en cuatro columnas y con la unidad debajo.
+  Sale para TODOS los del control, se hayan contado o no —contar solo hace falta
+  para la diferencia, no para saber lo que debería haber— ordenados por lo que
+  hay que mirar antes: lo que no cuadra, lo que no se puede cuadrar, lo que
+  falta contar y sí se movió, y al final lo que ya cuadró. Lo que no se movió
+  nada va como lista de nombres: pintarle cuatro ceros a cada uno solo estorba.
 - Arriba la cifra que decide si hay que hacer algo hoy: cuántos productos no
   cuadran de los contados. **Mientras no haya un solo conteo escrito, la cifra
   es lo que falta por contar** — decir «0 no cuadran» sería mentir por omisión.
@@ -277,12 +285,12 @@ puedan discrepar) y lo ordena por lo que hay que mirar primero.
   Lo recibido hoy no suma en la semana que se está cuadrando; la app siempre lo
   hizo bien, pero no lo decía en ningún sitio. Ahí van también el reporte, su
   rango y los códigos que no descuentan nada.
-- **No cuadran**, ordenados por desviación, con la cuenta entera a la vista
-  (`inicial + recibido − vendido`), lo contado, y una barra con el cero en el
-  centro: a la izquierda lo que falta, a la derecha lo que sobra, cortada al 100%
-  para que un −400% no aplaste al resto.
-- **Sin datos para cuadrar**: lo que se vende pero no tiene de dónde restarse.
-  Sale dicho, no escondido.
+- En los que se contaron, debajo de las cifras va lo contado, el veredicto y una
+  barra con el cero en el centro: a la izquierda lo que falta, a la derecha lo
+  que sobra, cortada al 100% para que un −400% no aplaste al resto. En el que
+  cuadra no se pinta barra: no hay desviación que enseñar.
+- Lo que se vende sin tener de dónde restarse sale en su fila, diciendo que
+  faltan entradas por cargar. No se esconde ni se le inventa una diferencia.
 
 Los colores solo acompañan: cada estado lleva además su símbolo y su palabra
 («▼ Faltan», «▲ Sobran», «✓ Cuadran»), así que nada se lee por el color a secas.
