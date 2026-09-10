@@ -3669,8 +3669,18 @@ function dashBarra(pct, cls) {
    el orden que pidió Alberto: «lo más importante, que es lo que más se recibe».
    Se cuenta por veces y no por cantidad porque las cantidades no se pueden
    comparar entre sí: 2.251 kg de papas y 2.280 refrescos no dicen lo mismo. */
-// bebidas, postres y todo lo que se recibe: lo que se enseña en el panel
-function entraPorLaApp(a) { return !!a.entrada || CONTROL_EXTRA.includes(a.id); }
+/* Lo que se enseña en el panel: bebidas, pollo, papas y lumpias, y nada más
+   (Alberto, 10/9: «quita las verduras también, solo quiero ver bebidas, pollo,
+   papas, lumpias»). El CONTROL sigue siendo más ancho —se cuenta y se cierra
+   con todo lo que entra por la app— pero mirar la semana es mirar esto. */
+const PANEL_CUADRE = [
+  'pollo_pieza', 'papas', 'lumpias',
+  'ref_1l', 'ref_15l', 'ref_2l',
+  'agua', 'agua_glacier', 'f_agua_minalba_1_5l',
+  'malta', 'yuky', 'gatorade', 'jugo_barinas', 'tenta_te',
+  'f_te_lipton_durazno', 'f_te_lipton_limon', 'f_te_verde_lipton'
+];
+function enPanel(a) { return PANEL_CUADRE.includes(a.id); }
 
 function vecesRecibido() {
   const veces = {};
@@ -3799,9 +3809,10 @@ function renderDash() {
      hoja que solo se cuentan no pintan nada aquí: para eso está el físico. */
   const veces = vecesRecibido();
   for (const f of filas) f.veces = veces[f.art.id] || 0;
-  const control = filas.filter(f => f.activo && entraPorLaApp(f.art));
-  const fuera = filas.filter(f => !control.includes(f) && f.e.conFormula &&
-    ['falta', 'sobra', 'imposible'].includes(f.e.estado));
+  const control = filas.filter(f => f.activo && enPanel(f.art));
+  const otros = filas.filter(f => f.activo && !enPanel(f.art));
+  const fuera = otros.filter(f => ['falta', 'sobra', 'imposible'].includes(f.e.estado));
+  const otrosSinContar = otros.filter(f => f.e.estado === 'sin-contar');
   const de = (lista, k) => lista.filter(f => f.e.estado === k);
   const cuadran = de(control, 'cuadra'), faltan = de(control, 'falta'), sobran = de(control, 'sobra');
   const sinContar = de(control, 'sin-contar');
@@ -3831,7 +3842,7 @@ function renderDash() {
     '<div class="dash-kpi sobra"><div class="v">' + sobran.length + '</div><div class="t">▲ Sobran</div></div>' +
     '<div class="dash-kpi"><div class="v">' + sinContar.length + '</div><div class="t">Por contar</div></div>' +
     '</div><div class="sub" style="margin-top:10px;text-align:center">' +
-    'De los <b>' + control.length + '</b> productos que entran por la app</div></div>');
+    'De los <b>' + control.length + '</b> del panel: bebidas, pollo, papas y lumpias</div></div>');
 
   // ---- qué entra y qué NO entra en esta semana ----
   const mov = movimientosDeLaSemana(inv);
@@ -3894,16 +3905,17 @@ function renderDash() {
       CAB + tabla.map(dashFila).join('') + '</div>');
   }
 
-  /* Lo de fuera del panel no se pinta, pero tampoco se calla: si algo que se
-     vende está descuadrado y no está aquí, hay que poder enterarse. */
-  if (fuera.length) {
-    h.push('<div class="card"><div class="sub"><b>' + fuera.length + '</b> ' +
-      (fuera.length === 1 ? 'producto de la hoja del local está descuadrado y no sale aquí'
-                          : 'productos de la hoja del local están descuadrados y no salen aquí') +
-      ' porque no se reciben por la app: ' +
-      fuera.slice(0, 5).map(f => esc(f.art.nombre)).join(', ') +
-      (fuera.length > 5 ? ' y ' + (fuera.length - 5) + ' más' : '') +
-      '. Se ven en el tramo.</div></div>');
+  /* Lo que se lleva pero no sale en el panel no se pinta, pero tampoco se calla:
+     ni lo que falta contar para poder cerrar, ni lo que está descuadrado. */
+  if (otros.length) {
+    const t = [];
+    if (otrosSinContar.length) t.push('<b>' + otrosSinContar.length + '</b> por contar');
+    if (fuera.length) t.push('<b>' + fuera.length + '</b> descuadrado' + (fuera.length === 1 ? '' : 's') +
+      ' (' + fuera.slice(0, 4).map(f => esc(f.art.nombre)).join(', ') +
+      (fuera.length > 4 ? ' y ' + (fuera.length - 4) + ' más' : '') + ')');
+    h.push('<div class="card"><div class="sub">Se llevan <b>' + otros.length +
+      '</b> productos más que no salen en el panel —verduras, insumos y demás—' +
+      (t.length ? ': ' + t.join(' y ') : '') + '. Se ven y se cuentan en el tramo.</div></div>');
   }
 
   $('dash-body').innerHTML = h.join('');

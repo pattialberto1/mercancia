@@ -269,11 +269,13 @@ puedan discrepar) y lo ordena por lo que hay que mirar primero.
   vendiste esto, te queda tanto», en cuatro columnas y con la unidad debajo.
   Sale se haya contado o no: contar solo hace falta para la diferencia, no para
   saber lo que debería haber.
-- **Solo lo que se recibe por la app** —bebidas, postres y todo lo que tiene
-  entrada—, que es lo que pidió Alberto el 10/9. Los renglones que solo se
-  cuentan no pintan nada ahí: para eso está el físico. Lo de fuera no se pinta
-  pero tampoco se calla: una línea al final nombra lo que está descuadrado y no
-  sale.
+- **Solo bebidas, pollo, papas y lumpias** (`PANEL_CUADRE`, 17 productos).
+  Alberto el 10/9: *«quita las verduras también, solo quiero ver bebidas,
+  pollo, papas, lumpias»*. **El control sigue siendo más ancho** —se cuenta y se
+  cierra la semana con los 54 que entran por la app— pero mirar la semana es
+  mirar esto. Lo que se lleva y no sale en el panel no se pinta pero tampoco se
+  calla: una línea al final dice cuántos son, cuántos faltan por contar y
+  cuáles están descuadrados.
 - **Ordenado por lo que más entra por la app**, no por lo que peor pinta. Se
   cuenta por VECES que ha entrado y no por cantidad, porque las cantidades no se
   pueden comparar entre sí (2.251 kg de papas y 2.280 refrescos no dicen lo

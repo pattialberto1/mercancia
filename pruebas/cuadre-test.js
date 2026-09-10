@@ -93,7 +93,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('y el de «por contar» cuenta solo el control, no la hoja entera',
     kpi('Por contar') === real.control['sin-contar'] && real.todosSinContar > real.control['sin-contar'],
     [kpis, real]);
-  check('y se dice de cuántos son esas cifras', /De los 5 productos que entran por la app/.test(
+  check('y se dice de cuántos son esas cifras', /De los 5 del panel: bebidas, pollo, papas y lumpias/.test(
     await page.textContent('.dash-kpis + .sub')));
   check('el pollo cuadra clavado', real.control.cuadra >= 1, real);
   check('las lumpias faltan y el refresco sobra', real.control.falta === 1 && real.control.sobra === 1, real);
@@ -151,12 +151,19 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   // y de verdad no suman: el refresco sobra 5, no 95
   check('los 90 refrescos de después no se cuelan en el recibido',
     (await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'ref_1l').recibido)) === 0);
-  /* En el panel solo va lo que se recibe por la app. Lo de fuera no se pinta,
-     pero tampoco se calla: si algo que se vende está descuadrado, hay que
-     poder enterarse. */
-  check('lo descuadrado que no se recibe por la app no se pinta pero se avisa',
-    /está descuadrado y no sale aquí porque no se recibe/.test(body) ||
-    /están descuadrados y no salen aquí porque no se reciben/.test(body), body.slice(-400));
+  /* En el panel solo van bebidas, pollo, papas y lumpias. Lo demás del control
+     no se pinta, pero tampoco se calla: ni lo que falta contar para cerrar, ni
+     lo que está descuadrado. */
+  const otros = await page.evaluate(() => {
+    db.settings.articulosActivos = [...db.settings.articulosActivos, 'zanahoria', 'cebollin'];
+    save(false); renderDash();
+    return document.querySelector('#dash-body').textContent;
+  });
+  check('las verduras ya no salen en el panel', !/Zanahoria|Cebollín/.test(
+    await page.evaluate(() => [...document.querySelectorAll('.dash-row')].map(r => r.textContent).join(''))));
+  check('pero se dice cuántas se llevan y que se cuentan en el tramo',
+    /Se llevan 2 productos más que no salen en el panel/.test(otros) &&
+    /Se ven y se cuentan en el tramo/.test(otros), otros.slice(-400));
   check('y no se cuelan los cientos de renglones que solo se cuentan',
     !/Coleto|Teipe|Servilletas/.test(body));
   // «5.276 piezas» no se ve en la cava; «33 cestas» sí
