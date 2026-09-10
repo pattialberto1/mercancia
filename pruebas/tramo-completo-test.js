@@ -170,16 +170,25 @@ const ACTIVOS = ['pollo_pieza', 'ref_1l'];
   check('si no hay nada que se llame así, lo dice',
     /Ningún producto se llama así/.test(await page.textContent('#inv-comparacion')));
 
-  // ---------- 7) solo lo marcado en Ajustes obliga a cerrar ----------
+  /* ---------- 7) se puede cerrar con cosas a medias, pero se dice cuáles ----------
+     Antes se bloqueaba el cierre. Una semana a medias es mejor cerrada a tiempo
+     que abierta para siempre: mientras no se cierre, la siguiente no sabe con
+     qué empieza (Alberto, 10/9). Lo que no se hace es cerrar en silencio. */
   await page.fill('#inv-buscar', '');
   await page.waitForTimeout(200);
   await page.click('#inv-cerrar');
   await page.waitForTimeout(300);
-  const toast1 = await page.textContent('#toast');
-  check('para cerrar pide el conteo del control, no el de los 242',
-    /Falta el conteo de/.test(toast1) && !/mostaza|aceite/i.test(toast1), toast1);
+  check('el cierre ya no se bloquea: pregunta', await page.isVisible('#modal-confirm'));
+  const aviso = await page.textContent('#confirm-msg');
+  check('avisa de lo que se queda sin contar, del control y no de los 245',
+    /sin contar/.test(aviso) && !/mostaza|aceite/i.test(aviso), aviso);
   check('y nombra justo lo marcado en Ajustes',
-    /piezas de pollo/i.test(toast1) && /refrescos de 1l/i.test(toast1), toast1);
+    /piezas de pollo/i.test(aviso) && /refrescos de 1l/i.test(aviso), aviso);
+  check('y dice qué pasa con eso la semana que viene',
+    /sin inicial y habrá que escribirlo a mano/.test(aviso), aviso);
+  await page.click('#confirm-yes');
+  await page.waitForTimeout(300);
+  check('y cierra de verdad', await page.evaluate(() => currentInv.cerrado === true));
 
   // ---------- cierre ----------
   console.log('');

@@ -754,7 +754,7 @@
 <div class="modal-back" id="modal-confirm">
   <div class="modal">
     <h2 id="confirm-title">¿Seguro?</h2>
-    <p class="sub" id="confirm-msg" style="margin-bottom:16px"></p>
+    <p class="sub" id="confirm-msg" style="margin-bottom:16px;white-space:pre-line"></p>
     <div class="actions">
       <button class="btn-secondary" id="confirm-no">Cancelar</button>
       <button class="btn-primary" id="confirm-yes">Sí, continuar</button>
@@ -3312,7 +3312,7 @@ function renderInv() {
   $('inv-sub').textContent = fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
     (inv.cerrado ? ' · cerrada' : '');
   $('inv-subir').classList.toggle('hidden', inv.cerrado);
-  $('inv-cerrar').classList.toggle('hidden', inv.cerrado || !(inv.ventas || []).length);
+  $('inv-cerrar').classList.toggle('hidden', inv.cerrado);
   $('inv-del').classList.toggle('hidden', inv.cerrado);
 
   const avisos = [];
@@ -3645,8 +3645,11 @@ function filaComparacion(f, base, inv) {
         : f.origenInicial === 'manual'
         ? '<div class="inv-origen">Inicial escrito a mano</div>'
         : '<div class="inv-origen">Falta el inicial' +
-          (base.fuente ? ': la hoja del ' + fmtDate(base.fuente.semanaInicio) +
-                         ' no trae este artículo' : '') + '. Escríbelo.</div>') +
+          (!base.fuente ? ''
+            : esFisico(base.fuente)
+            ? ': la hoja del ' + fmtDate(base.fuente.semanaInicio) + ' no trae este artículo'
+            : ': la semana del ' + fmtDate(base.fuente.semanaInicio) + ' se cerró sin contarlo') +
+          '. Escríbelo.</div>') +
     '</div>' +
     (f.esperado < 0
       // vendiste más de lo que la app sabe que entró: el número no es merma,
@@ -4157,20 +4160,26 @@ $('inv-cerrar').onclick = () => {
       () => { inv.cerrado = true; touch(inv); save(); renderInv(); toast('Inventario cerrado'); });
     return;
   }
-  // solo obliga lo marcado en Ajustes: la hoja del local se cuenta cuando haga falta
+  /* Se puede cerrar aunque falten cosas (Alberto, 10/9). Antes se bloqueaba, y
+     una semana a medias es mejor cerrada a tiempo que abierta para siempre:
+     mientras no se cierre, la siguiente no sabe con qué empieza. Lo que no se
+     hace es cerrar sin decir qué se está dejando atrás. */
   const filas = calcular(inv).filter(f => f.activo);
   const sinContar = filas.filter(f => f.conteo === null);
-  if (sinContar.length) {
-    toast('Falta el conteo de ' + sinContar.map(f => f.art.nombre.toLowerCase()).join(', '));
-    return;
-  }
-  // cerrar con un esperado negativo dejaría un arrastre podrido para siempre
   const negativos = filas.filter(f => f.esperado < 0);
-  if (negativos.length) {
-    toast('Revisa ' + negativos.map(f => f.art.nombre.toLowerCase()).join(', ') + ': falta cargar entradas');
-    return;
-  }
+  const nombres = fs => fs.slice(0, 4).map(f => f.art.nombre.toLowerCase()).join(', ') +
+    (fs.length > 4 ? ' y ' + (fs.length - 4) + ' más' : '');
+  const pegas = [];
+  if (!(inv.ventas || []).length)
+    pegas.push('Sin el reporte de ventas, esta semana se cierra sin nada vendido.');
+  if (sinContar.length)
+    pegas.push(sinContar.length + (sinContar.length === 1 ? ' producto se queda' : ' productos se quedan') +
+      ' sin contar (' + nombres(sinContar) + '), así que la semana que viene ' +
+      (sinContar.length === 1 ? 'arranca' : 'arrancan') + ' sin inicial y habrá que escribirlo a mano.');
+  if (negativos.length)
+    pegas.push('De ' + nombres(negativos) + ' se vendió más de lo registrado: falta cargar entradas.');
   askConfirm('Cerrar la semana',
+    (pegas.length ? pegas.join(' ') + '\n\n' : '') +
     'El conteo de esta semana pasa a ser el punto de partida de la siguiente. Después de cerrar ya no se puede modificar.',
     () => { inv.cerrado = true; touch(inv); save(); renderInv(); toast('Semana cerrada'); });
 };
