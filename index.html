@@ -2927,8 +2927,18 @@ function baseInicial(inv) {
   const ultima = previaCerrada(inv);
   const valores = {}, origen = {}, avisos = {};
   if (ultima && !esFisico(ultima)) {
-    Object.assign(valores, ultima.conteo || {});
-    for (const k of Object.keys(valores)) origen[k] = 'semana';
+    /* Lo contado manda. Lo que no se contó ARRASTRA su «te queda»: la app ya
+       sabe lo que debería haber quedado (inicial + recibido − vendido) y
+       Alberto pidió no tener que contarlo para seguir (10/9).
+       Lo que eso cuesta: de un producto que nunca se cuenta no sale merma
+       nunca —lo que se rompa o se pierda se arrastra como si siguiera ahí— y
+       el error se acumula semana tras semana. Solo un conteo lo devuelve al
+       suelo. Un «te queda» negativo no se arrastra: eso no es existencia, es
+       que faltan entradas por cargar, y se queda a la vista. */
+    for (const f of calcular(ultima)) {
+      if (f.esperado > 0) { valores[f.art.id] = f.esperado; origen[f.art.id] = 'arrastre'; }
+    }
+    for (const [k, v] of Object.entries(ultima.conteo || {})) { valores[k] = v; origen[k] = 'semana'; }
     return { tipo: 'semana', fuente: ultima, valores, origen, avisos };
   }
   if (ultima) {
@@ -3611,7 +3621,7 @@ function filaComparacion(f, base, inv) {
   const a = f.art;
   // el inicial se teclea solo si no lo da ya la semana anterior ni la hoja del
   // local; si lo dan, se muestra y se dice de dónde salió
-  const aMano = f.origenInicial !== 'semana' && f.origenInicial !== 'fisico';
+  const aMano = !['semana', 'fisico', 'arrastre'].includes(f.origenInicial);
   const { conRecibido, conVendido, conFormula } = estadoCuadre(f);
   const detC = detalleDeConteo(inv, 'conteo', a);
   const detI = detalleDeConteo(inv, 'inicialManual', a);
@@ -3634,6 +3644,9 @@ function filaComparacion(f, base, inv) {
           fmtDate(base.fuente.semanaInicio) + '</div>'
         : f.origenInicial === 'semana'
         ? '<div class="inv-origen">Inicial: lo que se contó al cerrar la semana anterior</div>'
+        : f.origenInicial === 'arrastre'
+        ? '<div class="inv-origen">Inicial: lo que debía quedar al cerrar la semana del ' +
+          fmtDate(base.fuente.semanaInicio) + '. No se contó, así que viene de la cuenta, no de la cava.</div>'
         : f.avisoInicial
         // en vez de dejar el renglón muerto, se pregunta el único dato que falta
         ? '<div class="inv-origen">La hoja del ' + fmtDate(base.fuente.semanaInicio) +
@@ -4173,9 +4186,10 @@ $('inv-cerrar').onclick = () => {
   if (!(inv.ventas || []).length)
     pegas.push('Sin el reporte de ventas, esta semana se cierra sin nada vendido.');
   if (sinContar.length)
-    pegas.push(sinContar.length + (sinContar.length === 1 ? ' producto se queda' : ' productos se quedan') +
-      ' sin contar (' + nombres(sinContar) + '), así que la semana que viene ' +
-      (sinContar.length === 1 ? 'arranca' : 'arrancan') + ' sin inicial y habrá que escribirlo a mano.');
+    pegas.push(sinContar.length + (sinContar.length === 1 ? ' producto se cierra' : ' productos se cierran') +
+      ' sin contar (' + nombres(sinContar) + '): la semana que viene ' +
+      (sinContar.length === 1 ? 'arranca' : 'arrancan') + ' con lo que la app dice que debería quedar. ' +
+      'Mientras no se cuenten, de ellos no sale merma.');
   if (negativos.length)
     pegas.push('De ' + nombres(negativos) + ' se vendió más de lo registrado: falta cargar entradas.');
   askConfirm('Cerrar la semana',

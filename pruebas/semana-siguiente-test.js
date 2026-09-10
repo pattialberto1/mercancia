@@ -82,10 +82,28 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
       .test(await page.textContent('#inv-msg')), await page.textContent('#inv-msg'));
 
   // ---------- 3) al cerrarla, lo que quedó pasa a la nueva ----------
+  /* Sin contar nada, la anterior deja 1.600 − 400 = 1.200 piezas: eso es lo que
+     arrastra. Alberto no quiere tener que contar para seguir (10/9). */
+  await page.evaluate(() => {
+    const previo = db.inventarios.find(i => i.id === 'previo');
+    previo.cerrado = true;
+    save(false); renderInv();
+  });
+  await page.waitForTimeout(350);
+  const arr = await page.evaluate(() => {
+    const f = calcular(currentInv).find(x => x.art.id === 'pollo_pieza');
+    return { inicial: f.inicial, origen: f.origenInicial };
+  });
+  check('cerrada sin contar, arrastra lo que debía quedar: 1.600 − 400 = 1.200',
+    arr.inicial === 1200 && arr.origen === 'arrastre', arr);
+  check('y se dice que ese número viene de la cuenta, no de la cava',
+    /No se contó, así que viene de la cuenta, no de la cava/
+      .test(await page.textContent('#inv-comparacion')));
+
+  // y si sí se contó, manda el conteo
   await page.evaluate(() => {
     const previo = db.inventarios.find(i => i.id === 'previo');
     previo.conteo = { pollo_pieza: 1150 };   // lo que se contó de verdad al cerrar
-    previo.cerrado = true;
     save(false); renderInv();
   });
   await page.waitForTimeout(350);
@@ -93,7 +111,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
     const f = calcular(currentInv).find(x => x.art.id === 'pollo_pieza');
     return { inicial: f.inicial, origen: f.origenInicial };
   });
-  check('la nueva arranca con lo que quedó contado en la anterior: 1.150',
+  check('contado, la nueva arranca con lo contado: 1.150 y no 1.200',
     ini1.inicial === 1150, ini1);
   check('y dice que viene de la semana anterior, no del físico',
     ini1.origen === 'semana', ini1);

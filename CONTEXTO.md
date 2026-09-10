@@ -271,7 +271,14 @@ noche cargo los productos vendidos»*.
   semana pasada completa» desde hoy, y con el tramo del 1 al 6 abierto pulsarlo
   un jueves creaba **otra del 31/8 al 6/9 encima de la que ya había**.
 - Si la última sigue abierta y todavía cubre hoy, no crea nada: abre esa.
-- **El inicial de una semana es el conteo con el que se cerró la anterior.**
+- **El inicial de una semana es el conteo con el que se cerró la anterior**, y
+  lo que no se contó **arrastra su «te queda»**: la app ya sabe lo que debería
+  haber quedado y Alberto pidió no tener que contar para seguir (10/9). Lo que
+  eso cuesta, y conviene no olvidarlo: **de un producto que nunca se cuenta no
+  sale merma nunca** —lo que se rompa o se pierda se arrastra como si siguiera
+  ahí— y el error se acumula semana tras semana. Solo un conteo lo devuelve al
+  suelo. Un «te queda» negativo no se arrastra: eso no es existencia, es que
+  faltan entradas por cargar, y se queda a la vista.
 - **Se puede cerrar aunque falten cosas** (Alberto, 10/9): sin el reporte, con
   productos sin contar o con alguno en negativo. Una semana a medias es mejor
   cerrada a tiempo que abierta para siempre, porque mientras no se cierre la

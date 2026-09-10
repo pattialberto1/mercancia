@@ -185,7 +185,8 @@ const ACTIVOS = ['pollo_pieza', 'ref_1l'];
   check('y nombra justo lo marcado en Ajustes',
     /piezas de pollo/i.test(aviso) && /refrescos de 1l/i.test(aviso), aviso);
   check('y dice qué pasa con eso la semana que viene',
-    /sin inicial y habrá que escribirlo a mano/.test(aviso), aviso);
+    /arrancan con lo que la app dice que debería quedar/.test(aviso) &&
+    /de ellos no sale merma/.test(aviso), aviso);
   await page.click('#confirm-yes');
   await page.waitForTimeout(300);
   check('y cierra de verdad', await page.evaluate(() => currentInv.cerrado === true));
