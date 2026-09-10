@@ -2849,8 +2849,24 @@ function semanasOrdenadas() {
    una semana guarda su conteo por artículo; un físico guarda la hoja del local,
    renglón por renglón, y hay que traducirla. */
 function previaCerrada(inv) {
-  const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio && x.cerrado);
-  return previas[previas.length - 1] || null;
+  const previas = semanasOrdenadas().filter(x => x.semanaInicio < inv.semanaInicio);
+  for (let i = previas.length - 1; i >= 0; i--) {
+    const x = previas[i];
+    if (x.cerrado) return x;
+    /* Una semana anterior SIN CERRAR corta la cadena. Saltársela y tirar del
+       inventario de más atrás daba un inicial que se salta todo lo que pasó en
+       medio —y lo daba sin avisar: con el tramo del 1 al 6 abierto, el del 7 al
+       13 arrancaba con las 1.600 piezas del físico del 31 de agosto como si esa
+       semana no hubiera existido. Un físico abierto no corta: es una foto. */
+    if (!esFisico(x)) return null;
+  }
+  return null;
+}
+// la semana anterior sin cerrar que corta la cadena, si la hay
+function anteriorSinCerrar(inv) {
+  const abiertas = semanasOrdenadas().filter(x =>
+    x.semanaInicio < inv.semanaInicio && !esFisico(x) && !x.cerrado);
+  return abiertas[abiertas.length - 1] || null;
 }
 
 /* Un renglón de la hoja del local, traducido a la unidad del artículo del
@@ -3235,25 +3251,38 @@ function abrirInv(id) {
   show('inv');
 }
 
+/* Las semanas se ENCADENAN: cada una empieza el día siguiente al que terminó
+   la anterior. Antes se calculaba «la semana pasada completa» a partir de hoy,
+   y eso se rompía en cuanto el primer tramo no cuadraba con el calendario: con
+   el tramo del 1 al 6 abierto, pulsar «Nueva semana» un jueves creaba otra del
+   31/8 al 6/9 encima de la que ya había, en vez de la del 7 al 13.
+   Encadenar también es lo que hace que lo que quedó pase a la siguiente: el
+   inicial de una semana es el conteo con el que se cerró la anterior. */
 function nuevaSemanaDesdeHoy() {
   const hoy = todayISO();
+  const semanas = semanasOrdenadas().filter(i => !esFisico(i));
   /* La PRIMERA vez el control arranca el día que se contó, aunque caiga a
      mitad de semana: es el único momento del que se sabe con certeza qué
      había. Ese tramo termina el domingo y de ahí en adelante ya son semanas
      completas de lunes a domingo. */
-  if (!db.inventarios.length) {
+  if (!semanas.length) {
     const domingo = masDias(lunesDe(hoy), 6);
     const arranca = hoy < domingo ? hoy : masDias(domingo, 1);   // contado un domingo: arranca el lunes
     const termina = hoy < domingo ? domingo : masDias(domingo, 7);
     abrirInv(nuevaSemana(arranca, termina).id);
     return;
   }
-  // después, la semana pasada completa: es la que ya terminó el domingo
-  const lunesEsta = lunesDe(hoy);
-  const desde = masDias(lunesEsta, -7), hasta = masDias(desde, 6);
-  const ya = db.inventarios.find(i => i.semanaInicio === desde);
-  if (ya) { abrirInv(ya.id); return; }
-  abrirInv(nuevaSemana(desde, hasta).id);
+  const ultima = semanas[semanas.length - 1];
+  /* Si la última sigue abierta y todavía cubre hoy, no hay semana nueva que
+     abrir: es esa. Cerrada sí se pasa a la siguiente, aunque se haya cerrado
+     antes de tiempo. */
+  if (!ultima.cerrado && hoy <= ultima.semanaFin) { abrirInv(ultima.id); return; }
+  const desde = masDias(ultima.semanaFin, 1);
+  // se cuadra con el calendario (lunes a domingo) siempre que se pueda
+  const domingo = masDias(lunesDe(desde), 6);
+  const hasta = domingo >= desde ? domingo : masDias(desde, 6);
+  const ya = semanas.find(i => i.semanaInicio === desde);
+  abrirInv(ya ? ya.id : nuevaSemana(desde, hasta).id);
 }
 
 function renderInv() {
@@ -3286,8 +3315,15 @@ function renderInv() {
   $('inv-cerrar').classList.toggle('hidden', inv.cerrado || !(inv.ventas || []).length);
   $('inv-del').classList.toggle('hidden', inv.cerrado);
 
-  // aviso si el reporte no cubre la misma semana
   const avisos = [];
+  // sin cerrar la anterior no se sabe con qué empieza esta
+  const pendiente = anteriorSinCerrar(inv);
+  if (pendiente) {
+    avisos.push('<div class="msg error">⚠️ La semana del ' + fmtDate(pendiente.semanaInicio) +
+      ' al ' + fmtDate(pendiente.semanaFin) + ' todavía no está cerrada, así que esta no sabe ' +
+      'con qué empieza. Ciérrala y el inicial de aquí sale solo: es lo que cuentes allí.</div>');
+  }
+  // aviso si el reporte no cubre la misma semana
   if (inv.rangoReporte && (inv.rangoReporte.desde !== inv.semanaInicio || inv.rangoReporte.hasta !== inv.semanaFin)) {
     avisos.push('<div class="msg error">⚠️ El reporte va del ' + fmtDate(inv.rangoReporte.desde) + ' al ' +
       fmtDate(inv.rangoReporte.hasta) + ', pero esta semana va del ' + fmtDate(inv.semanaInicio) + ' al ' +
@@ -3859,6 +3895,12 @@ function renderDash() {
     h.push(dashCheck(true, mov.fuera.length + ' entradas posteriores quedan fuera',
       'Las del ' + fmtDate(mov.desde) + (mov.hasta !== mov.desde ? ' al ' + fmtDate(mov.hasta) : '') +
       ' entran en la semana siguiente, no en esta. Si sumaran aquí, la merma saldría al revés.'));
+  }
+  const pendiente = anteriorSinCerrar(inv);
+  if (pendiente) {
+    h.push(dashCheck(false, 'La semana anterior no está cerrada',
+      'La del ' + fmtDate(pendiente.semanaInicio) + ' al ' + fmtDate(pendiente.semanaFin) +
+      '. Hasta que la cierres, esta no sabe con qué empieza: el «tenías» sale de lo que cuentes allí.'));
   }
   h.push(dashCheck(ventas.length > 0,
     ventas.length ? 'Reporte de ventas cargado' : 'Falta el reporte de ventas',

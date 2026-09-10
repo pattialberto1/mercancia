@@ -258,6 +258,26 @@ postres Paolo y tres leches, Lipton durazno y limón, té verde, agua Minalba de
 El resto de la hoja se sigue contando en el **inventario físico** cuando toque,
 pero no obliga a nada cada semana.
 
+## Cómo se encadenan las semanas
+
+El ritual, dicho por Alberto el 10/9: *«cuando le doy a nuevo inventario me
+tiene que salir la nueva semana, del 7 al 13, y empezar desde el último
+inventario, que es del 1 al 6; desde ahí, las piezas que quedaron son con las
+que empieza la nueva semana; se van cargando las recepciones y el domingo en la
+noche cargo los productos vendidos»*.
+
+- **«Nueva semana» abre la que sigue a la última**, empezando el día siguiente
+  al que aquella terminó, y cuadrada de lunes a domingo. Antes se calculaba «la
+  semana pasada completa» desde hoy, y con el tramo del 1 al 6 abierto pulsarlo
+  un jueves creaba **otra del 31/8 al 6/9 encima de la que ya había**.
+- Si la última sigue abierta y todavía cubre hoy, no crea nada: abre esa.
+- **El inicial de una semana es el conteo con el que se cerró la anterior.**
+- **Una semana anterior sin cerrar corta la cadena.** Antes se la saltaba y
+  tiraba del inventario de más atrás: con el tramo del 1 al 6 abierto, el del 7
+  al 13 arrancaba con las piezas del físico del 31 de agosto **como si esa
+  semana no hubiera existido, y sin avisar**. Ahora el inicial se queda vacío y
+  las dos pantallas dicen qué semana falta cerrar.
+
 ## El cuadre
 
 Dentro de cada semana hay un botón **«📊 Ver el cuadre»** que resume cómo va,
