@@ -127,9 +127,10 @@ cartones.
 - **📊 Semana** — control de merma: `inicial + recibido − vendido` contra el
   conteo real. El conteo se escribe **como se cuenta**: 17 cestas, 57 bultos y
   12 sueltas; la app hace la multiplicación y la muestra.
-- **📋 Inventario físico** — la hoja completa del local, 242 productos en 10
-  categorías (`CATALOGO_FISICO`). Dos columnas independientes, *por bulto* y
-  *por unidad*, que **no se suman entre sí**, más la observación. Sin merma.
+- **📋 Inventario físico** — el conteo a mano, **39 renglones en 3 grupos**
+  (`CATALOGO_FISICO`), los que alimentan a los 17 que se llevan. Dos columnas
+  independientes, *por bulto* y *por unidad*, que **no se suman entre sí**, más
+  la observación. Sin merma.
 
 **Cómo se enganchan (2/9):** al cerrar un inventario físico, **su conteo pasa a
 ser el inicial del tramo siguiente**, para los renglones vinculados a un
@@ -143,19 +144,8 @@ en la hoja). Un renglón en bultos sin saber qué trae el bulto **no da número:
 da el motivo** (`aporteFisico`). Manda siempre la última semana cerrada si la
 hay; el físico solo arranca cuando es el último inventario cerrado.
 
-**El tramo lleva los 242 productos (2/9).** No solo los del control: cada
-renglón de la hoja tiene su sitio. Los que ya recoge un artículo del control no
-se repiten (los 17 sabores de refresco van dentro de «Refrescos de 1L»); el
-resto se convierte en un artículo de **solo conteo** (`ARTICULOS_FISICO`, id
-`f_<renglón>`), sin entrada ni receta: de esos la app sabe lo que había y lo que
-queda, no de dónde salió ni en qué se gastó, y su fila enseña solo *Inicial* y
-*Conteo real*. **Solo lo marcado en Ajustes obliga a contar para cerrar la
-semana** (`f.activo`); lo demás se cuenta cuando haga falta.
-
-**Cómo se navega:** categorías del papel, plegadas, y solo se pinta el contenido
-de las abiertas — el teléfono no monta 240 filas para enseñar diez. Arriba, «⭐
-Control de la semana», abierto. Buscador que cruza todas las categorías y las
-abre solas. Lo mismo en la hoja del físico. Si un renglón trae bultos y no está
+**Cómo se navega:** el tramo son 17 filas y salen todas de una vez. La hoja del
+físico va por grupos plegados, con buscador que los abre solos. Si un renglón trae bultos y no está
 dicho qué trae el bulto, la fila **pregunta el dato ahí mismo** («1 bulto =
 ¿cuántas unidades?») y lo guarda en `porBulto`, que **no se sincroniza**: es de
 cada teléfono.
@@ -231,32 +221,48 @@ esta semana»*, no *«faltan X»*. Ver `tieneConsumoConocido()`.
 - 119 recepciones, 3 facturas de Tierra Santa
 - **Tramo del 1 al 5 de septiembre**, abierto, con el conteo del 31/08 como
   inicial (pollo 2.720 piezas = 17 cestas, y las bebidas e insumos cargados)
-- **Inventario físico del 31/08**, cerrado, 173 de 245 productos contados
+- **Inventario físico del 31/08**, cerrado. Se contaron 173 renglones cuando la
+  hoja tenía 245; de los 39 que quedan hoy, 34 están contados
 
 ## Qué se lleva cada semana
 
-Alberto el 9/9: *«vamos a simplificar el inventario… porque no me está
-funcionando el inventario entero»*. Llevar los 245 renglones de la hoja cada
-semana no era realista. El **control de la semana** pasa a ser, por defecto,
-**todo lo que tiene forma de entrar en la app** —recepción propia o renglón de
-factura— más los pocos renglones que él nombró y que solo viven en la hoja:
-postres Paolo y tres leches, Lipton durazno y limón, té verde, agua Minalba de
-1,5L y la ensalada. Son **54 productos**, no 245.
+**17 productos, y nada más** (`PANEL_CUADRE`): bebidas, pollo, papas y lumpias.
+No es un filtro de pantalla: es la lista entera del inventario semanal.
 
-- Se aplica **una sola vez por teléfono** (`settings.controlSimplificado`), y
-  después se puede tocar a mano sin que vuelva a pisarse. Los ajustes no se
-  sincronizan, así que cada teléfono lo hace al abrir la versión nueva.
-- El botón **«⭐ Llevar todo lo que entra por la app»** en Equivalencias lo
-  vuelve a poner entero cuando haga falta.
-- **Marcar un artículo es decir «de este sigo las entradas»**, así que lleva la
-  fórmula entera aunque esa semana no haya entrado nada. Sin eso, un renglón de
-  la hoja elegido a mano desaparecía del cuadre las semanas flojas.
-- La lista de «Qué controlar» enseña lo que entra por la app **más** los
-  renglones de la hoja que ya se llevan o que alguna receta gasta. Los otros 200
-  no salen ahí: sería una lista imposible de recorrer.
+> pollo · papas · lumpias · refrescos de 1L, 1,5L y 2L · agua Minalba 600ml y
+> 1,5L · agua Glacier 550ml · maltas · yuky-packs · Gatorade · jugos Barinas ·
+> Tenta té · Lipton durazno, limón y té verde
 
-El resto de la hoja se sigue contando en el **inventario físico** cuando toque,
-pero no obliga a nada cada semana.
+Se llegó aquí a golpes. Primero eran los 245 renglones de la hoja del local, y
+no se llevaba: demasiado que contar cada semana. El 9/9 se recortó a lo que
+entra por la app (54), el 10/9 a bebidas, pollo, papas y lumpias. *«Quita todos
+los productos menos los que tenemos en el dashboard… del inventario físico
+igual.»*
+
+- **El inventario físico baja a 39 renglones**, los que alimentan a esos 17: los
+  nueve sabores de refresco de 1L, los ocho de 2L, las aguas, la malta, los
+  yuky, los Gatorade, los jugos, los Lipton, los Tenta té, el pollo en cestas,
+  las papas y las lumpias. Lo demás se sigue anotando en el papel, no en la app.
+  Lo contado antes no se borra: se guarda, pero no se cuenta ni se enseña.
+- **Recibir no se tocó.** Se siguen recibiendo huevos, cebollín, camarón,
+  verduras y todo lo demás igual que siempre; lo que se estrechó es lo que hay
+  que contar y cuadrar cada semana.
+- **Las recetas de lo que salió siguen guardadas** (el picadillo, las arepitas,
+  los postres, las salsas, el pote de chino, la ensalada). No descuentan de
+  nada mientras su producto no se lleve, y la pantalla de recetas lo dice: «ya
+  no se lleva en el inventario». Lo que costó averiguar no se tira.
+- Ya no hay lista de «qué controlar»: en Equivalencias solo queda **cuántas
+  unidades trae un bulto** de cada uno.
+
+## El inventario es el cuadre
+
+Son la misma pantalla. Arriba el resumen (la cifra grande, las cuatro casillas,
+qué entra en la semana) y debajo, producto por producto, la frase entera
+—tenías · recibiste · vendiste · te queda— **con la casilla del conteo en la
+misma fila**. Antes había que ir a una pantalla aparte a ver el cuadre y volver
+al tramo a contar; ahora se cuenta mirando la cuenta.
+
+Sin buscador y sin grupos plegados: con 17 filas no hacen falta.
 
 ## Cómo se encadenan las semanas
 

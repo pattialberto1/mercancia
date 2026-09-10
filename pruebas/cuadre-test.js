@@ -1,7 +1,7 @@
-// El cuadre: el panel que resume cómo va la semana. Lo importante no es que se
-// vea bonito sino que diga lo mismo que la pantalla del tramo — si las dos
-// contaran por su cuenta, tarde o temprano dirían cosas distintas del mismo
-// producto — y que lo que no se puede calcular salga dicho, no escondido.
+// El cuadre. Desde el 10/9 no es una pantalla aparte: es LA pantalla del
+// inventario, con las casillas del conteo en la misma fila. Lo que importa es
+// que la cuenta esté a la vista y que lo que no se puede calcular salga dicho,
+// no escondido.
 const { chromium } = require('playwright');
 const http = require('http'); const fs = require('fs'); const path = require('path');
 
@@ -28,8 +28,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   await page.waitForTimeout(250);
 
   await page.evaluate(() => {
-    // «malta» va a propósito sin nada: ni inicial, ni entradas, ni ventas
-    db.settings.articulosActivos = ['pollo_pieza', 'ref_1l', 'lumpias', 'malta', 'f_agua_minalba_1_5l'];
+    // el inventario es una lista fija: ya no hay nada que marcar
     db.settings.porBulto = Object.assign({}, db.settings.porBulto, { lumpias: 0 });
     save(false);
   });
@@ -63,12 +62,10 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   });
   await page.waitForTimeout(350);
 
-  // ---------- se llega desde el tramo ----------
-  check('el tramo ofrece ver el cuadre',
-    !(await page.getAttribute('#inv-dash', 'class')).includes('hidden'));
-  await page.click('#inv-dash');
-  await page.waitForTimeout(400);
-  check('y se abre el cuadre', await page.isVisible('#view-dash'));
+  // ---------- el cuadre ES el inventario ----------
+  check('el cuadre sale en la propia pantalla del inventario',
+    await page.isVisible('#inv-comparacion'));
+  check('con la cabecera de la cuenta', await page.isVisible('.dash-cab'));
 
   // ---------- dice lo mismo que el tramo ----------
   /* Las cifras de arriba son SOLO del control de la semana. Contar los 50 y pico
@@ -90,11 +87,10 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('el KPI de «cuadran» es el que sale de calcular', kpi('Cuadran') === real.control.cuadra, [kpis, real]);
   check('el de «faltan» también', kpi('Faltan') === real.control.falta, [kpis, real]);
   check('el de «sobran» también', kpi('Sobran') === real.control.sobra, [kpis, real]);
-  check('y el de «por contar» cuenta solo el control, no la hoja entera',
-    kpi('Por contar') === real.control['sin-contar'] && real.todosSinContar > real.control['sin-contar'],
-    [kpis, real]);
-  check('y se dice de cuántos son esas cifras', /De los 5 del panel: bebidas, pollo, papas y lumpias/.test(
-    await page.textContent('.dash-kpis + .sub')));
+  check('y el de «por contar»', kpi('Por contar') === real.control['sin-contar'], [kpis, real]);
+  check('y se dice de cuántos son esas cifras',
+    /De los 17 que se llevan: bebidas, pollo, papas y lumpias/.test(
+      await page.textContent('.dash-kpis + .sub')));
   check('el pollo cuadra clavado', real.control.cuadra >= 1, real);
   check('las lumpias faltan y el refresco sobra', real.control.falta === 1 && real.control.sobra === 1, real);
 
@@ -103,7 +99,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('la cifra grande son los que no cuadran',
     Number(hero) === real.control.falta + real.control.sobra, hero);
 
-  const body = await page.textContent('#dash-body');
+  const body = await page.textContent('#inv-comparacion');
   /* ---------- la frase entera, producto por producto ----------
      «tenías esto, recibiste esto, vendiste esto, te queda tanto»: es lo que
      Alberto pidió ver, y no hace falta haber contado para poder enseñarlo. */
@@ -154,16 +150,8 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   /* En el panel solo van bebidas, pollo, papas y lumpias. Lo demás del control
      no se pinta, pero tampoco se calla: ni lo que falta contar para cerrar, ni
      lo que está descuadrado. */
-  const otros = await page.evaluate(() => {
-    db.settings.articulosActivos = [...db.settings.articulosActivos, 'zanahoria', 'cebollin'];
-    save(false); renderDash();
-    return document.querySelector('#dash-body').textContent;
-  });
-  check('las verduras ya no salen en el panel', !/Zanahoria|Cebollín/.test(
-    await page.evaluate(() => [...document.querySelectorAll('.dash-row')].map(r => r.textContent).join(''))));
-  check('pero se dice cuántas se llevan y que se cuentan en el tramo',
-    /Se llevan 2 productos más que aquí no se enseñan/.test(otros) &&
-    /Se ven y se cuentan en el tramo/.test(otros), otros.slice(-400));
+  check('las verduras no salen por ningún lado', !/Zanahoria|Cebollín|Tomate/.test(
+    await page.evaluate(() => document.querySelector('#inv-comparacion').textContent)));
   check('y no se cuelan los cientos de renglones que solo se cuentan',
     !/Coleto|Teipe|Servilletas/.test(body));
   // «5.276 piezas» no se ve en la cava; «33 cestas» sí
@@ -177,8 +165,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
     db.recepciones.push({ id: 'rp1', tipo: 'papas', fecha: currentInv.semanaInicio, creada: 1, mod: 1,
       cerrada: true, tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
       pesadas: [{ peso: 106.5, cestas: 5, ts: 1 }] });        // neto 95 kg en 5 cestas = 19 kg/cesta
-    db.settings.articulosActivos = [...db.settings.articulosActivos, 'papas'];
-    save(false); renderDash();
+    save(false); renderComparacion();
     return kgPorCesta('papas');
   });
   check('el kg por cesta sale de lo recibido: 95 kg en 5 cestas = 19',
@@ -186,29 +173,13 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   const pap = await fila('Papas');
   check('y con eso dice cuántas cestas quedan',
     pap && /cestas.*19 kg por cesta, el promedio de las 5 recibidas/.test(pap.txt), pap && pap.txt);
-  // y lo mismo en la pantalla del tramo, que es donde de verdad se cuenta
-  await page.click('#dash-back');
-  await page.waitForTimeout(400);
-  await page.fill('#inv-buscar', 'piezas de pollo');
-  await page.waitForTimeout(350);
-  check('el tramo también traduce las piezas a cestas',
-    /≈ 7,5 cestas de 20 pollos · 150 pollos/.test(await page.textContent('#inv-comparacion')),
-    await page.textContent('#inv-comparacion'));
-  await page.fill('#inv-buscar', 'papas');
-  await page.waitForTimeout(350);
   check('y los kilos de papas a cestas, con el promedio de todo lo recibido',
     /19 kg por cesta, el promedio de las 5 recibidas/.test(await page.textContent('#inv-comparacion')));
-  await page.fill('#inv-buscar', '');
-  await page.click('#inv-dash');
-  await page.waitForTimeout(400);
 
   // ---------- sin conteo no se inventa un cuadre ----------
-  await page.click('#dash-back');
-  await page.waitForTimeout(300);
-  await page.evaluate(() => { currentInv.conteo = {}; touch(currentInv); save(false); });
-  await page.click('#inv-dash');
+  await page.evaluate(() => { currentInv.conteo = {}; touch(currentInv); save(false); renderInv(); });
   await page.waitForTimeout(400);
-  const vacio = await page.textContent('#dash-body');
+  const vacio = await page.textContent('#inv-comparacion');
   check('sin un solo conteo, la cifra grande es lo que falta por contar',
     /productos por contar/.test(vacio), vacio.slice(0, 300));
   // pero la frase entera se sigue viendo: contar no hace falta para saber

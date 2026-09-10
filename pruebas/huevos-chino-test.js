@@ -62,10 +62,12 @@ const RECEPCIONES = [
   await page.click('#home-tabs button[data-t="inventario"]');
   await page.click('#btn-new');
   await page.waitForTimeout(350);
+  // el huevo y el cebollín ya no van al control semanal, pero recibirlos sí
+  // tiene que seguir dando lo mismo: la caja son 288 y el cebollín va en neto
   const rec = await page.evaluate(() => {
-    const f = calcular(currentInv);
-    return { huevos: f.find(x => x.art.id === 'huevos').recibido,
-             cebollin: f.find(x => x.art.id === 'cebollin').recibido };
+    const suma = tipo => db.recepciones.filter(r => r.tipo === tipo)
+      .reduce((s, r) => s + totals(r).neto, 0);
+    return { huevos: suma('huevos'), cebollin: Math.round(suma('cebollin') * 100) / 100 };
   });
   check('4 cajas de 288 huevos son 1.152 huevos', rec.huevos === 1152);
   check('el cebollín entra en neto, con la tara descontada', rec.cebollin === 23.1);
@@ -81,11 +83,17 @@ const RECEPCIONES = [
     touch(currentInv); save(false); renderInv();
   });
   await page.waitForTimeout(300);
+  /* Estos productos ya no están en el control semanal —el inventario se
+     estrechó a bebidas, pollo, papas y lumpias el 10/9— pero su receta sigue
+     guardada y tiene que seguir siendo correcta, así que se lee de las
+     equivalencias en vez de del tramo. */
   const ven = await page.evaluate(() => {
-    const f = calcular(currentInv);
-    const g = id => f.find(x => x.art.id === id).vendido;
-    return { huevos: g('huevos'), cebollin: g('cebollin'), camaron: g('camaron'),
-             pollo: g('pechuga'), arroz: g('arroz') };
+    const eq = equivalencias(), o = {};
+    for (const v of currentInv.ventas)
+      for (const [a, n] of Object.entries((eq[v.codigo] || {}).consume || {}))
+        o[a] = Math.round(((o[a] || 0) + n * v.cantidad) * 1e6) / 1e6;
+    return { huevos: o.huevos, cebollin: o.cebollin, camaron: o.camaron,
+             pollo: o.pechuga, arroz: o.arroz };
   });
   // los combos traen 2 potes: 92 + 173 + 91×2 + 197×2 = 841 potes
   // y cada pote lleva medio huevo, el «medio cucharón» de Alberto
@@ -99,22 +107,26 @@ const RECEPCIONES = [
   check('el camarón solo cuenta en los P&C (567 potes × 120 g)', ven.camaron === 68.04);
   check('y no en los de solo pollo', ven.camaron !== 841 * 0.12);
 
-  // ---------- 5) el conteo de huevos se hace en cartones ----------
-  await page.fill('.inv-conteo[data-a="huevos"][data-k="b"]', '10');
-  await page.dispatchEvent('.inv-conteo[data-a="huevos"][data-k="b"]', 'change');
-  await page.fill('.inv-conteo[data-a="huevos"][data-k="u"]', '7');
-  await page.dispatchEvent('.inv-conteo[data-a="huevos"][data-k="u"]', 'change');
-  await page.waitForTimeout(250);
-  check('10 cartones + 7 sueltos = 247 huevos',
-    (await page.evaluate(() => currentInv.conteo.huevos)) === 247);
-  const t = await page.textContent('#inv-comparacion');
-  check('la casilla dice «cartones», no «bultos»', t.includes('cartones'));
-  check('y muestra la cuenta', t.includes('10 cartones × 24 + 7 = 247 unidades'));
+  /* ---------- 5) el huevo se cuenta en cartones ----------
+     Ya no está en el control semanal, pero cuando vuelva tiene que volver
+     contándose igual: la caja son 288 y el cartón 24. */
+  const cuenta = await page.evaluate(() => ({
+    porBulto: porBultoDe(articulo('huevos')),
+    nombre: nombreBulto(articulo('huevos')),
+    diez: totalDe(articulo('huevos'), { b: '10', u: '7' }),
+    caja: HUEVOS_POR_CAJA
+  }));
+  check('1 cartón son 24 huevos', cuenta.porBulto === 24, cuenta);
+  check('y la casilla dice «cartones», no «bultos»', cuenta.nombre === 'cartones', cuenta);
+  check('10 cartones + 7 sueltos = 247 huevos', cuenta.diez === 247, cuenta);
+  check('y la caja sigue siendo de 288', cuenta.caja === 288, cuenta);
 
+  // en la pantalla de equivalencias solo salen los 17 que se llevan
   await page.click('#inv-equivalencias');
   await page.waitForTimeout(300);
-  check('en los artículos dice 1 cartón = 24',
-    (await page.textContent('#eq-articulos')).includes('1 cartón = 24 unidades'));
+  const eqTxt = await page.textContent('#eq-articulos');
+  check('ahí se dice cuántas unidades trae un bulto', eqTxt.includes('1 bulto = 6 unidades'));
+  check('y ya no salen los que no se llevan', !eqTxt.includes('Huevos'));
 
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);

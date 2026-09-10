@@ -79,11 +79,22 @@ const VIEJO = {
     touch(currentInv); save(false); renderInv();
   });
   await page.waitForTimeout(300);
-  const v = await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'pechuga').vendido);
+  /* La pechuga salió del control semanal el 10/9 (el inventario se estrechó a
+     bebidas, pollo, papas y lumpias), pero su receta sigue guardada y tiene que
+     seguir siendo correcta: se lee de las equivalencias, no del tramo. */
+  const consumo = () => page.evaluate(() => {
+    const eq = equivalencias(), o = {};
+    for (const v of currentInv.ventas)
+      for (const [a, n] of Object.entries((eq[v.codigo] || {}).consume || {}))
+        o[a] = Math.round(((o[a] || 0) + n * v.cantidad) * 1e6) / 1e6;
+    return o;
+  });
+  const v = (await consumo()).pechuga;
   check('el chino y los tenders descuentan de la misma pechuga (6 kg)', v === 6);
 
   // ---------- 4) la recepción sigue sumando en la pestaña Insumos ----------
-  const rec = await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'pechuga').recibido);
+  const rec = await page.evaluate(() => db.recepciones.filter(r => r.tipo === 'pechuga')
+    .reduce((s, r) => s + totals(r).neto, 0));
   check('los 40 kg recibidos siguen contando', rec === 40);
 
   console.log('\n=== RESULTADOS ===');

@@ -109,17 +109,12 @@ const ACTIVOS = ['pollo_pieza', 'ref_1l', 'ref_15l', 'agua', 'papas', 'cebollin'
   check('el pollo espera 2.720 + 288 = 3.008', f.map.pollo_pieza.esp === 3008, f.map.pollo_pieza.esp);
   check('los refrescos esperan 92 + 24 = 116', f.map.ref_1l.esp === 116, f.map.ref_1l.esp);
 
-  // ---------- 4) lo que la hoja no cubre se sigue tecleando ----------
-  check('el cebollín, que la hoja no vincula, mantiene lo escrito a mano',
-    f.map.cebollin.ini === 54.45 && f.map.cebollin.de === 'manual', f.map.cebollin);
+  /* ---------- 4) lo que la hoja no cubre se sigue tecleando ----------
+     El repollo y el cebollín salieron del control el 10/9; el de 1,5L sigue y
+     no está en la hoja, así que es el que enseña el caso. */
   check('el refresco de 1,5L no está en la hoja: se queda sin inicial',
     f.map.ref_15l.de === null, f.map.ref_15l);
-
-  // ---------- 5) un renglón que no se puede convertir lo dice ----------
-  check('2 cestas de repollo sin saber los kg por cesta no dan número',
-    f.map.repollo_blanco.de === 'manual' && f.map.repollo_blanco.ini === 99, f.map.repollo_blanco);
-  check('y la app explica por qué',
-    /cu.ntas kg trae una cesta|no est. dicho/i.test(f.map.repollo_blanco.aviso || ''), f.map.repollo_blanco.aviso);
+  check('y no por eso desaparece del tramo', f.map.ref_15l.ini === 0, f.map.ref_15l);
 
   // ---------- 6) una semana cerrada manda sobre el físico ----------
   const g = await page.evaluate(() => {
@@ -138,7 +133,7 @@ const ACTIVOS = ['pollo_pieza', 'ref_1l', 'ref_15l', 'agua', 'papas', 'cebollin'
   check('el inicial que viene de la hoja no se puede editar',
     !(await page.$('.inv-inicial[data-a="pollo_pieza"]')));
   check('el inicial que no cubre la hoja sí se puede escribir',
-    !!(await page.$('.inv-inicial[data-a="cebollin"]')));
+    !!(await page.$('.inv-inicial[data-a="ref_15l"]')));
   const txt = await page.textContent('#inv-comparacion');
   check('la pantalla dice de dónde salió el inicial',
     txt.includes('Inicial tomado del inventario físico del'), txt.slice(0, 200));

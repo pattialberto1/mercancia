@@ -70,8 +70,8 @@ function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) cons
   await page.click('#inv-equivalencias');
   await page.waitForTimeout(300);
   const art = await page.textContent('#eq-articulos');
-  check('lo que falta se dice, no se adivina', art.includes('falta decir cuántas unidades trae un bulto'));
-  check('lo que va en kilos no pide tamaño de bulto', art.includes('se cuenta en kg'));
+  check('lo que falta se dice, no se adivina', art.includes('Falta decir cuántas unidades trae un bulto'));
+  check('lo que va en kilos no pide tamaño de bulto', art.includes('Se cuenta en kg'));
   check('el del pollo sale solo de las dos cestas', art.includes('cestas marinadas de 20 pollos (160 piezas)'));
   check('y los conocidos se ven', art.includes('1 bulto = 6 unidades'));
 
@@ -110,7 +110,7 @@ function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) cons
   await page.waitForTimeout(250);
   check('vaciar la casilla deja el artículo sin contar',
     (await page.evaluate(() => currentInv.conteo.pollo_pieza)) === undefined);
-  check('y vuelve a pedir el conteo', (await page.textContent('#inv-comparacion')).includes('Escribe el conteo real'));
+  check('y vuelve a pedir el conteo', (await page.textContent('#inv-comparacion')).includes('Falta contarlo para saber si cuadra'));
 
   // ---------- 5) lo escrito antes del cambio no se pierde ----------
   await page.evaluate(() => {

@@ -63,25 +63,38 @@ const cerca = (a, b) => Math.abs(a - b) < 0.005;
     check('lleva papas el ' + c, cerca(eq[c].papas, 0.35), eq[c]);
   check('el pote de chino no lleva papas', !eq['1512'] || !eq['1512'].papas, eq['1512']);
 
-  // ---------- y todo eso llega al tramo ----------
-  await page.evaluate(() => { db.settings.articulosActivos = ['pollo_pieza']; save(false); });
+  /* ---------- y todo eso llega a donde tiene que llegar ----------
+     El repollo, la zanahoria, los huevos y el azúcar salieron del control
+     semanal el 10/9 (el inventario se estrechó a bebidas, pollo, papas y
+     lumpias), pero la receta sigue guardada y tiene que seguir cuadrando: 172
+     potes se comen la tanda entera. Las papas sí siguen en el control, así que
+     de esas se comprueba el camino completo. */
+  const porTanda = await page.evaluate(() => {
+    const eq = equivalencias(), o = {};
+    for (const [a, n] of Object.entries(eq['1527'].consume))
+      o[a] = Math.round(n * 172 * 1e6) / 1e6;
+    return o;
+  });
+  check('172 potes se comen la tanda entera de repollo', cerca(porTanda.repollo_blanco, 16), porTanda);
+  check('y los 45 huevos de la mayonesa', cerca(porTanda.huevos, 45), porTanda);
+  check('y los 3 kg de azúcar', cerca(porTanda.azucar, 3), porTanda);
+  check('y los 40 g de limón', cerca(porTanda.limon, 0.04), porTanda);
+
+  await page.evaluate(() => {
+    db.settings.articulosActivos = ['pollo_pieza'];
+    save(false);
+  });
   await page.click('#home-tabs button[data-t="inventario"]');
   await page.click('#btn-new');
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(400);
   await page.evaluate(() => {
-    currentInv.ventas = [{ codigo: '1527', descripcion: 'ENSALADA RALLADA', cantidad: 172 }];
+    currentInv.ventas = [{ codigo: '1531', descripcion: 'PAPAS FRITAS', cantidad: 100 }];
     touch(currentInv); save(false); renderInv();
   });
-  await page.waitForTimeout(300);
-  const ven = await page.evaluate(() => {
-    const o = {}; for (const f of calcular(currentInv)) o[f.art.id] = f.vendido; return o;
-  });
-  check('172 potes se comen la tanda entera de repollo', cerca(ven.repollo_blanco, 16), ven.repollo_blanco);
-  check('y los 45 huevos de la mayonesa', cerca(ven.huevos, 45), ven.huevos);
-  check('el azúcar sale en el tramo aunque no esté activa ni vinculada',
-    ven.azucar !== undefined, Object.keys(ven).filter(k => /azuc/.test(k)));
-  check('y se le cuentan los 3 kg de la tanda', cerca(ven.azucar, 3), ven.azucar);
-  check('el limón también', cerca(ven.limon, 0.04), ven.limon);
+  await page.waitForTimeout(350);
+  const papas = await page.evaluate(() =>
+    calcular(currentInv).find(f => f.art.id === 'papas').vendido);
+  check('y en el tramo, 100 raciones de papas son 35 kg', cerca(papas, 35), papas);
 
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);

@@ -43,10 +43,17 @@ function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) cons
     touch(currentInv); save(false); renderInv();
   });
   await page.waitForTimeout(300);
+  /* La pechuga ya no está en el control semanal (el inventario se estrechó el
+     10/9), pero su receta sigue guardada: se lee de las equivalencias. Las
+     bebidas sí siguen, y dan lo mismo por los dos caminos. */
   const v = await page.evaluate(() => {
+    const eq = equivalencias(), o = {};
+    for (const x of currentInv.ventas)
+      for (const [a, n] of Object.entries((eq[x.codigo] || {}).consume || {}))
+        o[a] = Math.round(((o[a] || 0) + n * x.cantidad) * 1e6) / 1e6;
     const f = calcular(currentInv);
-    const g = id => f.find(x => x.art.id === id).vendido;
-    return { pechuga: g('pechuga'), yuky: g('yuky'), ref15: g('ref_15l'),
+    const g = id => (f.find(y => y.art.id === id) || {}).vendido;
+    return { pechuga: o.pechuga, yuky: g('yuky'), ref15: g('ref_15l'),
              agua: g('agua'), glacier: g('agua_glacier') };
   });
 

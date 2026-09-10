@@ -1,7 +1,7 @@
-// Lo que Alberto aclaró el 7/9 sobre los códigos del punto de venta: los que
-// juntan varios renglones de la hoja (envases, Gatorade, jugos, Tenta té), los
-// que descuentan de un renglón suelto (arepitas, postres, picadillo) y los que
-// no descuentan nada a propósito (los delivery, Pringles).
+// Lo que descuenta cada código del punto de venta. El inventario se estrechó el
+// 10/9 a bebidas, pollo, papas y lumpias, así que de los que siguen dentro se
+// comprueba el camino entero —del código al tramo— y de los que salieron, que
+// su receta siga guardada y correcta para cuando vuelvan.
 const { chromium } = require('playwright');
 const http = require('http'); const fs = require('fs'); const path = require('path');
 
@@ -18,54 +18,51 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
 (async () => {
   await new Promise(r => server.listen(8984, r));
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.route('https://api.github.com/**', r => r.fulfill({ status: 404, body: '{}' }));
-
+  await page.addInitScript(() => localStorage.setItem('mercancia.pin', '7070'));
   await page.goto('http://localhost:8984/');
-  await page.fill('#pin-input', '7070'); await page.click('#pin-btn');
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(400);
 
-  // ---------- el bulto se pregunta por renglón, no por artículo ----------
-  const pb = await page.evaluate(() => {
-    const fila = id => catalogoFisico().flatMap(g => g.items).find(x => x.id === id);
-    const g = id => { const it = fila(id); return porBultoFisico(it, articulo(it.art)); };
-    return { ct1: g('ct1_envases'), ct2: g('ct2_envases'), ct3: g('ct3_envases'),
-             art: fila('ct1_envases').art };
+  // ---------- las bebidas que el POS no separa por sabor van juntas ----------
+  const pool = await page.evaluate(() => {
+    const filas = catalogoFisico().flatMap(g => g.items);
+    const de = re => filas.filter(i => re.test(i.nombre)).map(i => i.art);
+    return {
+      gatorade: [...new Set(de(/^Gatorade/))],
+      jugos: [...new Set(de(/Barinas/))],
+      tenta: [...new Set(de(/^Tenta té/))],
+      ref1l: [...new Set(de(/^Refresco .* 1L$/))]
+    };
   });
-  check('los tres envases van al mismo artículo', pb.art === 'envases', pb);
-  check('pero cada uno conserva su bulto: 88, 105 y 90',
-    pb.ct1 === 88 && pb.ct2 === 105 && pb.ct3 === 90, pb);
+  check('los dos Gatorade van al mismo artículo', pool.gatorade.join() === 'gatorade', pool.gatorade);
+  check('los tres jugos Barinas también', pool.jugos.join() === 'jugo_barinas', pool.jugos);
+  check('los cuatro Tenta té también', pool.tenta.join() === 'tenta_te', pool.tenta);
+  check('y los nueve sabores de refresco de 1L', pool.ref1l.join() === 'ref_1l', pool.ref1l);
 
   // ---------- el conteo de la hoja se suma en el artículo ----------
-  await page.evaluate(() => { db.settings.articulosActivos = ['envases', 'gatorade', 'lumpias']; save(false); });
   await page.click('#home-tabs button[data-t="inventario"]');
   await page.click('#btn-new');
   await page.waitForTimeout(400);
-  // el físico va una semana ANTES del tramo, sea cual sea el día en que se corra
   await page.evaluate(() => {
     const fis = nuevoFisico(masDias(currentInv.semanaInicio, -7));
     fis.fisico = {
-      ct1_envases: { b: '4', u: '' }, ct2_envases: { b: '9', u: '' }, ct3_envases: { b: '8', u: '' },
-      gatorade_de_mandarina: { b: '2', u: '10' }, gatorade_de_tropical: { b: '1', u: '' }
+      gatorade_de_mandarina: { b: '2', u: '10' }, gatorade_de_tropical: { b: '1', u: '' },
+      jugo_naranja_400ml_barinas: { b: '', u: '5' }, jugo_pera_400ml_barinas: { b: '', u: '8' },
+      lumpias: { b: '', u: '100' }
     };
     fis.cerrado = true; save(false); renderInv();
   });
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
   await page.evaluate(() => {
     currentInv.ventas = [
-      { codigo: '1583', descripcion: 'ENVASES', cantidad: 14 },
+      { codigo: '1598', descripcion: 'LUMPIAS', cantidad: 20 },     // ración de 2
+      { codigo: '1612', descripcion: '1 LUMPIA', cantidad: 5 },     // suelta
       { codigo: '1574', descripcion: 'GATORADE 0,50 LTS', cantidad: 9 },
-      { codigo: '1598', descripcion: 'LUMPIAS', cantidad: 74 },
-      { codigo: '1612', descripcion: '1 LUMPIA', cantidad: 2 },
-      { codigo: '1514', descripcion: 'AREPITAS FRITAS', cantidad: 7 },
-      { codigo: '1572', descripcion: 'PICADILLO DE POLLO', cantidad: 133 },
-      { codigo: '1585', descripcion: 'POSTRE EXTRA', cantidad: 19 },
-      { codigo: '1528', descripcion: 'MARQUESA DE CHOCOLATE', cantidad: 3 },
-      { codigo: '1584', descripcion: '4 SALSAS', cantidad: 2 },
-      { codigo: '1614', descripcion: '1 VAS. SALSA TOMATE', cantidad: 13 },
-      { codigo: '1613', descripcion: '1 VAS. SALSA AGRIDULCE', cantidad: 3 },
+      { codigo: '1603', descripcion: 'JUGO BARINAS 400ML', cantidad: 4 },
+      { codigo: '1531', descripcion: 'PAPAS FRITAS', cantidad: 10 },
       { codigo: '1564', descripcion: 'DELIVERY 3', cantidad: 196 },
       { codigo: '1588', descripcion: 'PRINGLES', cantidad: 1 }
     ];
@@ -77,43 +74,41 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
     for (const x of calcular(currentInv)) o[x.art.id] = { ini: x.inicial, ven: x.vendido };
     return o;
   });
-  check('4×88 + 9×105 + 8×90 = 2.017 envases de inicial', f.envases.ini === 2017, f.envases);
-  check('los dos sabores de Gatorade se juntan: 46', f.gatorade.ini === 46, f.gatorade);
-
-  // ---------- lo que descuenta cada código ----------
-  check('un envase por venta suelta', f.envases.ven === 14, f.envases);
+  check('los dos sabores de Gatorade se juntan en el inicial: 2×12 + 10 + 12 = 46',
+    f.gatorade.ini === 46, f.gatorade);
+  check('y los jugos Barinas: 5 + 8 = 13', f.jugo_barinas.ini === 13, f.jugo_barinas);
+  check('la ración de lumpias son 2, la suelta 1: 20×2 + 5 = 45', f.lumpias.ven === 45, f.lumpias);
   check('un Gatorade por venta, sin mirar el sabor', f.gatorade.ven === 9, f.gatorade);
-  check('la ración de lumpias son 2, la suelta 1: 74×2 + 2 = 150',
-    f.lumpias.ven === 150, f.lumpias);
-  check('la ración de arepitas son 10: 7×10 = 70', f.f_arepitas_fritas.ven === 70, f.f_arepitas_fritas);
-  check('el picadillo va por kilo: 133', f.f_picadillo_de_pollo.ven === 133, f.f_picadillo_de_pollo);
-  check('«postre extra» son los Paolo', f.f_postres_paolo.ven === 19, f.f_postres_paolo);
-  check('y la marquesa es donde se cobran los tres leches',
-    f.f_postres_tres_leches.ven === 3, f.f_postres_tres_leches);
-  check('«4 salsas» son 4 sobres Chef Quality: 2×4 = 8',
-    f.f_salsa_ketchup_chef_quality_sobre.ven === 8, f.f_salsa_ketchup_chef_quality_sobre);
-  // las dos racionadas de la hoja se parecen mucho: que no se crucen
-  check('el vaso de salsa de tomate sale de la salsa de la casa racionada',
-    f.f_salsa_de_la_casa_racionada.ven === 13, f.f_salsa_de_la_casa_racionada);
-  check('y el de agridulce, de la agridulce racionada',
-    f.f_salsa_agridulce_racionada.ven === 3, f.f_salsa_agridulce_racionada);
-
-  // un renglón de la hoja con receta deja de ser «solo conteo»: si no, su
-  // consumo se perdía sin que nada lo dijera
-  check('un renglón de la hoja con receta entra en la fórmula',
-    (await page.evaluate(() => articulosConFormula().some(a => a.id === 'f_picadillo_de_pollo'))));
+  check('un jugo por venta', f.jugo_barinas.ven === 4, f.jugo_barinas);
+  check('la ración de papas son 350 g: 10 × 0,35 = 3,5', f.papas.ven === 3.5, f.papas);
 
   // ---------- lo que no descuenta nada, y se dice ----------
   const sin = await page.evaluate(() => codigosSinAsignar(currentInv).map(v => v.codigo));
   check('los delivery ya no salen como pendientes', !sin.includes('1564'), sin);
   check('ni las Pringles', !sin.includes('1588'), sin);
-  check('y no se llevan nada de ningún artículo',
-    Object.values(f).every(x => x.ven !== 196 && x.ven !== 1), Object.entries(f).filter(([,x])=>x.ven===196));
+  check('y no se llevan nada de ningún producto',
+    Object.values(f).every(x => x.ven !== 196), Object.entries(f).filter(([, x]) => x.ven === 196));
   await page.click('#inv-equivalencias');
   await page.waitForTimeout(300);
   const eqTxt = await page.textContent('#eq-list');
   check('la pantalla lo explica en vez de decir «sin asignar»',
     /no descuenta nada · es el cobro del envío/.test(eqTxt));
+
+  /* ---------- las recetas de lo que salió del control siguen guardadas ----------
+     El picadillo, las arepitas, los postres y las salsas ya no se llevan, pero
+     lo que costó averiguar no se tira: la receta sigue ahí y la pantalla dice
+     que ese producto ya no se lleva, en vez de enseñar un id en crudo. */
+  const guardadas = await page.evaluate(() => {
+    const eq = equivalencias();
+    const c = cod => Object.entries(eq[cod].consume)[0];
+    return { picadillo: c('1572'), arepitas: c('1514'), postre: c('1585'), salsas: c('1584') };
+  });
+  check('el picadillo sigue a 1 kg por venta', guardadas.picadillo[1] === 1, guardadas.picadillo);
+  check('la ración de arepitas sigue en 10', guardadas.arepitas[1] === 10, guardadas.arepitas);
+  check('el postre extra sigue apuntando a los Paolo', guardadas.postre[1] === 1, guardadas.postre);
+  check('«4 salsas» siguen siendo 4 sobres', guardadas.salsas[1] === 4, guardadas.salsas);
+  check('y en pantalla se dice que ya no se llevan',
+    /ya no se lleva en el inventario/.test(eqTxt), eqTxt.slice(0, 300));
 
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);

@@ -136,9 +136,12 @@ const RECEPCIONES = [
     }
   });
   await page.waitForTimeout(250);
-  const recibido = await page.evaluate(() =>
-    calcular(currentInv).find(x => x.art.id === 'huevos').recibido);
-  check('al inventario entran los 655 huevos de hoy', recibido === 655, recibido);
+  // el huevo salió del control semanal el 10/9, pero recibirlo tiene que seguir
+  // dando lo mismo: lo que suman las entradas de hoy
+  const recibido = await page.evaluate(() => db.recepciones
+    .filter(r => r.tipo === 'huevos' && r.fecha >= currentInv.semanaInicio && r.fecha <= currentInv.semanaFin)
+    .reduce((s, r) => s + totals(r).neto, 0));
+  check('las entradas de hoy suman 655 huevos', recibido === 655, recibido);
   check('el conteo sigue siendo por cartones de 24',
     await page.evaluate(() => porBultoDe(articulo('huevos')) === 24 &&
                               nombreBulto(articulo('huevos')) === 'cartones'));

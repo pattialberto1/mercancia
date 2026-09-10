@@ -26,11 +26,10 @@ const INVENTARIOS = [
   { id: 'f1', tipo: 'fisico', semanaInicio: '2026-08-31', semanaFin: '2026-08-31',
     creada: 1, mod: 1, cerrado: true, ventas: [], conteo: {}, inicialManual: {},
     fisico: {
-      arroz_mary: { b: '70', u: '' },                    // 70 × 24 sacos
-      ajinomoto: { b: '2', u: '0,5' },                   // 2 × 25 kg + 0,5
-      tina_salsera_1oz_occidente: { b: '8', u: '' },     // 8 × 1.000
-      vasos_v67: { b: '2', u: '8' },                     // 2 × 25 + 8 paquetes
-      salsa_de_tomate_mayo_3_8kg: { b: '', u: '6' }
+      refresco_coca_cola_1l: { b: '10', u: '2' },        // 10 × 6 + 2 = 62
+      malta_botella: { b: '2', u: '31' },                // 2 × 36 + 31 = 103
+      agua_glacier_550ml: { b: '4', u: '20' },           // 4 × 24 + 20 = 116
+      agua_minalba_1_5l: { b: '', u: '6' }
     } },
   { id: 't1', semanaInicio: '2026-09-01', semanaFin: '2026-09-05',
     creada: 2, mod: 2, cerrado: false, conteo: {}, inicialManual: {},
@@ -57,61 +56,57 @@ const INVENTARIOS = [
   await page.goto('http://localhost:8997/');
   await page.waitForTimeout(400);
 
-  // ---------- 1) los tamaños de bulto vienen puestos de fábrica ----------
+  /* ---------- 1) los tamaños de bulto vienen puestos de fábrica ----------
+     La hoja se estrechó el 10/9 a bebidas, pollo, papas y lumpias, así que los
+     bultos que se comprueban son los de lo que quedó. */
   const pb = await page.evaluate(() => ({
-    arroz: porBultoDe(articulo('f_arroz_mary')),
-    ajinomoto: porBultoDe(articulo('f_ajinomoto')),
-    salsera: porBultoDe(articulo('f_tina_salsera_1oz_occidente')),
-    vasos: porBultoDe(articulo('f_vasos_v67')),
-    uArroz: articulo('f_arroz_mary').unidad,
-    uVasos: articulo('f_vasos_v67').unidad,
-    uAji: articulo('f_ajinomoto').unidad
+    ref1l: porBultoDe(articulo('ref_1l')),
+    ref15l: porBultoDe(articulo('ref_15l')),
+    agua: porBultoDe(articulo('agua')),
+    glacier: porBultoDe(articulo('agua_glacier')),
+    malta: porBultoDe(articulo('malta')),
+    yuky: porBultoDe(articulo('yuky')),
+    gatorade: porBultoDe(articulo('gatorade')),
+    pollo: porBultoDe(articulo('pollo_pieza'))
   }));
-  check('arroz Mary: 1 bulto = 24 sacos', pb.arroz === 24 && pb.uArroz === 'sacos', pb);
-  check('ajinomoto: 1 bulto = 25 kg', pb.ajinomoto === 25 && pb.uAji === 'kg', pb);
-  check('tina salsera 1oz: 1 bulto = 1.000 unidades', pb.salsera === 1000, pb);
-  check('vasos V67: 1 bulto = 25 paquetes', pb.vasos === 25 && pb.uVasos === 'paquetes', pb);
+  check('refresco de 1L: 1 bulto = 6', pb.ref1l === 6, pb);
+  check('el de 1,5L: 12', pb.ref15l === 12, pb);
+  check('las dos aguas: 24', pb.agua === 24 && pb.glacier === 24, pb);
+  check('malta 36 y yuky-pack 24', pb.malta === 36 && pb.yuky === 24, pb);
+  check('Gatorade 12', pb.gatorade === 12, pb);
+  check('y el del pollo sale del rendimiento de la cesta: 160 piezas', pb.pollo === 160, pb);
 
-  // los que estaban escritos en las observaciones de la hoja de agosto
+  /* El tamaño del bulto se pregunta por RENGLÓN de la hoja y solo después por
+     artículo: varios renglones pueden ir al mismo artículo con bultos
+     distintos, como el Lipton (12 por caja) frente al Tenta té, que nadie ha
+     dicho qué trae. */
   const obs = await page.evaluate(() => {
-    // el tamaño del bulto se pregunta por RENGLÓN de la hoja: varios renglones
-    // pueden ir al mismo artículo con bultos distintos (CT1, CT2 y CT3)
     const g = id => {
       const it = catalogoFisico().flatMap(g => g.items).find(x => x.id === id);
       return porBultoFisico(it, articulo(it.art));
     };
-    return { ct1: g('ct1_envases'), ct2: g('ct2_envases'), ct3: g('ct3_envases'),
-             bbq: g('salsa_bbq'), vinagre: g('vinagre_sansone'), portumesa: g('aceite_portumesa'),
-             sesamo: g('aceite_humo_sesamo_5l'), azucar: g('azucar_dulceria_blanca'),
-             salsa: g('salsa_de_tomate_mayo_3_8kg'),
-             // estos NO deben estar puestos: no se sabe o hay conflicto
-             platosN10: g('platos_n10'), tapa: g('tapa_de_tina_de_ensalada'),
-             platosN9: g('platos_n9'), harina: g('harina_pan') };
+    return { durazno: g('te_lipton_durazno'), limon: g('te_lipton_limon'), verde: g('te_verde_lipton'),
+             minalba15: g('agua_minalba_1_5l'), tropical: g('gatorade_de_tropical'),
+             // este NO debe estar puesto: nadie ha dicho qué trae su bulto
+             tenta: g('tenta_te_durazno_1l') };
   });
-  check('CT1, CT2 y CT3 salen de la hoja: 88, 105 y 90',
-    obs.ct1 === 88 && obs.ct2 === 105 && obs.ct3 === 90, obs);
-  check('salsa BBQ 24, vinagre 4, Portumesa 12, sésamo 4, azúcar dulcería 15 kg',
-    obs.bbq === 24 && obs.vinagre === 4 && obs.portumesa === 12 && obs.sesamo === 4 && obs.azucar === 15, obs);
-  check('la salsa de tomate de 3,8kg: 1 bulto = 4 paquetes', obs.salsa === 4, obs);
-  check('los dos platos van a 200 por bulto, como confirmó Alberto',
-    obs.platosN10 === 200 && obs.platosN9 === 200, obs);
-  check('la tapa de tina sigue sin ponerse: nadie ha dicho qué trae su bulto',
-    !obs.tapa, obs.tapa);
-  check('ni la Harina Pan: «de 2 kg» es lo que pesa, no cuántas trae la caja', !obs.harina, obs.harina);
+  check('los tres Lipton salen de la factura de Yaru: 12 por caja',
+    obs.durazno === 12 && obs.limon === 12 && obs.verde === 12, obs);
+  check('el agua Minalba de 1,5L: 12', obs.minalba15 === 12, obs);
+  check('el Gatorade tropical conserva el suyo aunque vaya al montón', obs.tropical === 12, obs);
+  check('el Tenta té sigue sin ponerse: nadie ha dicho qué trae su bulto', !obs.tenta, obs.tenta);
 
   // ---------- 2) y ya traducen la hoja sin preguntar nada ----------
   const ini = await page.evaluate(() => {
     const b = baseInicial(db.inventarios.find(i => i.id === 't1'));
-    return { arroz: b.valores.f_arroz_mary, aji: b.valores.f_ajinomoto,
-             salsera: b.valores.f_tina_salsera_1oz_occidente, vasos: b.valores.f_vasos_v67,
+    return { ref: b.valores.ref_1l, malta: b.valores.malta, glacier: b.valores.agua_glacier,
              avisos: Object.keys(b.avisos) };
   });
-  check('70 bultos de arroz Mary son 1.680 sacos', ini.arroz === 1680, ini.arroz);
-  check('2 bultos y medio kilo de ajinomoto son 50,5 kg', ini.aji === 50.5, ini.aji);
-  check('8 bultos de tina salsera son 8.000', ini.salsera === 8000, ini.salsera);
-  check('2 bultos y 8 paquetes de vasos V67 son 58 paquetes', ini.vasos === 58, ini.vasos);
-  check('ninguno de los cuatro sigue pidiendo el tamaño del bulto',
-    !ini.avisos.some(k => /arroz_mary|ajinomoto|salsera|vasos_v67/.test(k)), ini.avisos);
+  check('10 bultos y 2 sueltas de Coca-Cola son 62 refrescos', ini.ref === 62, ini.ref);
+  check('2 bultos y 31 sueltas de malta son 103', ini.malta === 103, ini.malta);
+  check('4 bultos y 20 sueltas de Glacier son 116', ini.glacier === 116, ini.glacier);
+  check('ninguno sigue pidiendo el tamaño del bulto',
+    !ini.avisos.some(k => /ref_1l|malta|glacier/.test(k)), ini.avisos);
 
   // ---------- 3) la nota de entrega de Natropic, tal cual ----------
   await page.click('#home-tabs button[data-t="tierrasanta"]');
@@ -136,26 +131,26 @@ const INVENTARIOS = [
 
   // el selector de producto
   const opciones = await page.$$eval('#ln-art option', os => os.length);
-  check('se puede elegir cualquier producto del inventario', opciones > 200, opciones);
+  check('se puede elegir cualquier producto del inventario', opciones > 15, opciones);
   check('y por defecto no entra a ninguno', (await page.inputValue('#ln-art')) === '');
 
-  await page.selectOption('#ln-art', 'f_salsa_de_tomate_mayo_3_8kg');
+  await page.selectOption('#ln-art', 'f_agua_minalba_1_5l');
   await page.waitForTimeout(250);
   check('como ya se sabe su bulto, ofrece meter la cantidad en bultos',
     await page.isVisible('#ln-bultos-campo'));
   check('y recuerda cuánto trae un bulto',
-    /1 bulto = 4 unidades/i.test(await page.textContent('#ln-bultos-lbl')),
+    /1 bulto = 12 unidades/i.test(await page.textContent('#ln-bultos-lbl')),
     await page.textContent('#ln-bultos-lbl'));
 
   await page.click('#ln-save');
   await page.waitForTimeout(300);
   check('el renglón queda guardado apuntando a su producto', await page.evaluate(() =>
-    currentFac.lineas[0].art === 'f_salsa_de_tomate_mayo_3_8kg' && currentFac.lineas[0].cantidad === 8));
+    currentFac.lineas[0].art === 'f_agua_minalba_1_5l' && currentFac.lineas[0].cantidad === 8));
 
   // ---------- 4) entra al inventario ----------
   let rec = await page.evaluate(() => {
     const t = db.inventarios.find(i => i.id === 't1');
-    const f = calcular(t).find(x => x.art.id === 'f_salsa_de_tomate_mayo_3_8kg');
+    const f = calcular(t).find(x => x.art.id === 'f_agua_minalba_1_5l');
     return { recibido: f.recibido, inicial: f.inicial, esperado: f.esperado };
   });
   check('marcado en unidades entran las 8 cajas tal cual', rec.recibido === 8, rec);
@@ -164,12 +159,12 @@ const INVENTARIOS = [
   await page.evaluate(() => { currentFac.lineas[0].enBultos = true; touch(currentFac); save(); });
   rec = await page.evaluate(() => {
     const t = db.inventarios.find(i => i.id === 't1');
-    const f = calcular(t).find(x => x.art.id === 'f_salsa_de_tomate_mayo_3_8kg');
+    const f = calcular(t).find(x => x.art.id === 'f_agua_minalba_1_5l');
     return { recibido: f.recibido, inicial: f.inicial, esperado: f.esperado };
   });
-  check('8 bultos de 4 paquetes son 32 paquetes', rec.recibido === 32, rec);
+  check('8 bultos de 12 son 96 unidades', rec.recibido === 96, rec);
   check('el inicial de la hoja sigue siendo 6', rec.inicial === 6, rec);
-  check('y debería quedar 6 + 32 = 38', rec.esperado === 38, rec);
+  check('y debería quedar 6 + 96 = 102', rec.esperado === 102, rec);
 
   // ---------- 6) el IVA, que la app no tenía ----------
   // la factura de Yaru del 3/9: 230,39 de renglones + 36,86 de IVA = 267,25
@@ -213,7 +208,7 @@ const INVENTARIOS = [
   await page.evaluate(() => {
     currentFac.iva = null; currentFac.totalFactura = null;
     currentFac.lineas = [{ nombre: 'Base de Salsa de Tomate 3,80 Kg', cantidad: 8, unidad: 'Cajas',
-                           precio: 25.08, importe: 200.64, art: 'f_salsa_de_tomate_mayo_3_8kg', enBultos: true }];
+                           precio: 25.08, importe: 200.64, art: 'f_agua_minalba_1_5l', enBultos: true }];
     touch(currentFac); save();
   });
 
@@ -223,10 +218,10 @@ const INVENTARIOS = [
     db.facturas[0].lineas.push({ nombre: 'CILANTRO', cantidad: 3, unidad: 'kg', precio: 1, importe: 3 });
     save();
     const t = db.inventarios.find(i => i.id === 't1');
-    const f = calcular(t).find(x => x.art.id === 'f_salsa_de_tomate_mayo_3_8kg');
+    const f = calcular(t).find(x => x.art.id === 'f_agua_minalba_1_5l');
     return f.recibido;
   });
-  check('el renglón apuntado no se suma otra vez por el nombre', dob === 32, dob);
+  check('el renglón apuntado no se suma otra vez por el nombre', dob === 96, dob);
 
   // ---------- cierre ----------
   console.log('');

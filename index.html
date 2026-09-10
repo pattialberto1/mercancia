@@ -595,8 +595,6 @@
       <button class="iconbtn btn-danger" id="inv-del" aria-label="Eliminar">🗑️</button>
     </div>
 
-    <button class="btn-secondary hidden" id="inv-dash" style="margin-bottom:14px">📊 Ver el cuadre de la semana</button>
-
     <div id="inv-msg"></div>
 
     <div class="card hidden" id="inv-arranque-card">
@@ -618,14 +616,10 @@
       <div id="inv-ventas-resumen"></div>
     </div>
 
-    <div class="card" id="inv-comparacion-card">
-      <div class="listhead"><h2>Comparación</h2><span class="sub" id="inv-resumen"></span></div>
-      <input id="inv-buscar" type="search" placeholder="Buscar un producto…" autocomplete="off"
-             style="width:100%;margin-bottom:10px">
-      <div id="inv-comparacion"></div>
-    </div>
+    <!-- el cuadre entero: es la pantalla del inventario, no una aparte -->
+    <div id="inv-comparacion"></div>
 
-    <!-- inventario físico: la hoja completa del local, solo conteo -->
+    <!-- inventario físico: el conteo a mano de lo que se lleva -->
     <div class="card hidden" id="inv-fisico-card">
       <div class="listhead"><h2>Conteo</h2><span class="sub" id="fis-resumen"></span></div>
       <input id="fis-buscar" type="search" placeholder="Buscar un producto…" autocomplete="off"
@@ -638,18 +632,6 @@
     <button class="btn-secondary" id="inv-equivalencias">⚙️ Equivalencias</button>
   </section>
 
-  <!-- ================= CUADRE ================= -->
-  <section id="view-dash" class="hidden">
-    <div class="topbar">
-      <button class="iconbtn" id="dash-back" aria-label="Volver">←</button>
-      <div style="flex:1">
-        <h1>📊 Cuadre</h1>
-        <div class="sub" id="dash-sub"></div>
-      </div>
-    </div>
-    <div id="dash-body"></div>
-  </section>
-
   <!-- ================= EQUIVALENCIAS ================= -->
   <section id="view-eq" class="hidden">
     <div class="topbar">
@@ -657,9 +639,8 @@
       <div style="flex:1"><h1>⚙️ Equivalencias</h1><div class="sub">Qué consume cada cosa que vendes</div></div>
     </div>
     <div class="card">
-      <div class="listhead"><h2>Qué controlar</h2></div>
-      <div class="sub" style="margin:2px 0 12px">Activa solo lo que estés registrando de verdad al recibir. Si activas algo sin anotar sus entradas, las cuentas saldrán en negativo.</div>
-      <button class="btn-secondary" id="eq-simple" style="margin-bottom:12px">⭐ Llevar todo lo que entra por la app</button>
+      <div class="listhead"><h2>Cómo se cuenta cada uno</h2></div>
+      <div class="sub" style="margin:2px 0 12px">Cuántas unidades trae un bulto de cada cosa. Es lo que traduce «6 bultos» a unidades al contar.</div>
       <div id="eq-articulos"></div>
     </div>
     <div class="card">
@@ -1089,7 +1070,6 @@ function show(view) {
   $('view-fac').classList.toggle('hidden', view !== 'fac');
   $('view-inv').classList.toggle('hidden', view !== 'inv');
   $('view-eq').classList.toggle('hidden', view !== 'eq');
-  $('view-dash').classList.toggle('hidden', view !== 'dash');
   window.scrollTo(0, 0);
 }
 
@@ -2349,32 +2329,26 @@ const ARTICULOS_TODOS = [
 /* Solo se controla lo que se esté registrando de verdad. Activar un artículo
    sin anotar sus entradas haría que el esperado saliera negativo semana tras
    semana. Se arranca solo con el pollo y se van sumando los demás. */
-function articulosActivos() {
-  const ids = db.settings.articulosActivos || ['pollo_pieza'];
-  return ARTICULOS_TODOS.filter(a => ids.includes(a.id));
-}
+function articulosActivos() { return articulosDelTramo(); }
 function articulo(id) {
   return ARTICULOS_TODOS.find(a => a.id === id) || ARTICULOS_FISICO.find(a => a.id === id);
 }
-/* Todo lo que se cuenta en un tramo: la hoja completa del local, sin que falte
-   nada. Son de tres clases y entran por razones distintas:
-   - los artículos activos del control, que son los que obligan a contar para
-     poder cerrar la semana
-   - los demás artículos del control que recogen algún renglón de la hoja (el
-     repollo, la zanahoria…): si no estuvieran, esos renglones no saldrían por
-     ningún lado, porque su artículo se los lleva
-   - un artículo por cada renglón de la hoja que no lleva ninguno de los otros */
+/* LO QUE SE LLEVA. Bebidas, pollo, papas y lumpias, y nada más: es la lista
+   entera del inventario semanal, no un filtro de pantalla (Alberto, 10/9:
+   «quita todos los productos menos los que tenemos en el dashboard»).
+   Recibir se sigue recibiendo de todo —las recepciones no se tocan—; lo que
+   se estrecha es lo que hay que contar y cuadrar cada semana. */
+const PANEL_CUADRE = [
+  'pollo_pieza', 'papas', 'lumpias',
+  'ref_1l', 'ref_15l', 'ref_2l',
+  'agua', 'agua_glacier', 'f_agua_minalba_1_5l',
+  'malta', 'yuky', 'gatorade', 'jugo_barinas', 'tenta_te',
+  'f_te_lipton_durazno', 'f_te_lipton_limon', 'f_te_verde_lipton'
+];
+
+// el tramo es, exactamente, esa lista
 function articulosDelTramo() {
-  const ids = new Set(articulosActivos().map(a => a.id));
-  for (const art of Object.values(VINCULO_FISICO)) ids.add(art);
-  /* Y lo que gastan las recetas. Sin esto, un artículo que una receta consume
-     pero que nadie marcó activo ni recoge ningún renglón de la hoja —el azúcar
-     de la ensalada, por ejemplo— desaparecía del tramo, y con él su consumo:
-     vendidoEnSemana descarta lo que no está en la lista. Mejor que salga con lo
-     que falte a la vista que no salga. */
-  for (const regla of Object.values(equivalencias()))
-    for (const artId of Object.keys(regla.consume || {})) ids.add(artId);
-  return ARTICULOS_TODOS.filter(a => ids.has(a.id)).concat(ARTICULOS_FISICO);
+  return PANEL_CUADRE.map(id => articulo(id)).filter(Boolean);
 }
 /* Los renglones de la hoja que alguna receta gasta. Un renglón normal solo se
    cuenta (no se sabe en qué se fue), pero en cuanto hay receta ya se le puede
@@ -2388,8 +2362,8 @@ function idsConReceta() {
 }
 // ¿este artículo lleva la fórmula completa, o solo se cuenta?
 function esDeControl(a) { return !a.soloConteo || idsConReceta().has(a.id); }
-// ¿obliga a contarlo para cerrar la semana? Solo lo que se marcó en Ajustes
-function esActivo(a) { return (db.settings.articulosActivos || ['pollo_pieza']).includes(a.id); }
+// todo lo que está en el tramo es el control: ya no hay lista que marcar
+function esActivo(a) { return PANEL_CUADRE.includes(a.id); }
 
 /* OJO: la cesta que se RECIBE y la cesta que se CUENTA no son del mismo
    tamaño, y confundirlas infla lo recibido un 11%.
@@ -2437,105 +2411,37 @@ function totalDe(a, det) {
 }
 
 /* ================================================================
-   INVENTARIO FÍSICO: la hoja completa que se llena a mano en el local.
+   INVENTARIO FÍSICO: el conteo a mano en el local. Eran los 245 renglones de
+   la hoja entera y no se llevaba: el 10/9 Alberto pidió dejar solo lo que de
+   verdad se controla —bebidas, pollo, papas y lumpias—, que son 39 renglones y
+   sí se cuentan en un rato. Lo demás se sigue anotando en el papel, pero no en
+   la app.
    Son dos columnas independientes, como en el papel — «por bulto» y «por
-   unidad» — más la observación. No se convierten ni se suman: el bulto de
-   cada cosa es distinto y muchos ni se venden, así que aquí no hay merma
-   que calcular. El control semanal con su fórmula sigue aparte.
+   unidad» — más la observación. No se convierten ni se suman: el bulto de cada
+   cosa es distinto.
    Un «|kg» o «|lt» al final del nombre cambia la unidad de la 2ª columna. */
 const CATALOGO_FISICO = [
-  { cat: 'Alimentos procesados y otros', items: [
-    'Aceite Vatel Pro', 'Aceite Portumesa', 'Aceite Concovado', 'Aceite humo sésamo 5L',
-    'Arroz cocido|kg', 'Arroz Mary', 'Arroz Mónica 900 grs',
-    'Azúcar Montalbán', 'Azúcar Agro Líder', 'Azúcar dulcería blanca|kg', 'Azúcar Maite', 'Azúcar Solmia',
-    'Caraotas negras Mary 400g', 'Caraotas rojas Mary 500g', 'Harina de trigo', 'Harina Pan',
-    'Leche', 'Lentejas Mary 500g', 'Lentejas Pantera 500g', 'Arvejas Mary 400gr', 'Arvejas Pantera 900g',
-    'Mostaza', 'Pasta corta', 'Pasta de tomate', 'Pasta larga',
-    'Sal Cruz de Oro', 'Sal refinada Monte Blanca',
-    'Salsa agridulce sobre', 'Salsa agridulce racionada', 'Salsa soya sobre Usine',
-    'Salsa de soya negra concentrado', 'Salsa soya clara', 'Salsa soya clara (caja de 4)', 'Salsa soya salón',
-    'Salsa de soya negra El Chino Mushroom', 'Salsa de tomate de la casa', 'Salsa de la casa racionada',
-    'Salsa de tomate Heinz', 'Salsa de tomate Ideal galón 4k',
-    'Salsa ketchup Chef Quality caja 24', 'Salsa ketchup Chef Quality sobre',
-    'Ketchup botella',
-    'Salsa ketchup Tiquere caja 24', 'Salsa de tomate Mayo 3,8kg', 'Salsa de tomate Don Antonio',
-    'Salsa de tomate sobre ketchup', 'Salsa pote agridulce|lt', 'Salsa BBQ',
-    'Sobre Maggi', 'Vinagre Heinz', 'Vinagre Sansone', 'Yesqueros'
-  ]},
-  { cat: 'Animes, cubiertos y bolsas', items: [
-    'CT1 envases', 'CT2 envases', 'CT3 envases',
-    'Tapa de tina de ensalada', 'Tapas de tina china', 'Tina china 23oz',
-    'Tina de ensalada 3oz', 'Tina de ensalada 6oz', 'Tina salsera 1oz Occidente',
-    'Platos N10', 'Platos N9', 'Tenedores', 'Cuchillos', 'Cucharillas',
-    'Vasos V127', 'Vasos V67', 'Vasos V67 o 77', 'Vasos V89', 'Pitillos',
-    'Bandejas térmicas para lumpias BT1',
-    'Bolsas de 2 kilos', 'Bolsas de 10 kilos', 'Bolsas de 15 kilos', 'Bolsas de 20 kilos',
-    'Bolsas de 25 kilos', 'Bolsas de 40 kilos negra', 'Bolsas transparentes 1/4'
-  ]},
   { cat: 'Bebidas', items: [
-    'Agua Minalba 1,5L', 'Agua Minalba 600ml', 'Agua Glacier 550ml',
-    'Gatorade de mandarina', 'Gatorade de tropical',
-    'Jugo naranja 400ml Barinas', 'Jugo pera 400ml Barinas', 'Jugo manzana 400ml Barinas',
-    'Malta botella',
     'Refresco Manzanita 1L', 'Refresco Piña 1L', 'Refresco 7UP 1L', 'Refresco Chinoto 1L',
     'Refresco Coca-Cola 1L', 'Refresco Colita 1L', 'Refresco Naranja 1L',
     'Refresco Fanta Naranja 1L', 'Refresco Uva 1L',
     'Refresco Toronja 2L', 'Refresco Manzanita 2L', 'Refresco 7UP 2L', 'Refresco Pepsi 2L',
     'Refresco Coca-Cola 2L', 'Refresco Colita 2L', 'Refresco Chinoto 2L', 'Refresco Naranja 2L',
+    'Agua Minalba 1,5L', 'Agua Minalba 600ml', 'Agua Glacier 550ml',
+    'Malta botella', 'Yukki pack pera', 'Yukki pack manzana', 'Yukki pack durazno',
+    'Gatorade de mandarina', 'Gatorade de tropical',
+    'Jugo naranja 400ml Barinas', 'Jugo pera 400ml Barinas', 'Jugo manzana 400ml Barinas',
     'Té Lipton durazno', 'Té Lipton limón', 'Té verde Lipton',
-    'Tenta té durazno 1L', 'Tenta té limón 1L', 'Tenta té durazno 500ml', 'Tenta té limón 500ml',
-    'Yukki pack pera', 'Yukki pack manzana', 'Yukki pack durazno'
+    'Tenta té durazno 1L', 'Tenta té limón 1L', 'Tenta té durazno 500ml', 'Tenta té limón 500ml'
   ]},
-  { cat: 'Legumbres y frutas', items: [
-    'Aguacate|kg', 'Ají dulce|kg', 'Ajinomoto|kg', 'Ajo|kg', 'Ajo porro|kg', 'Apio|kg', 'Auyama|kg',
-    'Berenjena|kg', 'Brócoli|kg', 'Cambur|kg', 'Calabacín|kg', 'Cebolla blanca|kg',
-    'Cebollín en cestas|kg', 'Cebollín picado|kg', 'Celeri (apio España)|kg', 'Cilantro|kg',
-    'Ensalada', 'Guayaba|kg', 'Jojoto|kg', 'Jengibre|kg', 'Lechuga|kg', 'Limón|kg', 'Mango|kg',
-    'Melón|kg', 'Naranja|kg', 'Ñame|kg', 'Ocumo|kg', 'Papas cestas|kg', 'Papelón',
-    'Parchita|kg', 'Patilla|kg', 'Pepino|kg', 'Perejil|kg', 'Pimentón|kg', 'Piña|kg', 'Plátanos|kg',
-    'Queso|kg', 'Remolacha|kg', 'Repollo blanco|kg', 'Repollo morado|kg',
-    'Tomate|kg', 'Tomate de árbol|kg', 'Vainita|kg', 'Yuca|kg', 'Zanahoria|kg'
-  ]},
-  { cat: 'Carnes, pollo, camarón y otros', items: [
-    'Alas|kg', 'Atún', 'Camarón|kg', 'Carne mechada|kg', 'Carne molida|kg', 'Carne bistec|kg',
-    'Carne para guisar|kg', 'Chuletas|kg', 'Lagarto sin hueso|kg',
-    'Empanizado para pollo', 'Empanizado para tender', 'Huevos', 'Magia|kg', 'Marinado',
-    'Milanesa cocida|kg', 'Milanesa congelada|kg',
-    'Pollo en cestas|kg', 'Pollo en cestas marinado|kg', 'Pollo picado|kg',
-    'Polvo colorante 12U Brig-Red', 'Polvo colorante 12U Orangel Yelow',
-    'Picadillo de pollo|kg',
-    'Polvo colorante amarillo Frutalia 500g', 'Tenders'
-  ]},
-  { cat: 'Detergentes y limpieza', items: [
-    'Citronela concentrado (amarillo)|lt', 'Citronela preparado|lt',
-    'Cloro concentrado|lt', 'Cloro preparado|lt', 'Coleto',
-    'Desengrasante|lt', 'Desinfectante concentrado azul|lt', 'Desinfectante preparado azul|lt',
-    'Desinfectante anaranjado concentrado|lt', 'Desinfectante anaranjado preparado|lt',
-    'Esponjas de brillo', 'Esponja amarilla', 'Esponja jabonosa', 'Esponja de mayas',
-    'Jabón líquido|lt', 'Jabón Dove', 'Pañitos', 'Trapeador limpia vidrios'
-  ]},
-  { cat: 'Uniformes y otros', items: [
-    'Delantal', 'Gorros tela sencilla', 'Gorros tela lana', 'Guantes L y M',
-    'Franelas de uniformes', 'Tapa boca'
-  ]},
-  { cat: 'Material de oficina', items: [
-    'Bombillo 6VT vert', 'Bombillo Angel Ligth 15W', 'Bombillo 130VT vert', 'Bombillos tubo 60W',
-    'Bolígrafos negros', 'Cargador tipo C', 'Grapas', 'Ligas',
-    'Marcador Sharpie negro', 'Marcador permanente azul', 'Pilas AAA x2',
-    'Panel LED redondo 6" 15W', 'Panel LED redondo 5" 9W', 'Resaltador', 'Reflector LED',
-    'Resma de hojas blancas', 'Rollos térmicos impresora fiscal', 'Rollos térmicos punto de venta',
-    'Teipe', 'Tinta para impresora negra|lt'
-  ]},
-  { cat: 'Papel y servilletas', items: [
-    'Papel antigrasa', 'Papel antigrasa blanco lumpias', 'Papel higiénico 3B', 'Papel higiénico bambú',
-    'Servilletas Euro', 'Servilletas mega pack', 'Servilletas sin marca', 'Sobre para lumpias',
-    'Stikers', 'Filtro', 'Toallín', 'Papel Alison'
+  { cat: 'Pollo y papas', items: [
+    'Pollo en cestas marinado|kg', 'Papas cestas|kg'
   ]},
   { cat: 'Otros', items: [
-    'Arepitas fritas',
-    'Lumpias', 'Postres Paolo', 'Postres tres leches', 'Pinzas'
+    'Lumpias'
   ]}
 ];
+
 /* Algunos renglones de la hoja son lo mismo que se controla por semana. Al
    vincularlos, el conteo físico muestra también las unidades vendibles: 17
    cestas marinadas no dicen nada, 2.720 piezas de pollo sí. */
@@ -2652,43 +2558,11 @@ const ARTICULOS_FISICO = (() => {
 })();
 function catDeArticulo(a) { return a.cat || CAT_ARTICULO[a.id] || 'Otros'; }
 
-/* El control de la semana, simplificado (9/9/2026). La hoja del local son 245
-   renglones y llevarlos todos cada semana no funcionaba: Alberto pidió llevar
-   «lo que es pollo, papas, refrescos de todo tipo, agua de todo tipo, postres,
-   gatorade, yukipack, jugo barinas, Lipton, té verde, malta, tenta té,
-   ensaladas, verduras y todo lo que se recibe en la app».
-   Eso es, exactamente, TODO lo que tiene forma de entrar —recepción propia o
-   renglón de factura— más los pocos renglones de la hoja que nombró y que solo
-   viven ahí. Lo demás se sigue contando en el inventario físico cuando toque,
-   pero no obliga a nada cada semana. */
+/* Renglones que solo viven en la hoja y aun así se llevan (no tienen recepción
+   propia ni entran por el nombre de una factura). */
 const CONTROL_EXTRA = [
-  'f_postres_paolo', 'f_postres_tres_leches',
-  'f_te_lipton_durazno', 'f_te_lipton_limon', 'f_te_verde_lipton',
-  'f_agua_minalba_1_5l', 'f_ensalada'
+  'f_te_lipton_durazno', 'f_te_lipton_limon', 'f_te_verde_lipton', 'f_agua_minalba_1_5l'
 ];
-const CONTROL_SEMANAL = ARTICULOS_TODOS.map(a => a.id)
-  .concat(CONTROL_EXTRA.filter(id => ARTICULOS_FISICO.some(a => a.id === id)));
-
-/* Se aplica una sola vez por teléfono. Los ajustes no se sincronizan, así que
-   cada uno lo hace al abrir la versión nueva; después se puede tocar a mano sin
-   que esto lo vuelva a pisar. */
-(function simplificarControl() {
-  if (db.settings.controlSimplificado) return;
-  db.settings.articulosActivos = CONTROL_SEMANAL.slice();
-  db.settings.controlSimplificado = 1;
-  save(false);
-})();
-
-/* Qué se puede marcar para llevar: todo lo que entra por la app, más los
-   renglones de la hoja que ya se llevan o que alguna receta gasta. Los otros
-   200 renglones no salen aquí — serían una lista imposible de recorrer. */
-function articulosElegibles() {
-  const activos = db.settings.articulosActivos || [];
-  const conReceta = idsConReceta();
-  return ARTICULOS_TODOS.concat(
-    ARTICULOS_FISICO.filter(a => activos.includes(a.id) || conReceta.has(a.id)));
-}
-
 /* Un renglón de la hoja que pasa a controlarse dentro de un artículo (los tres
    tamaños de envase, los sabores de Gatorade) deja de tener su propio
    «f_loquesea», y lo que se le apuntó a mano en una factura se quedaría sin
@@ -3067,8 +2941,13 @@ function nuevoFisico(fecha) {
 function esFisico(inv) { return inv && inv.tipo === 'fisico'; }
 // cuántos renglones tienen algo escrito
 function contadosFisico(inv) {
-  return Object.values(inv.fisico || {})
-    .filter(v => v && ((v.b !== '' && v.b != null) || (v.u !== '' && v.u != null))).length;
+  /* Solo los renglones que hoy están en la hoja. Los de un físico viejo, hecho
+     cuando la hoja traía los 245, se quedan guardados pero no se cuentan aquí:
+     si no, salía «173 de 39 contados». */
+  const hay = new Set(catalogoFisico().flatMap(g => g.items).map(i => i.id));
+  return Object.entries(inv.fisico || {})
+    .filter(([id, v]) => hay.has(id) && v &&
+      ((v.b !== '' && v.b != null) || (v.u !== '' && v.u != null))).length;
 }
 
 function nuevaSemana(desde, hasta) {
@@ -3268,7 +3147,6 @@ function abrirInv(id) {
   $('inv-estado').textContent = '';
   $('inv-estado').className = 'hint';
   // cada inventario se abre limpio: sin búsqueda puesta de la vez anterior
-  filtroTramo = ''; $('inv-buscar').value = '';
   filtroFisico = ''; $('fis-buscar').value = '';
   renderInv();
   show('inv');
@@ -3312,7 +3190,7 @@ function renderInv() {
   const inv = currentInv;
   // el inventario físico es otra cosa: la hoja completa, sin fórmula ni merma
   const fis = esFisico(inv);
-  for (const id of ['inv-reporte-card', 'inv-comparacion-card', 'inv-arranque-card', 'inv-equivalencias', 'inv-dash'])
+  for (const id of ['inv-reporte-card', 'inv-comparacion', 'inv-arranque-card', 'inv-equivalencias'])
     $(id).classList.toggle('hidden', fis);
   $('inv-fisico-card').classList.toggle('hidden', !fis);
   if (fis) {
@@ -3627,82 +3505,6 @@ function estadoCuadre(f) {
   };
 }
 
-/* Una fila del tramo. Las casillas que no aplican no se pintan: de un producto
-   de solo conteo no hay «recibido» ni «vendido» que enseñar, y una fila con dos
-   casillas se lee de un vistazo en el teléfono. */
-function filaComparacion(f, base, inv) {
-  const a = f.art;
-  // el inicial se teclea solo si no lo da ya la semana anterior ni la hoja del
-  // local; si lo dan, se muestra y se dice de dónde salió
-  const aMano = !['semana', 'fisico', 'arrastre'].includes(f.origenInicial);
-  const { conRecibido, conVendido, conFormula } = estadoCuadre(f);
-  const detC = detalleDeConteo(inv, 'conteo', a);
-  const detI = detalleDeConteo(inv, 'inicialManual', a);
-  const pct = f.esperado > 0 && f.diferencia !== null ? (f.diferencia / f.esperado) * 100 : 0;
-  return '<div class="inv-art' + (f.conteo !== null ? ' con' : '') + '">' +
-    '<div class="inv-nom">' + a.emoji + ' ' + esc(a.nombre) + '</div>' +
-    '<div class="inv-nums">' +
-      (aMano
-        ? celdaConteo('inv-inicial', 'Inicial', a, detI, inv.cerrado)
-        : '<div class="inv-cell"><span>Inicial</span><b>' + fmt(f.inicial) + '</b></div>') +
-      (conRecibido ? '<div class="inv-cell"><span>Recibido</span><b>' + fmt(f.recibido) + '</b></div>' : '') +
-      (conVendido ? '<div class="inv-cell"><span>Vendido</span><b>' + fmt(f.vendido) + '</b></div>' : '') +
-      (conFormula ? '<div class="inv-cell esperado"><span>Debería quedar</span><b>' + fmt(f.esperado) + '</b></div>' : '') +
-      /* «5.276 piezas» no se ve en la cava; «33 cestas de 20 pollos» sí. Estaba
-         solo en el panel de cuadre y hacía falta aquí, que es donde se cuenta. */
-      (conFormula && enCestas(a, f.esperado)
-        ? '<div class="inv-total">' + enCestas(a, f.esperado) + '</div>' : '') +
-      celdaConteo('inv-conteo', 'Conteo real', a, detC, inv.cerrado) +
-      (aMano ? lineaTotal(a, detI, totalDe(a, detI)) : '') +
-      lineaTotal(a, detC, f.conteo) +
-      // de dónde viene el inicial, o por qué hay que escribirlo
-      (f.origenInicial === 'fisico'
-        ? '<div class="inv-origen">Inicial tomado del inventario físico del ' +
-          fmtDate(base.fuente.semanaInicio) + '</div>'
-        : f.origenInicial === 'semana'
-        ? '<div class="inv-origen">Inicial: lo que se contó al cerrar la semana anterior</div>'
-        : f.origenInicial === 'arrastre'
-        ? '<div class="inv-origen">Inicial: lo que debía quedar al cerrar la semana del ' +
-          fmtDate(base.fuente.semanaInicio) + '. No se contó, así que viene de la cuenta, no de la cava.</div>'
-        : f.avisoInicial
-        // en vez de dejar el renglón muerto, se pregunta el único dato que falta
-        ? '<div class="inv-origen">La hoja del ' + fmtDate(base.fuente.semanaInicio) +
-          ' no se pudo traducir aquí (' + esc(f.avisoInicial) + '). Dilo aquí y sale solo, ' +
-          'o escribe el inicial a mano.</div>' +
-          '<label class="inv-cell inv-pb"><span>1 ' + nombreBulto1(a) + ' = ¿cuántas ' + a.unidad + '?</span>' +
-          '<input class="inv-porbulto" data-a="' + esc(a.id) + '" type="text" inputmode="numeric" ' +
-          'value="" placeholder="—"' + (inv.cerrado ? ' disabled' : '') + '></label>'
-        : f.origenInicial === 'manual'
-        ? '<div class="inv-origen">Inicial escrito a mano</div>'
-        : '<div class="inv-origen">Falta el inicial' +
-          (!base.fuente ? ''
-            : esFisico(base.fuente)
-            ? ': la hoja del ' + fmtDate(base.fuente.semanaInicio) + ' no trae este artículo'
-            : ': la semana del ' + fmtDate(base.fuente.semanaInicio) + ' se cerró sin contarlo') +
-          '. Escríbelo.</div>') +
-    '</div>' +
-    (f.esperado < 0
-      // vendiste más de lo que la app sabe que entró: el número no es merma,
-      // es que falta cargar algo. Decirlo, en vez de dar una cifra falsa.
-      ? '<div class="inv-dif mal">⚠️ Salen ' + fmt(Math.abs(f.esperado)) + ' ' + a.unidad +
-        ' de menos: se vendió más de lo que la app tiene registrado. Falta cargar el inicial o las entradas de la semana.</div>'
-      : f.diferencia === null
-      ? '<div class="inv-dif sub">Escribe el conteo real para ver la diferencia.</div>'
-      : !conVendido
-      // sin receta que diga cuánto gasta cada plato, la diferencia es el
-      // consumo de la semana: un dato útil, pero no una merma
-      ? '<div class="inv-dif' + (f.diferencia > 0 ? ' sobra' : '') + '">' +
-        (f.diferencia <= 0
-          ? '📉 Se consumieron ' + fmt(Math.abs(f.diferencia)) + ' ' + a.unidad + ' esta semana'
-          : '↑ Hay ' + fmt(f.diferencia) + ' ' + a.unidad + ' más de lo que la app tiene anotado') +
-        '<div class="sub" style="font-weight:600;margin-top:2px">No es merma: todavía no hay receta que diga cuánto gasta cada plato.</div></div>'
-      : '<div class="inv-dif ' + (Math.abs(f.diferencia) < 0.01 ? 'ok' : f.diferencia < 0 ? 'mal' : 'sobra') + '">' +
-        (Math.abs(f.diferencia) < 0.01 ? '✅ Cuadra exacto'
-          : (f.diferencia < 0 ? '⚠️ Faltan ' : '↑ Sobran ') + fmt(Math.abs(f.diferencia)) + ' ' + a.unidad +
-            (f.esperado > 0 ? ' (' + fmt(Math.abs(pct)) + '%)' : '')) + '</div>') +
-    '</div>';
-}
-
 /* ================================================================
    EL CUADRE: cómo va la semana de un vistazo.
    No calcula nada por su cuenta — lee lo mismo que la pantalla del tramo
@@ -3738,18 +3540,6 @@ function dashBarra(pct, cls) {
    el orden que pidió Alberto: «lo más importante, que es lo que más se recibe».
    Se cuenta por veces y no por cantidad porque las cantidades no se pueden
    comparar entre sí: 2.251 kg de papas y 2.280 refrescos no dicen lo mismo. */
-/* Lo que se enseña en el panel: bebidas, pollo, papas y lumpias, y nada más
-   (Alberto, 10/9: «quita las verduras también, solo quiero ver bebidas, pollo,
-   papas, lumpias»). El CONTROL sigue siendo más ancho —se cuenta y se cierra
-   con todo lo que entra por la app— pero mirar la semana es mirar esto. */
-const PANEL_CUADRE = [
-  'pollo_pieza', 'papas', 'lumpias',
-  'ref_1l', 'ref_15l', 'ref_2l',
-  'agua', 'agua_glacier', 'f_agua_minalba_1_5l',
-  'malta', 'yuky', 'gatorade', 'jugo_barinas', 'tenta_te',
-  'f_te_lipton_durazno', 'f_te_lipton_limon', 'f_te_verde_lipton'
-];
-function enPanel(a) { return PANEL_CUADRE.includes(a.id); }
 
 function vecesRecibido() {
   const veces = {};
@@ -3818,16 +3608,35 @@ function dashFila(f) {
     pie = '<div class="dash-nota">Falta contarlo para saber si cuadra.</div>';
   } else {
     const dif = Math.abs(f.diferencia);
-    // en el que cuadra no se pinta barra: no hay desviación que enseñar
+    /* Sin receta que diga cuánto gasta cada plato, lo que falta no es merma: es
+       el consumo de la semana. Llamarlo «faltan» sería acusar de una pérdida
+       que nadie ha calculado. */
+    const consumo = !e.esMerma && e.estado === 'falta';
+    const color = 'var(--' + (v.cls === 'ok' ? 'ok' : v.cls === 'mal' ? 'bad' : 'accent') + ')';
     pie = (e.estado === 'cuadra' ? '' : dashBarra(e.pct, v.cls)) +
       '<div class="dash-nota">Contaste <b style="color:var(--text)">' + fmt(f.conteo) + '</b> · ' +
-      '<span class="' + v.cls + '" style="color:var(--' +
-        (v.cls === 'ok' ? 'ok' : v.cls === 'mal' ? 'bad' : 'accent') + ')">' + v.ic + ' ' + v.uno +
-      (e.estado === 'cuadra' ? ' exacto' : ' ' + fmt(dif) + ' ' + u +
-        (e.pct === null ? '' : ' · ' + fmt(Math.abs(e.pct)) + '%')) + '</span></div>' +
-      (e.esMerma ? '' : '<div class="dash-nota">Es consumo, no merma: todavía no hay receta que diga cuánto gasta cada plato.</div>');
+      (consumo
+        ? '<span>📉 Se consumieron ' + fmt(dif) + ' ' + u + ' esta semana</span></div>' +
+          '<div class="dash-nota">No es merma: todavía no hay receta que diga cuánto gasta cada plato.</div>'
+        : '<span style="color:' + color + '">' + v.ic + ' ' + v.uno +
+          (e.estado === 'cuadra' ? ' exacto' : ' ' + fmt(dif) + ' ' + u +
+            (e.pct === null ? '' : ' · ' + fmt(Math.abs(e.pct)) + '%')) + '</span></div>' +
+          (e.esMerma ? '' : '<div class="dash-nota">Es consumo, no merma: todavía no hay receta que diga cuánto gasta cada plato.</div>'));
   }
   const cestas = enCestas(f.art, f.esperado);
+  const inv = currentInv;
+  /* El inicial solo se teclea cuando no lo da la semana anterior ni la hoja: si
+     lo dan, se enseña y se dice de dónde salió. */
+  const aMano = !['semana', 'fisico', 'arrastre'].includes(f.origenInicial);
+  const detI = detalleDeConteo(inv, 'inicialManual', f.art);
+  const detC = detalleDeConteo(inv, 'conteo', f.art);
+  const base = baseInicial(inv);
+  const casillas =
+    (aMano ? celdaConteo('inv-inicial', 'Inicial a mano', f.art, detI, inv.cerrado) : '') +
+    celdaConteo('inv-conteo', 'Conteo real', f.art, detC, inv.cerrado) +
+    // «10 cartones × 24 + 7 = 247»: que se vea la cuenta, no solo el resultado
+    (aMano ? lineaTotal(f.art, detI, totalDe(f.art, detI)) : '') +
+    lineaTotal(f.art, detC, f.conteo);
   return '<div class="dash-row">' +
     '<div class="dash-nom"><span>' + f.art.emoji + ' ' + esc(f.art.nombre) + '</span>' +
       (f.veces ? '<span class="ver" style="color:var(--muted);font-weight:600">' + f.veces +
@@ -3835,6 +3644,35 @@ function dashFila(f) {
     '<div class="dash-cifras">' + n(f.inicial) + n(f.recibido) + n(f.vendido) + n(f.esperado, 'queda') + '</div>' +
     '<div class="dash-uni">' + esc(u) + '</div>' +
     (cestas ? '<div class="dash-nota">' + cestas + '</div>' : '') +
+    '<div class="inv-nums" style="margin-top:8px">' + casillas +
+      // el bulto que falta se pregunta aquí mismo, en vez de dejar la fila muerta
+      (f.avisoInicial
+        ? '<label class="inv-cell inv-pb"><span>1 ' + nombreBulto1(f.art) + ' = ¿cuántas ' + u + '?</span>' +
+          '<input class="inv-porbulto" data-a="' + esc(f.art.id) + '" type="text" inputmode="numeric" ' +
+          'value="" placeholder="—"' + (inv.cerrado ? ' disabled' : '') + '></label>'
+        : '') +
+    '</div>' +
+    // de dónde sale el inicial, o por qué hay que escribirlo
+    '<div class="dash-nota">' +
+      (f.origenInicial === 'fisico'
+        ? 'Inicial tomado del inventario físico del ' + fmtDate(base.fuente.semanaInicio) + '.'
+        : f.origenInicial === 'semana'
+        ? 'Inicial: lo que se contó al cerrar la semana anterior.'
+        : f.origenInicial === 'arrastre'
+        ? 'Inicial: lo que debía quedar al cerrar la semana del ' +
+          fmtDate(base.fuente.semanaInicio) + '. No se contó, así que viene de la cuenta, no de la cava.'
+        : f.avisoInicial
+        ? 'La hoja del ' + fmtDate(base.fuente.semanaInicio) + ' no se pudo traducir aquí (' +
+          esc(f.avisoInicial) + '). Dilo aquí y sale solo, o escribe el inicial a mano.'
+        : f.origenInicial === 'manual'
+        ? 'Inicial escrito a mano.'
+        : 'Falta el inicial' +
+          (!base.fuente ? ''
+            : esFisico(base.fuente)
+            ? ': la hoja del ' + fmtDate(base.fuente.semanaInicio) + ' no trae este producto'
+            : ': la semana del ' + fmtDate(base.fuente.semanaInicio) + ' se cerró sin contarlo') +
+          '. Escríbelo.') +
+    '</div>' +
     pie + '</div>';
 }
 
@@ -3864,24 +3702,18 @@ function movimientosDeLaSemana(inv) {
   return { recs, facs, fuera, desde: fuera[0], hasta: fuera[fuera.length - 1] };
 }
 
-function renderDash() {
+function renderComparacion() {
   const inv = currentInv;
-  $('dash-sub').textContent = fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
+  const cont = $('inv-comparacion');
+  $('inv-sub').textContent = fmtDate(inv.semanaInicio) + ' → ' + fmtDate(inv.semanaFin) +
     (inv.cerrado ? ' · cerrada' : ' · abierta');
 
-  const filas = calcular(inv).map(f => { f.e = estadoCuadre(f); return f; });
-  /* Las cifras de arriba son SOLO del control de la semana: son los productos
-     que se decidió llevar y los únicos que hay que contar para poder cerrar.
-     Contar los 51 con fórmula daba un número que no significaba nada. */
-  /* En el panel solo va lo que se recibe por la app —bebidas, postres y todo lo
-     que tiene entrada— que es lo que Alberto pidió ver. Los renglones de la
-     hoja que solo se cuentan no pintan nada aquí: para eso está el físico. */
+  /* El tramo entero es el control: bebidas, pollo, papas y lumpias, y nada
+     más. No hay «lo demás» que separar ni cifras que se inflen con renglones
+     que nadie lleva. */
+  const control = calcular(inv).map(f => { f.e = estadoCuadre(f); return f; });
   const veces = vecesRecibido();
-  for (const f of filas) f.veces = veces[f.art.id] || 0;
-  const control = filas.filter(f => f.activo && enPanel(f.art));
-  const otros = filas.filter(f => f.activo && !enPanel(f.art));
-  const fuera = otros.filter(f => ['falta', 'sobra', 'imposible'].includes(f.e.estado));
-  const otrosSinContar = otros.filter(f => f.e.estado === 'sin-contar');
+  for (const f of control) f.veces = veces[f.art.id] || 0;
   const de = (lista, k) => lista.filter(f => f.e.estado === k);
   const cuadran = de(control, 'cuadra'), faltan = de(control, 'falta'), sobran = de(control, 'sobra');
   const sinContar = de(control, 'sin-contar');
@@ -3911,7 +3743,7 @@ function renderDash() {
     '<div class="dash-kpi sobra"><div class="v">' + sobran.length + '</div><div class="t">▲ Sobran</div></div>' +
     '<div class="dash-kpi"><div class="v">' + sinContar.length + '</div><div class="t">Por contar</div></div>' +
     '</div><div class="sub" style="margin-top:10px;text-align:center">' +
-    'De los <b>' + control.length + '</b> del panel: bebidas, pollo, papas y lumpias</div></div>');
+    'De los <b>' + control.length + '</b> que se llevan: bebidas, pollo, papas y lumpias</div></div>');
 
   // ---- qué entra y qué NO entra en esta semana ----
   const mov = movimientosDeLaSemana(inv);
@@ -3949,7 +3781,8 @@ function renderDash() {
                              '. Vuelve a exportarlo con ese rango o faltarán ventas.')
             : 'Compruébalo al exportarlo: si sobran o faltan días, la merma sale torcida.'));
   }
-  h.push(dashCheck(!sinAsignar.length,
+  // sin reporte no hay códigos que revisar: decir «todos tienen equivalencia» sobra
+  if (ventas.length) h.push(dashCheck(!sinAsignar.length,
     sinAsignar.length ? sinAsignar.length + ' códigos del reporte no descuentan nada'
       : 'Todos los códigos del reporte tienen equivalencia',
     sinAsignar.length ? sinAsignar.slice(0, 4).map(v => esc(v.descripcion)).join(', ') +
@@ -3980,122 +3813,47 @@ function renderDash() {
       CAB + tabla.map(dashFila).join('') + '</div>');
   }
 
-  /* Lo que se lleva pero no sale en el panel no se pinta, pero tampoco se calla:
-     ni lo que falta contar para poder cerrar, ni lo que está descuadrado. */
-  if (otros.length) {
-    const t = [];
-    if (otrosSinContar.length) t.push('<b>' + otrosSinContar.length + '</b> por contar');
-    if (fuera.length) t.push('<b>' + fuera.length + '</b> descuadrado' + (fuera.length === 1 ? '' : 's') +
-      ' (' + fuera.slice(0, 4).map(f => esc(f.art.nombre)).join(', ') +
-      (fuera.length > 4 ? ' y ' + (fuera.length - 4) + ' más' : '') + ')');
-    h.push('<div class="card"><div class="sub">Se llevan <b>' + otros.length +
-      '</b> productos más que aquí no se enseñan (verduras, insumos y demás)' +
-      (t.length ? ': ' + t.join(' y ') : '') + '. Se ven y se cuentan en el tramo.</div></div>');
-  }
-
-  $('dash-body').innerHTML = h.join('');
+  cont.innerHTML = h.join('');
+  engancharConteo(cont);
 }
-
-$('eq-simple').onclick = () => {
-  db.settings.articulosActivos = CONTROL_SEMANAL.slice();
-  save(false);
-  renderEquivalencias();
-  toast('Se lleva todo lo que entra por la app: ' + CONTROL_SEMANAL.length + ' productos');
-};
-
-$('dash-back').onclick = () => { renderInv(); show('inv'); };
-$('inv-dash').onclick = () => { renderDash(); show('dash'); };
-
-/* La hoja del local son 242 productos: en una lista plana no se encuentra nada.
-   Van agrupados por las mismas categorías del papel, cerradas, y solo se pinta
-   el contenido de las que estén abiertas — así el teléfono no monta 240 filas
-   para enseñar diez. El control de la semana va primero y abierto. */
-const GRUPO_CONTROL = '⭐ Control de la semana';
-let gruposAbiertos = { [GRUPO_CONTROL]: true };
-let filtroTramo = '';
 
 function sinTildes(x) {
   return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function renderComparacion() {
-  const inv = currentInv;
-  const cont = $('inv-comparacion');
-  const filas = calcular(inv);
-  const base = baseInicial(inv);
-  const q = sinTildes(filtroTramo).trim();
-  const visibles = q ? filas.filter(f => sinTildes(f.art.nombre).includes(q)) : filas;
-
-  const porGrupo = new Map();
-  for (const f of visibles) {
-    // arriba solo lo que hay que contar sí o sí para cerrar la semana; lo demás
-    // en su categoría de la hoja, aunque lleve la fórmula completa
-    const g = f.activo ? GRUPO_CONTROL : f.cat;
-    if (!porGrupo.has(g)) porGrupo.set(g, []);
-    porGrupo.get(g).push(f);
-  }
-  // el control primero y luego las categorías en el orden del papel, para que
-  // buscar en la app y buscar en la hoja se hagan igual
-  const orden = [GRUPO_CONTROL].concat(CATALOGO_FISICO.map(g => g.cat))
-    .filter(g => porGrupo.has(g));
-
-  // cuántos llevas contados de todo el tramo, no solo de lo que se ve al buscar
-  const contadosTotal = filas.filter(f => f.conteo !== null).length;
-  $('inv-resumen').textContent = contadosTotal + ' de ' + filas.length + ' contados';
-
-  cont.innerHTML = '';
-  if (!orden.length) {
-    cont.innerHTML = '<div class="sub" style="padding:10px 0">Ningún producto se llama así.</div>';
-    return;
-  }
-  for (const g of orden) {
-    const fs = porGrupo.get(g);
-    const contados = fs.filter(f => f.conteo !== null).length;
-    // buscando, todo lo que coincide se enseña abierto: si no, habría que abrir
-    // a mano cada categoría para ver dónde cayó lo que buscas
-    const abierto = q ? true : !!gruposAbiertos[g];
-    const h = document.createElement('button');
-    h.className = 'inv-grupo' + (abierto ? ' abierto' : '');
-    h.dataset.g = g;
-    h.innerHTML = '<span class="fl">▸</span><span>' + esc(g) + '</span>' +
-      '<span class="cnt">' + (contados ? contados + '/' : '') + fs.length + '</span>';
-    cont.appendChild(h);
-    if (!abierto) continue;
-    const cuerpo = document.createElement('div');
-    cuerpo.className = 'inv-grupo-body';
-    cuerpo.innerHTML = fs.map(f => filaComparacion(f, base, inv)).join('');
-    cont.appendChild(cuerpo);
-  }
-
-  for (const h of cont.querySelectorAll('.inv-grupo')) {
-    h.onclick = () => {
-      // con el buscador puesto todo está abierto: plegar ahí no significa nada
-      if (q) return;
-      gruposAbiertos[h.dataset.g] = !gruposAbiertos[h.dataset.g];
-      renderComparacion();
-    };
-  }
-
-  // guarda lo tecleado (bultos y sueltas) y recalcula el total del artículo
-  const enCambio = (campo, despues) => e => {
+/* Guardar lo tecleado en las casillas de conteo del cuadre. Lo escrito se
+   guarda aparte del total (conteoDet) para poder volver y ver «15 cestas» en
+   vez de «2400». */
+function engancharConteo(cont) {
+  const enCambio = e => {
     const id = e.target.dataset.a, k = e.target.dataset.k, v = e.target.value.trim();
     if (v !== '' && isNaN(parseNum(v))) { toast('Escribe un número'); renderComparacion(); return; }
     const inv = currentInv;
-    inv[campo + 'Det'] = inv[campo + 'Det'] || {};
-    const det = Object.assign({ b: '', u: '' }, detalleDeConteo(inv, campo, articulo(id)) || {});
+    inv.conteoDet = inv.conteoDet || {};
+    const det = Object.assign({ b: '', u: '' }, detalleDeConteo(inv, 'conteo', articulo(id)) || {});
     det[k] = v;
     const total = totalDe(articulo(id), det);
-    inv[campo] = inv[campo] || {};
-    if (total === null) { delete inv[campo + 'Det'][id]; delete inv[campo][id]; }
-    else { inv[campo + 'Det'][id] = det; inv[campo][id] = total; }
-    touch(inv); save(); despues();
+    inv.conteo = inv.conteo || {};
+    if (total === null) { delete inv.conteoDet[id]; delete inv.conteo[id]; }
+    else { inv.conteoDet[id] = det; inv.conteo[id] = total; }
+    touch(inv); save(); renderComparacion();
   };
-  for (const el of cont.querySelectorAll('.inv-conteo')) {
-    el.addEventListener('change', enCambio('conteo', renderComparacion));
-  }
-  for (const el of cont.querySelectorAll('.inv-inicial')) {
-    el.addEventListener('change', enCambio('inicialManual', renderInv));
-  }
+  for (const el of cont.querySelectorAll('.inv-conteo')) el.addEventListener('change', enCambio);
+  for (const el of cont.querySelectorAll('.inv-inicial')) el.addEventListener('change', e => {
+    const id = e.target.dataset.a, k = e.target.dataset.k, v = e.target.value.trim();
+    if (v !== '' && isNaN(parseNum(v))) { toast('Escribe un número'); renderComparacion(); return; }
+    const inv = currentInv;
+    inv.inicialManualDet = inv.inicialManualDet || {};
+    const det = Object.assign({ b: '', u: '' }, detalleDeConteo(inv, 'inicialManual', articulo(id)) || {});
+    det[k] = v;
+    const total = totalDe(articulo(id), det);
+    inv.inicialManual = inv.inicialManual || {};
+    if (total === null) { delete inv.inicialManualDet[id]; delete inv.inicialManual[id]; }
+    else { inv.inicialManualDet[id] = det; inv.inicialManual[id] = total; }
+    // renderInv y no renderComparacion: al poner el inicial cambian también los
+    // avisos de arriba (deja de pedirlo)
+    touch(inv); save(); renderInv();
+  });
   /* Cuántas unidades trae un bulto vive en los ajustes, que no se sincronizan:
      es un dato del teléfono, igual que el de las bebidas. */
   for (const el of cont.querySelectorAll('.inv-porbulto')) {
@@ -4111,7 +3869,6 @@ function renderComparacion() {
   }
 }
 
-$('inv-buscar').addEventListener('input', e => { filtroTramo = e.target.value; renderComparacion(); });
 
 /* ---- leer el PDF ---- */
 $('inv-subir').onclick = () => $('inv-file').click();
@@ -4255,41 +4012,32 @@ $('inv-wa').onclick = () => {
 };
 
 /* ---- equivalencias ---- */
+/* Ya no se elige QUÉ llevar —el inventario es la lista fija del panel— así que
+   aquí solo queda decir cuántas unidades trae un bulto de cada uno. Sin ese
+   dato hay que teclear el total, que es justo lo que nadie hace. */
 function renderArticulosActivos() {
-  const activos = (db.settings.articulosActivos || ['pollo_pieza']);
   const cont = $('eq-articulos');
   cont.innerHTML = '';
-  for (const a of articulosElegibles()) {
-    const on = activos.includes(a.id);
+  for (const a of articulosDelTramo()) {
     const fijo = a.entrada && a.entrada.tipo === 'cestas';   // el pollo sale del rendimiento
     const pb = porBultoDe(a);
     const row = document.createElement('div');
     row.className = 'entry';
     row.innerHTML =
-      '<div style="flex:1;text-align:left"><span class="w">' + a.emoji + ' ' + a.nombre + '</span>' +
-      '<div class="meta">' + (on
-        ? (fijo ? 'Se controla · se cuenta en cestas marinadas de ' + POLLOS_POR_CESTA_MARINADA +
-                  ' pollos (' + fmt(pb) + ' piezas). La que llega del proveedor trae ' +
-                  POLLOS_POR_CESTA + ' pollos (' + fmt(piezasPorCestaRecibida()) + ' piezas).'
-                : a.unidad === 'kg' ? 'Se controla · se cuenta en kg'
-                : pb ? 'Se controla · 1 ' + nombreBulto1(a) + ' = ' + fmt(pb) + ' ' + a.unidad
-                : a.soloConteo ? 'Se controla · renglón de la hoja del local'
-                     : 'Se controla · falta decir cuántas unidades trae un bulto')
-        : 'No se controla') + '</div></div>' +
-      (on && !fijo && a.unidad !== 'kg'
+      '<div style="flex:1;text-align:left"><span class="w">' + a.emoji + ' ' + esc(a.nombre) + '</span>' +
+      '<div class="meta">' +
+        (fijo ? 'Se cuenta en cestas marinadas de ' + POLLOS_POR_CESTA_MARINADA +
+                ' pollos (' + fmt(pb) + ' piezas). La que llega del proveedor trae ' +
+                POLLOS_POR_CESTA + ' pollos (' + fmt(piezasPorCestaRecibida()) + ' piezas).'
+              : a.unidad === 'kg' ? 'Se cuenta en kg'
+              : pb ? '1 ' + nombreBulto1(a) + ' = ' + fmt(pb) + ' ' + a.unidad
+                   : 'Falta decir cuántas unidades trae un bulto: hay que teclear el total') +
+      '</div></div>' +
+      (!fijo && a.unidad !== 'kg'
         ? '<label class="inv-cell" style="width:96px"><span>Por ' + nombreBulto1(a) + '</span>' +
           '<input class="art-pb" data-a="' + a.id + '" type="text" inputmode="numeric" value="' +
           (pb || '') + '" placeholder="—"></label>'
-        : '') +
-      '<button class="btn-link art-on" style="font-size:20px;padding:4px 8px">' + (on ? '✅' : '⬜️') + '</button>';
-    row.querySelector('.art-on').onclick = () => {
-      const lista = on ? activos.filter(x => x !== a.id) : [...activos, a.id];
-      if (!lista.length) { toast('Deja al menos uno'); return; }
-      db.settings.articulosActivos = lista;
-      save(false);
-      renderArticulosActivos();
-      toast(on ? a.nombre + ': ya no se controla' : a.nombre + ': se empezará a controlar');
-    };
+        : '');
     const inp = row.querySelector('.art-pb');
     if (inp) inp.addEventListener('change', e => {
       const v = e.target.value.trim();
@@ -4331,7 +4079,8 @@ function renderEquivalencias() {
           // con su unidad: «0,16 kg de pechuga» se lee, «0.16 × pechuga» no
           ? consume.map(([a, n]) => {
               const art = articulo(a);
-              if (!art) return n + ' × ' + a;
+              // la receta se guarda igual por si el producto vuelve al control
+              if (!art) return n + ' × (ya no se lleva en el inventario)';
               // hasta 3 decimales y sin ceros de relleno: 0,16 · 0,015 · 0,4
               const num = n.toLocaleString('es-ES', { maximumFractionDigits: 3 });
               return art.unidad === 'kg'
@@ -4588,7 +4337,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v48';
+const APP_VERSION = 'mercancia-v49';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

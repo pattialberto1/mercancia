@@ -61,10 +61,6 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   // ---------- 3) las recepciones reales entran solas ----------
   await page.click('#inv-back');
   await page.waitForTimeout(200);
-  await page.evaluate(() => {
-    db.settings.articulosActivos = ARTICULOS_TODOS.map(a => a.id);
-    save(false);
-  });
   await page.click('#home-list button:has-text("sept")');
   await page.waitForTimeout(500);
   const rec = await page.evaluate(() => {
@@ -74,7 +70,12 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
   });
   check('el pollo de hoy: 50 cestas × 144 = 7.200 piezas', rec.pollo_pieza === 7200, rec.pollo_pieza);
   check('las papas de hoy: 430,2 kg netos', Math.abs(rec.papas - 430.2) < 0.01, rec.papas);
-  check('los huevos de hoy: 4 cajas × 288 = 1.152', rec.huevos === 1152, rec.huevos);
+  /* Los huevos salieron del control el 10/9, pero recibirlos tiene que seguir
+     dando lo mismo: 4 cajas de 288. */
+  const huevos = await page.evaluate(() => db.recepciones
+    .filter(r => r.tipo === 'huevos' && r.fecha >= currentInv.semanaInicio && r.fecha <= currentInv.semanaFin)
+    .reduce((s, r) => s + totals(r).neto, 0));
+  check('los huevos de hoy: 4 cajas × 288 = 1.152', huevos === 1152, huevos);
 
   // ---------- 4) las facturas de proveedor también ----------
   await page.evaluate(() => {
@@ -82,11 +83,12 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
     db.facturas.push({
       id: 'ftest', fecha: currentInv.semanaInicio, proveedor: 'Tierra Santa',
       creada: 1, mod: 1, moneda: 'USD',
+      /* De los que se reconocen por el nombre del renglón, los que siguen en
+         el control son las bebidas que el POS no separa por sabor. */
       lineas: [
-        { nombre: 'CILANTRO KG', cantidad: 0.3, unidad: 'kg', precio: 2.4, importe: 0.72 },
-        { nombre: 'TOMATE KG', cantidad: 2.2, unidad: 'kg', precio: 1.9, importe: 4.18 },
-        { nombre: 'QUESO MERIDEÑO KG', cantidad: 5.24, unidad: 'kg', precio: 7.44, importe: 38.99 },
-        { nombre: 'LIMON KG', cantidad: 4.2, unidad: 'kg', precio: 1.4, importe: 5.88 },
+        { nombre: 'GATORADE TROPICAL PET 500ML', cantidad: 3, unidad: 'un', precio: 2.4, importe: 7.2 },
+        { nombre: 'JUGO BARINAS NARANJA', cantidad: 5, unidad: 'un', precio: 1.9, importe: 9.5 },
+        { nombre: 'TENTA TE DURAZNO 1L', cantidad: 4, unidad: 'un', precio: 1.4, importe: 5.6 },
         { nombre: 'SERVICIO', cantidad: 1, unidad: 'un', precio: 3, importe: 3 }
       ]
     });
@@ -98,43 +100,39 @@ const DATOS = JSON.parse(fs.readFileSync(path.join(__dirname, 'merc-nuevo.json')
     for (const f of calcular(currentInv)) o[f.art.id] = f.recibido;
     return o;
   });
-  check('el cilantro de la factura entra solo', conFac.cilantro === 0.3, conFac.cilantro);
-  check('el tomate también', conFac.tomate === 2.2, conFac.tomate);
-  check('el queso, aunque lleve tilde y apellido', conFac.queso === 5.24, conFac.queso);
-  check('el limón, escrito sin tilde en la factura', conFac.limon === 4.2, conFac.limon);
+  check('el Gatorade de la factura entra solo', conFac.gatorade === 3, conFac.gatorade);
+  check('el jugo Barinas también, aunque el renglón diga el sabor',
+    conFac.jugo_barinas === 5, conFac.jugo_barinas);
+  check('y el Tenta té, escrito sin tilde en la factura', conFac.tenta_te === 4, conFac.tenta_te);
   check('el renglón de SERVICIO no se cuela en ningún artículo',
-    !Object.values(conFac).includes(1) || conFac.queso === 5.24);
+    !Object.values(conFac).includes(1) || conFac.gatorade === 3);
 
   // una factura de otra semana no debe contarse
   await page.evaluate(() => {
     db.facturas.push({ id: 'fvieja', fecha: '2026-07-31', proveedor: 'Tierra Santa', creada: 1, mod: 1,
-      lineas: [{ nombre: 'CILANTRO KG', cantidad: 99, unidad: 'kg', precio: 1, importe: 99 }] });
+      lineas: [{ nombre: 'GATORADE TROPICAL', cantidad: 99, unidad: 'un', precio: 1, importe: 99 }] });
     save(false); renderInv();
   });
   await page.waitForTimeout(400);
   check('una factura de otra semana no se cuenta',
-    (await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'cilantro').recibido)) === 0.3);
+    (await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'gatorade').recibido)) === 3);
 
   /* ---------- 5) sin receta, la diferencia es consumo, no merma ----------
-     Se usa el cilantro: las papas dejaron de servir de ejemplo cuando entraron
-     en la receta de los combos (7/9/2026). */
-  await page.evaluate(() => {
-    db.settings.articulosActivos = [...new Set([...db.settings.articulosActivos, 'cilantro'])];
-    save(false); renderInv();
-  });
-  await page.waitForTimeout(300);
-  await page.fill('.inv-conteo[data-a="cilantro"][data-k="u"]', '0,1');
-  await page.dispatchEvent('.inv-conteo[data-a="cilantro"][data-k="u"]', 'change');
+     Se usa el té verde Lipton, que se lleva pero no tiene código en el punto de
+     venta: las papas dejaron de servir de ejemplo cuando entraron en la receta
+     de los combos (7/9), y el cilantro salió del control (10/9). */
+  await page.fill('.inv-conteo[data-a="f_te_verde_lipton"][data-k="u"]', '8');
+  await page.dispatchEvent('.inv-conteo[data-a="f_te_verde_lipton"][data-k="u"]', 'change');
   await page.waitForTimeout(350);
   const txt = await page.textContent('#inv-comparacion');
   check('lo que no tiene receta se llama consumo', txt.includes('Se consumieron'));
   check('y se explica por qué no es merma', txt.includes('todavía no hay receta'));
-  check('no lo llama «faltan»', !/Faltan 0,2/.test(txt));
+  check('no lo llama «faltan»', !/Té verde Lipton[\s\S]{0,400}Faltan/.test(txt));
 
   // el pollo sí tiene receta: ahí sí es merma
   const conRec = await page.evaluate(() => tieneConsumoConocido('pollo_pieza'));
   check('el pollo sí tiene consumo conocido', conRec === true);
-  check('el cilantro no', (await page.evaluate(() => tieneConsumoConocido('cilantro'))) === false);
+  check('el té verde no', (await page.evaluate(() => tieneConsumoConocido('f_te_verde_lipton'))) === false);
 
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);
