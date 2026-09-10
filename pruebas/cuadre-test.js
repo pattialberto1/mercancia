@@ -162,7 +162,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('las verduras ya no salen en el panel', !/Zanahoria|Cebollín/.test(
     await page.evaluate(() => [...document.querySelectorAll('.dash-row')].map(r => r.textContent).join(''))));
   check('pero se dice cuántas se llevan y que se cuentan en el tramo',
-    /Se llevan 2 productos más que no salen en el panel/.test(otros) &&
+    /Se llevan 2 productos más que aquí no se enseñan/.test(otros) &&
     /Se ven y se cuentan en el tramo/.test(otros), otros.slice(-400));
   check('y no se cuelan los cientos de renglones que solo se cuentan',
     !/Coleto|Teipe|Servilletas/.test(body));

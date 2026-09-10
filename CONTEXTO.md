@@ -401,5 +401,14 @@ Las pruebas están en `pruebas/` (ver su README). Son Playwright contra el
 for t in pruebas/*-test.js; do NODE_PATH=/opt/node22/lib/node_modules node $t | tail -1; done
 ```
 
-Al tocar `index.html` hay que **subir la versión de caché en `sw.js`**, o los
-teléfonos siguen con la versión vieja.
+Al tocar `index.html` hay que **subir la versión de caché en `sw.js`** Y la
+constante `APP_VERSION` del propio `index.html`: son la misma cadena y
+`version-test.js` comprueba que no se despareje.
+
+**Por qué las dos.** En el teléfono la app no se recarga sola: se queda abierta
+y al volver aparece tal cual estaba, así que se pueden pasar días con el código
+viejo sin enterarse —y creyendo que lo que se pidió no se hizo (pasó, con las
+verduras del panel y con las cestas). Al volver a la app se mira el `sw.js` del
+servidor sin caché, y si trae otra versión sale una barra: «hay una versión
+nueva · tocar para actualizar». No se recarga sola a propósito: se podría estar
+a mitad de una pesada.

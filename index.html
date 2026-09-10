@@ -353,6 +353,17 @@
   .dash-cifras b.queda { color: var(--accent); }
   .dash-uni { font-size: 11px; color: var(--muted); font-weight: 600; text-align: right; margin-top: 1px; }
 
+  /* Aviso de versión nueva. En el móvil la app no se recarga sola: se queda
+     abierta y vuelve tal cual, así que se puede pasar días con el código viejo
+     sin enterarse —y creyendo que lo que se pidió no se hizo. */
+  .nueva-version {
+    position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 60; padding: 14px; border-radius: 14px; text-align: center;
+    background: var(--accent); color: var(--accent-contrast); font-size: 15px; font-weight: 700;
+    box-shadow: 0 6px 20px rgba(41,37,36,.25); max-width: 456px; margin: 0 auto;
+  }
+  .nueva-version:active { opacity: .85; }
+
   .dash-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .dash-chip { border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; }
   .dash-chip.ok { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
@@ -774,6 +785,7 @@
   </div>
 </div>
 
+<button class="nueva-version hidden" id="nueva-version">⬆️ Hay una versión nueva de la app · tocar para actualizar</button>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -3977,7 +3989,7 @@ function renderDash() {
       ' (' + fuera.slice(0, 4).map(f => esc(f.art.nombre)).join(', ') +
       (fuera.length > 4 ? ' y ' + (fuera.length - 4) + ' más' : '') + ')');
     h.push('<div class="card"><div class="sub">Se llevan <b>' + otros.length +
-      '</b> productos más que no salen en el panel —verduras, insumos y demás—' +
+      '</b> productos más que aquí no se enseñan (verduras, insumos y demás)' +
       (t.length ? ': ' + t.join(' y ') : '') + '. Se ven y se cuentan en el tramo.</div></div>');
   }
 
@@ -4574,9 +4586,37 @@ renderHome();
 show('home');
 initLock();
 syncNow();
+/* La versión que trae ESTE index.html. Tiene que ser la misma que la del
+   sw.js; la prueba de versión lo comprueba para que no se despareje. */
+const APP_VERSION = 'mercancia-v48';
+
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+
+/* En el teléfono la app no se recarga sola: se queda abierta y al volver
+   aparece tal cual estaba, así que se pueden pasar días con el código viejo sin
+   enterarse. Se mira el sw.js del servidor —sin caché— y, si trae otra versión,
+   se ofrece recargar. No se recarga solo: podría estar a mitad de una pesada. */
+let ultimaComprobacion = 0;
+async function comprobarVersion() {
+  // vale igual en http (las pruebas sirven así); en file:// no hay nada que pedir
+  if (!location.protocol.startsWith('http')) return;
+  if (Date.now() - ultimaComprobacion < 60000) return;
+  ultimaComprobacion = Date.now();
+  try {
+    const r = await fetch('sw.js?v=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const m = (await r.text()).match(/const CACHE = '([^']+)'/);
+    if (!m || m[1] === APP_VERSION) return;
+    $('nueva-version').classList.remove('hidden');
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) reg.update().catch(() => {});
+  } catch {}
+}
+$('nueva-version').onclick = () => location.reload();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) comprobarVersion(); });
+comprobarVersion();
 </script>
 </body>
 </html>
