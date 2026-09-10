@@ -245,6 +245,7 @@
   .inv-par > label { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .inv-par em { font-size: 10px; font-style: normal; color: var(--muted); font-weight: 600; text-transform: uppercase; }
   .inv-total { grid-column: 1 / -1; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .inv-total b { color: var(--text); font-weight: 800; }
   .msg { padding: 12px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; margin-bottom: 12px;
          background: var(--card); border: 1px solid var(--line); }
   .msg.error { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
@@ -3635,6 +3636,10 @@ function filaComparacion(f, base, inv) {
       (conRecibido ? '<div class="inv-cell"><span>Recibido</span><b>' + fmt(f.recibido) + '</b></div>' : '') +
       (conVendido ? '<div class="inv-cell"><span>Vendido</span><b>' + fmt(f.vendido) + '</b></div>' : '') +
       (conFormula ? '<div class="inv-cell esperado"><span>Debería quedar</span><b>' + fmt(f.esperado) + '</b></div>' : '') +
+      /* «5.276 piezas» no se ve en la cava; «33 cestas de 20 pollos» sí. Estaba
+         solo en el panel de cuadre y hacía falta aquí, que es donde se cuenta. */
+      (conFormula && enCestas(a, f.esperado)
+        ? '<div class="inv-total">' + enCestas(a, f.esperado) + '</div>' : '') +
       celdaConteo('inv-conteo', 'Conteo real', a, detC, inv.cerrado) +
       (aMano ? lineaTotal(a, detI, totalDe(a, detI)) : '') +
       lineaTotal(a, detC, f.conteo) +

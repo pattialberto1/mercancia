@@ -318,7 +318,8 @@ puedan discrepar) y lo ordena por lo que hay que mirar primero.
 - **En cestas, además de en su unidad.** «5.276 piezas» no se ve en la cava;
   «33 cestas de 20 pollos» sí. En lo que va por peso, los kg por cesta salen del
   **promedio real de todo lo recibido** (las papas, 21,63 kg de 968 cestas), no
-  de una cifra puesta a mano.
+  de una cifra puesta a mano ni de la última recepción. Sale en el panel **y en
+  la fila del tramo**, que es donde de verdad se cuenta.
 - Arriba la cifra que decide si hay que hacer algo hoy: cuántos productos no
   cuadran de los contados. **Mientras no haya un solo conteo escrito, la cifra
   es lo que falta por contar** — decir «0 no cuadran» sería mentir por omisión.

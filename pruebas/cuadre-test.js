@@ -186,6 +186,21 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   const pap = await fila('Papas');
   check('y con eso dice cuántas cestas quedan',
     pap && /cestas.*19 kg por cesta, el promedio de las 5 recibidas/.test(pap.txt), pap && pap.txt);
+  // y lo mismo en la pantalla del tramo, que es donde de verdad se cuenta
+  await page.click('#dash-back');
+  await page.waitForTimeout(400);
+  await page.fill('#inv-buscar', 'piezas de pollo');
+  await page.waitForTimeout(350);
+  check('el tramo también traduce las piezas a cestas',
+    /≈ 7,5 cestas de 20 pollos · 150 pollos/.test(await page.textContent('#inv-comparacion')),
+    await page.textContent('#inv-comparacion'));
+  await page.fill('#inv-buscar', 'papas');
+  await page.waitForTimeout(350);
+  check('y los kilos de papas a cestas, con el promedio de todo lo recibido',
+    /19 kg por cesta, el promedio de las 5 recibidas/.test(await page.textContent('#inv-comparacion')));
+  await page.fill('#inv-buscar', '');
+  await page.click('#inv-dash');
+  await page.waitForTimeout(400);
 
   // ---------- sin conteo no se inventa un cuadre ----------
   await page.click('#dash-back');
