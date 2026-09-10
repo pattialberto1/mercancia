@@ -272,6 +272,13 @@ noche cargo los productos vendidos»*.
   un jueves creaba **otra del 31/8 al 6/9 encima de la que ya había**.
 - Si la última sigue abierta y todavía cubre hoy, no crea nada: abre esa.
 - **El inicial de una semana es el conteo con el que se cerró la anterior.**
+- **Se puede cerrar aunque falten cosas** (Alberto, 10/9): sin el reporte, con
+  productos sin contar o con alguno en negativo. Una semana a medias es mejor
+  cerrada a tiempo que abierta para siempre, porque mientras no se cierre la
+  siguiente no sabe con qué empieza. Lo que no se hace es cerrar en silencio: el
+  aviso de confirmación nombra lo que se queda a medias y dice qué pasa con
+  ello. Un producto que se cierra sin contar **arranca la semana siguiente sin
+  inicial**, y la fila lo dice: «la semana del X se cerró sin contarlo».
 - **Una semana anterior sin cerrar corta la cadena.** Antes se la saltaba y
   tiraba del inventario de más atrás: con el tramo del 1 al 6 abierto, el del 7
   al 13 arrancaba con las piezas del físico del 31 de agosto **como si esa
