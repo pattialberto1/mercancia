@@ -79,6 +79,11 @@ ahí hay períodos ya cerrados con descuentos de nómina hechos.
   Sal, vinagre, mostaza y aceite **no están en la receta de la app**: en la hoja
   hay dos vinagres, dos sales y cuatro aceites, y elegir uno sería inventar.
 - **Lumpias**: se reciben y se cuentan **por unidad**; 1 lumpia por ración.
+- **Postres redondos y cuadrados** (15/9): están en la pestaña de **Insumos** y
+  se cuentan de uno en uno, cada uno por su lado. Se reciben, pero **no entran
+  en el control semanal** —que son bebidas, pollo, papas y lumpias— y todavía no
+  están enganchados a ningún código del POS: falta saber si «postre extra» y la
+  «marquesa» son el redondo o el cuadrado.
 - **Ketchup botella** (código 1615) se descuenta de la botella de la hoja.
 - **Picadillo de pollo** (1572): se vende a 1 $ el kilo, así que cada unidad del
   reporte es 1 kg. Sale del pollo de las cestas, pero **falta cuántas piezas

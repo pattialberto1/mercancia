@@ -873,7 +873,10 @@ const PRODUCTOS = {
   magia:          { emoji: '🧂', nombre: 'Magia',         neto: 'MAGIA NETA',     bolsa: true },
   azucar:         { emoji: '🍬', nombre: 'Azúcar',        neto: 'AZÚCAR NETA',    bolsa: true },
   envases:        { emoji: '📦', nombre: 'Envases',       neto: 'ENVASES',        unidad: true },
-  lumpias:        { emoji: '🥟', nombre: 'Lumpias',       neto: 'LUMPIAS',        unidad: true }
+  lumpias:        { emoji: '🥟', nombre: 'Lumpias',       neto: 'LUMPIAS',        unidad: true },
+  // los postres llegan contados, no pesados, y vienen de dos formas
+  postre_redondo:  { emoji: '🍮', nombre: 'Postres redondos',  neto: 'POSTRES REDONDOS',  unidad: true },
+  postre_cuadrado: { emoji: '🍰', nombre: 'Postres cuadrados', neto: 'POSTRES CUADRADOS', unidad: true }
 };
 // ¿este producto se pesa "a bolsas" (sin cestas ni tara), en vez de a granel con cestas?
 function esBolsaTipo(tipo) { return !!(PRODUCTOS[tipo] || {}).bolsa; }
@@ -907,7 +910,7 @@ const TABS = {
   papas:       { emoji: '🥔', nombre: 'Papas',    tipos: ['papas'] },
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
-  insumos:     { emoji: '🍚', nombre: 'Insumos',  tipos: ['pechuga', 'camaron', 'arroz', 'magia', 'azucar'] },
+  insumos:     { emoji: '🍚', nombre: 'Insumos',  tipos: ['pechuga', 'camaron', 'arroz', 'magia', 'azucar', 'postre_redondo', 'postre_cuadrado'] },
   unidades:    { emoji: '🥤', nombre: 'Bebidas y otros', tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'agua_glacier', 'yuky', 'malta', 'huevos', 'envases', 'lumpias'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
   inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
@@ -2271,6 +2274,11 @@ const ARTICULOS_TODOS = [
     entrada: { tipo: 'peso', producto: 'magia' } },
   { id: 'azucar', nombre: 'Azúcar', emoji: '🍬', unidad: 'kg',
     entrada: { tipo: 'peso', producto: 'azucar' } },
+  // se cuentan de uno en uno, como las lumpias
+  { id: 'postre_redondo', nombre: 'Postres redondos', emoji: '🍮', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'postre_redondo' } },
+  { id: 'postre_cuadrado', nombre: 'Postres cuadrados', emoji: '🍰', unidad: 'unidades',
+    entrada: { tipo: 'unidades', producto: 'postre_cuadrado' } },
   // lo demás que ya se recibe: entra al inventario aunque no se sepa el consumo
   { id: 'papas', nombre: 'Papas', emoji: '🥔', unidad: 'kg',
     entrada: { tipo: 'peso', producto: 'papas' } },
@@ -2525,6 +2533,7 @@ const CAT_ARTICULO = {
   repollo_blanco: 'Legumbres y frutas', repollo_morado: 'Legumbres y frutas',
   zanahoria: 'Legumbres y frutas',
   arroz: 'Alimentos procesados y otros', azucar: 'Alimentos procesados y otros',
+  postre_redondo: 'Otros', postre_cuadrado: 'Otros',
   envases: 'Animes, cubiertos y bolsas'
 };
 
@@ -4337,7 +4346,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v49';
+const APP_VERSION = 'mercancia-v50';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
