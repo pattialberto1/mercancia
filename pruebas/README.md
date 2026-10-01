@@ -17,22 +17,8 @@ error de JavaScript en la página.
 | `modulo1-test.js` | Productos por unidad, varios proveedores, validación de neto |
 | `parser-test.js` | Lectura del PDF de ventas del POS |
 | `reporte-sin-nombre-test.js` | Un renglón del reporte sin nombre no se tira |
-| `inventario-test.js` | Inventario semanal de punta a punta con el PDF real |
-| `cestas-test.js` | La cesta que llega (18 pollos) vs la que se cuenta (20) |
-| `conteo-bultos-test.js` | Conteo en bultos + sueltas y tamaños de bulto |
-| `primer-tramo-test.js` | El control arranca el día del conteo, no el día que se abre la app |
-| `huevos-chino-test.js` | Huevos, cebollín y la receta del pote de chino |
-| `huevos-cajas-test.js` | Entrada de huevos por cajas de 12 cartones (288) |
-| `recetas-test.js` | Tender, «LITRO Y MEDIO» y los dos códigos de agua de 600 |
-| `pechuga-test.js` | Pollo rojo y pechuga son el mismo insumo (con su migración) |
-| `fisico-test.js` | Inventario físico: la hoja completa de 242 productos |
-| `fisico-arranca-test.js` | El físico cerrado es el inicial del tramo siguiente |
-| `tramo-completo-test.js` | Los 242 productos en el tramo, agrupados y plegados |
-| `factura-a-producto-test.js` | Renglón de factura apuntado a un producto, y tamaños de bulto |
-| `todo-entra-test.js` | Recepciones y facturas alimentando el inventario solas |
-
-`hoja-agosto.js` no es una prueba: es la transcripción del inventario físico de
-agosto 2026, tal como se escaneó en papel. Sirve de dato de partida.
+| `inventario-test.js` | El inventario entero: lista, cuadre, grupos, cierre y WhatsApp |
+| `version-test.js` | El aviso de versión nueva |
 
 ## Dos cosas que hay que saber
 

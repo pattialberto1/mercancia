@@ -1,7 +1,8 @@
-// Inventario semanal de extremo a extremo, con el PDF real de Alberto.
+// El inventario, rehecho el 1 de octubre de 2026: una sola lista, la misma
+// que la hoja del local, y el cuadre en la misma fila donde se cuenta.
+// Se prueba con los números reales del conteo del 1 de octubre.
 const { chromium } = require('playwright');
 const http = require('http'); const fs = require('fs'); const path = require('path');
-const PDF = '/root/.claude/uploads/9495015d-441f-5e68-af2d-9fb7c6c8f7c3/e28e80ae-LSTPROVE.PDF';
 
 const server = http.createServer((req, res) => {
   let p = req.url.split('?')[0]; if (p === '/') p = '/index.html';
@@ -11,176 +12,168 @@ const server = http.createServer((req, res) => {
   });
 });
 const results = [];
-function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) console.log('   (falló)', desc); }
+function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!cond) console.log('   (falló)', desc, extra ?? ''); }
 
-// recepciones reales de la semana del PDF (16→21 ago): 65 cestas el 20/08
-const RECEPCIONES = [{
-  id: 'r-pollo-2008', tipo: 'pollo', fecha: '2026-08-20', creada: 1, mod: 1, cerrada: true,
-  tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
-  pesadas: Array.from({ length: 32 }, () => ({ peso: 69, cestas: 2, ts: 1 })).concat([{ peso: 35, cestas: 1, ts: 1 }])
-}];
+const hoy = new Date().toISOString().slice(0, 10);
+const lunes = (() => { const d = new Date(hoy + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
+const mas = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+
+// una semana cerrada antes, para que la siguiente herede su conteo
+const SEMANA_PREVIA = {
+  id: 'iprev', semanaInicio: mas(lunes, -7), semanaFin: mas(lunes, -1),
+  creada: 1, mod: 1, cerrado: true, ventas: [],
+  conteoDet: { r1_cocacola: { b: '10', u: '' }, papas: { b: '', u: '80' } },
+  inicialManual: {}
+};
+// 50 cestas de pollo y 20 de papas recibidas dentro de la semana
+const RECEPCIONES = [
+  { id: 'rp', tipo: 'pollo', fecha: lunes, creada: 1, mod: 1, cerrada: true,
+    tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
+    pesadas: Array.from({ length: 25 }, () => ({ peso: 69, cestas: 2, ts: 1 })) },
+  { id: 'rpa', tipo: 'papas', fecha: lunes, creada: 1, mod: 1, cerrada: true,
+    tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
+    pesadas: [{ peso: 476.2, cestas: 20, ts: 1 }] }
+];
 
 (async () => {
-  await new Promise(r => server.listen(8982, r));
+  await new Promise(r => server.listen(8942, r));
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
+  const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+  const errores = [];
+  page.on('pageerror', e => errores.push(e.message));
   await page.route('https://api.github.com/**', r => r.fulfill({ status: 404, body: '{}' }));
-  await page.addInitScript(([recs]) => {
+  await page.addInitScript(([prev, recs]) => {
     localStorage.setItem('mercancia.pin', '7070');
+    if (localStorage.getItem('mercancia.v1')) return;
     localStorage.setItem('mercancia.v1', JSON.stringify({
       v: 2, settings: { tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, syncToken: '', apiKey: '' },
-      recepciones: JSON.parse(recs), facturas: [], inventarios: [], borradas: {}
+      recepciones: JSON.parse(recs), facturas: [], inventarios: [JSON.parse(prev)], borradas: {}
     }));
-  }, [JSON.stringify(RECEPCIONES)]);
+  }, [JSON.stringify(SEMANA_PREVIA), JSON.stringify(RECEPCIONES)]);
 
-  await page.goto('http://localhost:8982/');
-  await page.waitForTimeout(300);
-  check('las 65 cestas reales se cargaron', await page.evaluate(() =>
-    db.recepciones[0].pesadas.reduce((s,p)=>s+p.cestas,0) === 65));
+  await page.goto('http://localhost:8942/');
+  await page.waitForTimeout(400);
 
-  // ---------- 1) pestaña y semana nueva ----------
-  const tabs = await page.$$eval('#home-tabs button', bs => bs.map(b => b.textContent.trim()));
-  check('hay una pestaña de Inventario', tabs.some(t => t.includes('Inventario')));
+  // ---------- 1) la lista es la hoja ----------
+  const secciones = await page.evaluate(() => PRODUCTOS_INV.map(s => s.s));
+  check('las cuatro secciones de la hoja',
+    JSON.stringify(secciones) === JSON.stringify(['Bebidas', 'Pollo y carnes', 'Papas', 'Otros']), secciones);
+  const n = await page.evaluate(() => INV.length);
+  check('están los 47 renglones del conteo', n === 47, n);
+  const nombres = await page.evaluate(() => INV.map(p => p.nombre));
+  for (const x of ['Agua Minalba 1,5L', 'Refresco Chinoto 1L', 'Yukki pack durazno',
+                   'Pollo en cestas marinado', 'Milanesa congelada', 'Papas', 'Lumpias', 'Postres tres leches'])
+    check('está «' + x + '»', nombres.includes(x));
+  check('los renglones vacíos de la hoja también están',
+    nombres.includes('Refresco Naranja 1L') && nombres.includes('Tenta té limón 500ml'));
+
+  // ---------- 2) ya no hay inventario físico aparte ----------
+  check('se quitó el inventario físico', await page.evaluate(() => typeof CATALOGO_FISICO === 'undefined'));
+  check('y su botón', !(await page.$('#btn-fisico')));
+  check('tampoco queda el modelo viejo de artículos',
+    await page.evaluate(() => typeof ARTICULOS_TODOS === 'undefined'));
+
+  // ---------- 3) abre la semana que sigue a la última ----------
   await page.click('#home-tabs button[data-t="inventario"]');
-  check('el botón dice «Nueva semana»', (await page.textContent('#btn-new')).includes('Nueva semana'));
-  // crear la semana del PDF a mano, para que coincida con el reporte real
-  await page.evaluate(() => { abrirInv(nuevaSemana('2026-08-16','2026-08-22').id); });
-  await page.waitForTimeout(250);
-  check('abre la pantalla de la semana', await page.isVisible('#view-inv'));
-  check('la primera semana avisa que hay que poner el inicial',
-    (await page.textContent('#inv-msg')).includes('primer tramo'));
-  check('y dice el día del que tiene que ser ese conteo',
-    /lo que contaste al cerrar el .*15 ago/.test(await page.textContent('#inv-msg')));
-
-  // ---------- 2) subir el PDF real ----------
-  await page.setInputFiles('#inv-file', PDF);
-  await page.waitForTimeout(1200);
-  check('lee el reporte real sin errores', (await page.textContent('#inv-ventas-resumen')).includes('55 productos'));
-
-  // ---------- 3) EL AVISO CLAVE: el rango no coincide ----------
-  const aviso = await page.textContent('#inv-msg');
-  check('avisa que el reporte no cubre la misma semana', aviso.includes('El reporte va del'));
-  check('el aviso dice el rango del reporte', aviso.includes('16 ago') && aviso.includes('21 ago'));
-  check('explica la consecuencia (faltarían ventas)', aviso.includes('faltarán ventas'));
-
-  // ajustar la semana al rango real del reporte
-  await page.evaluate(() => { currentInv.semanaFin = '2026-08-21'; touch(currentInv); save(); renderInv(); });
-  await page.waitForTimeout(300);
-  check('al cuadrar el rango, el aviso desaparece', !(await page.textContent('#inv-msg')).includes('El reporte va del'));
-
-  // por defecto solo se controla el pollo: activar algo sin registrar sus
-  // entradas dejaría las cuentas en negativo para siempre
-  const soloPollo = await page.evaluate(() => calcular(currentInv).map(f => f.art.id));
-  check('de arranque solo se controla el pollo', soloPollo.length === 1 && soloPollo[0] === 'pollo_pieza');
-  await page.evaluate(() => { db.settings.articulosActivos = ['pollo_pieza','ref_1l','agua']; save(false); renderInv(); });
-  await page.waitForTimeout(250);
-  check('se pueden activar más artículos', (await page.evaluate(() => calcular(currentInv).length)) === 3);
-
-  // ---------- 4) los cálculos, contra lo que saqué a mano ----------
-  const filas = await page.evaluate(() => calcular(currentInv).map(f => ({
-    id: f.art.id, inicial: f.inicial, recibido: f.recibido, vendido: f.vendido, esperado: f.esperado
-  })));
-  const pollo = filas.find(f => f.id === 'pollo_pieza');
-  const ref = filas.find(f => f.id === 'ref_1l');
-  check('el pollo vendido son 11.272 piezas (calculado a mano)', pollo.vendido === 11272);
-  check('65 cestas de 18 pollos = 9.360 piezas recibidas', pollo.recibido === 9360);
-  check('los refrescos vendidos son 937 (747 en combos + 190 sueltos)', ref.vendido === 937);
-  check('sin inicial, el esperado del pollo sale negativo (−1.912)', pollo.esperado === -1912);
-
-  // un esperado negativo no es merma: hay que decirlo, no dar una cifra falsa
-  const txtNeg = await page.textContent('#inv-comparacion');
-  check('con esperado negativo no dice "sobran"', !txtNeg.includes('Sobran'));
-  check('explica que falta cargar entradas', txtNeg.includes('se vendió más de lo que la app tiene registrado'));
-
-  // ---------- 5) el arrastre arregla el número ----------
-  await page.evaluate(() => {
-    currentInv.inicialManual = { pollo_pieza: 2540, ref_1l: 1000, agua: 100 };
-    touch(currentInv); save(); renderInv();
-  });
-  await page.waitForTimeout(300);
-  const conInicial = await page.evaluate(() => calcular(currentInv).find(f => f.art.id === 'pollo_pieza').esperado);
-  check('con inicial de 2.540, deberían quedar 628 piezas', conInicial === 628);
-
-  // ---------- 6) conteo físico y merma ----------
-  await page.evaluate(() => {
-    currentInv.conteo = { pollo_pieza: 600, ref_1l: 200, agua: 50 };
-    touch(currentInv); save(); renderComparacion();
-  });
-  await page.waitForTimeout(300);
-  const texto = await page.textContent('#inv-comparacion');
-  check('detecta que faltan 28 piezas', texto.includes('Faltan 28'));
-  check('muestra el porcentaje de merma', /4,46%|4,5%/.test(texto));
-  const difs = await page.evaluate(() => calcular(currentInv).map(f => f.diferencia));
-  check('las diferencias se calculan por artículo', difs[0] === -28);
-
-  // ---------- 7) equivalencias: lo que no está asignado se ve ----------
-  const avisoEq = await page.textContent('#inv-msg');
-  check('avisa solo de lo que puede consumir pollo o bebidas', avisoEq.includes('no tienen equivalencia'));
-  check('el aviso nombra productos concretos', /ARROZ CHINO|TENDER|COMBO|MALTA|JUGO/i.test(avisoEq));
-  check('no alarma por los 39 que no consumen nada controlado', !avisoEq.includes('39 productos'));
-  await page.click('#inv-equivalencias');
-  await page.waitForTimeout(300);
-  const eqTexto = await page.textContent('#eq-list');
-  check('el COMBO 3 muestra su equivalencia', eqTexto.includes('COMBO 3 POLLO') && eqTexto.includes('8 × piezas de pollo'));
-  check('el COMBO 2 muestra que lleva refresco', eqTexto.includes('4 × piezas de pollo + 1 × refrescos de 1l'));
-  check('lo no asignado sale marcado', eqTexto.includes('sin asignar'));
-  check('se ve cuánto se vendió de cada uno', eqTexto.includes('730 vendidos'));
-  const artTexto = await page.textContent('#eq-articulos');
-  check('se puede elegir qué controlar', artTexto.includes('Piezas de pollo') && artTexto.includes('Se controla'));
-  check('distingue la cesta que se cuenta de la que llega',
-    artTexto.includes('cestas marinadas de 20 pollos (160 piezas)') && artTexto.includes('proveedor trae 18 pollos (144 piezas)'));
-  check('lo no activado se ve como tal', artTexto.includes('No se controla'));
-  await page.click('#eq-back');
   await page.waitForTimeout(200);
+  await page.click('#btn-new');
+  await page.waitForTimeout(500);
+  const sem = await page.evaluate(() => ({ i: currentInv.semanaInicio, f: currentInv.semanaFin }));
+  check('arranca el día siguiente al cierre de la anterior', sem.i === lunes, sem);
+  check('y dura siete días, de lunes a domingo', sem.f === mas(lunes, 6), sem);
 
-  // ---------- 8) no deja cerrar con las cuentas en negativo ----------
-  await page.evaluate(() => { const g = currentInv.inicialManual.ref_1l; currentInv.inicialManual.ref_1l = 0;
-    touch(currentInv); save(); renderInv(); window.__g = g; });
-  await page.waitForTimeout(250);
+  // ---------- 4) lo que había sale del cierre anterior ----------
+  const f = id => page.evaluate(k => calcular(currentInv).find(x => x.clave === k), id);
+  const coca = await f('ref_1l');
+  check('hereda el conteo de la semana cerrada (10 bultos = 60)', coca.inicial === 60, coca.inicial);
+  const papas0 = await f('papas');
+  check('y en lo que va por kilos también (80 kg)', papas0.inicial === 80, papas0.inicial);
+
+  // ---------- 5) lo recibido entra solo ----------
+  const pollo = await f('pollo');
+  check('50 cestas recibidas son 7.200 piezas', pollo.recibido === 7200, pollo.recibido);
+  const papas = await f('papas');
+  check('las papas entran en neto, con la tara descontada', Math.abs(papas.recibido - 430.2) < 0.01, papas.recibido);
+
+  // ---------- 6) lo vendido, por las recetas ----------
+  await page.evaluate(() => {
+    currentInv.ventas = [
+      { codigo: '1523', descripcion: 'COMBO 3 POLLO', cantidad: 100 },  // 800 piezas + 35 kg papas
+      { codigo: '1521', descripcion: 'COMBO 2 POLLO', cantidad: 50 },   // 200 piezas + 17,5 kg + 50 refrescos
+      { codigo: '1535', descripcion: 'REF. 1L COCA COLA', cantidad: 30 },
+      { codigo: '1617', descripcion: 'MALTA BOTELLA', cantidad: 12 },
+      { codigo: '1562', descripcion: 'DELIVERY 1', cantidad: 40 }
+    ];
+    touch(currentInv); save(false); renderInv();
+  });
+  await page.waitForTimeout(350);
+  const v = await f('pollo');
+  check('los combos descuentan piezas de pollo (1.000)', v.vendido === 1000, v.vendido);
+  const vp = await f('papas');
+  check('y su ración de papas (52,5 kg)', Math.abs(vp.vendido - 52.5) < 0.01, vp.vendido);
+  const vr = await f('ref_1l');
+  check('el refresco del combo y el suelto van al mismo montón (80)', vr.vendido === 80, vr.vendido);
+  check('el delivery no descuenta nada', (await page.textContent('#inv-msg')).indexOf('DELIVERY') === -1);
+
+  // ---------- 7) el conteo se escribe como en la hoja ----------
+  const poner = async (id, b, u) => {
+    if (b !== null) { await page.fill(`.cnt[data-p="${id}"][data-k="b"]`, String(b)); await page.dispatchEvent(`.cnt[data-p="${id}"][data-k="b"]`, 'change'); }
+    if (u !== null) { await page.fill(`.cnt[data-p="${id}"][data-k="u"]`, String(u)); await page.dispatchEvent(`.cnt[data-p="${id}"][data-k="u"]`, 'change'); }
+    await page.waitForTimeout(120);
+  };
+  // los números de verdad de la hoja del 1 de octubre
+  await poner('r1_manzanita', 35, 11);
+  await poner('r1_pina', 57, 11);
+  await poner('r1_cocacola', 20, null);
+  const g = await f('ref_1l');
+  check('el grupo suma lo contado de cada sabor (694)', g.conteo === 35 * 6 + 11 + 57 * 6 + 11 + 20 * 6, g.conteo);
+  check('y la cuenta se muestra hecha',
+    (await page.textContent('#inv-lista')).includes('35 bultos × 6 + 11 = 221'));
+
+  // ---------- 8) la diferencia ----------
+  await poner('malta', 3, 3);
+  const m = await f('malta');
+  check('la malta: 3 bultos + 3 = 111', m.conteo === 111, m.conteo);
+  check('debería quedar −12 vendidas', m.esperado === -12, m.esperado);
+  const txt = await page.textContent('#inv-lista');
+  check('un esperado negativo no se presenta como merma', txt.includes('se vendió más de lo que la app tiene registrado'));
+
+  await poner('pollo_marinado', 19, null);
+  const pm = await f('pollo');
+  check('19 cestas marinadas son 3.040 piezas', pm.conteo === 3040, pm.conteo);
+  check('y dice cuántas faltan contra lo esperado',
+    pm.diferencia === pm.conteo - pm.esperado && pm.diferencia < 0, pm);
+
+  // ---------- 9) el resumen de arriba ----------
+  const res = await page.textContent('#inv-resumen');
+  check('el resumen cuenta lo que no cuadra', /no cuadran|no cuadra/.test(res), res);
+  check('y lo que falta por contar', res.includes('por contar'));
+
+  // ---------- 10) se puede cerrar, diciendo qué queda a medias ----------
   await page.click('#inv-cerrar');
   await page.waitForTimeout(250);
-  check('no deja cerrar si a un artículo le faltan entradas', (await page.textContent('#toast')).includes('falta cargar entradas'));
-  check('y no la marca como cerrada', !(await page.textContent('#inv-sub')).includes('cerrada'));
-  await page.evaluate(() => { currentInv.inicialManual.ref_1l = window.__g; touch(currentInv); save(); renderInv(); });
-  await page.waitForTimeout(250);
-
-  // ---------- 9) cerrar la semana y que arrastre ----------
-  await page.click('#inv-cerrar');
-  await page.waitForTimeout(200);
+  const conf = await page.textContent('#confirm-msg');
+  check('el aviso nombra lo que se cierra sin contar', /sin contar/.test(conf), conf);
+  check('y avisa de lo que queda en negativo', /negativo/.test(conf), conf);
   await page.click('#confirm-yes');
   await page.waitForTimeout(300);
-  check('la semana queda cerrada', (await page.textContent('#inv-sub')).includes('cerrada'));
-  check('cerrada, ya no deja subir otro reporte', await page.isHidden('#inv-subir'));
+  check('la semana queda cerrada', await page.evaluate(() => currentInv.cerrado === true));
+  check('cerrada, ya no deja escribir', await page.isDisabled('.cnt[data-p="malta"][data-k="b"]'));
 
-  const arrastre = await page.evaluate(() => {
-    const nueva = nuevaSemana('2026-08-24','2026-08-30');
-    return inicialDe(nueva);
-  });
-  check('el conteo de la semana pasa como inicial de la siguiente', arrastre.pollo_pieza === 600);
-  check('arrastra todos los artículos', arrastre.ref_1l === 200 && arrastre.agua === 50);
-
-  // ---------- 9) WhatsApp ----------
-  await page.evaluate(() => { window.__abiertas = []; window.open = u => { window.__abiertas.push(u); return null; }; });
+  // ---------- 11) el mensaje de WhatsApp ----------
+  await page.evaluate(() => { window.__wa = []; window.open = u => { window.__wa.push(u); return null; }; });
   await page.click('#inv-wa');
-  await page.waitForTimeout(200);
-  const wa = decodeURIComponent((await page.evaluate(() => window.__abiertas[0])).replace('https://wa.me/?text=',''));
-  check("el mensaje muestra la fórmula completa", /Inicial 2\.?540 \+ recibido 9\.?360 − vendido 11\.?272/.test(wa));
-  check('el mensaje dice lo que debería quedar', wa.includes('Debería quedar: 628'));
-  check('el mensaje reporta la merma', wa.includes('Faltan 28'));
-
-  // ---------- 10) nada de lo anterior se rompió ----------
-  await page.click('#inv-back');
-  await page.click('#home-tabs button[data-t="pollo"]');
   await page.waitForTimeout(250);
-  check('las recepciones de pollo siguen ahí', (await page.textContent('#home-list')).includes('Pollo'));
+  const wa = decodeURIComponent((await page.evaluate(() => window.__wa[0])).replace('https://wa.me/?text=', ''));
+  check('el mensaje va por secciones', wa.includes('*BEBIDAS*') && wa.includes('*POLLO Y CARNES*'));
+  check('con lo que debería quedar y lo contado', /Refrescos de 1L: debería quedar .* · contado/.test(wa), wa.slice(0, 200));
+  check('no lista lo que no se tocó', !wa.includes('Tenta té limón 500ml'));
 
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);
-  console.log('\nerrores JS:', errors.length ? errors : 'ninguno');
+  console.log('\nerrores JS:', errores.length ? errores : 'ninguno');
   const fallos = results.filter(r => !r.ok).length;
   console.log('\n' + results.length + ' comprobaciones · ' + (fallos ? fallos + ' FALLARON' : 'TODO PASÓ'));
   await browser.close(); server.close();
-  process.exit(fallos || errors.length ? 1 : 0);
+  process.exit(fallos || errores.length ? 1 : 0);
 })().catch(e => { console.error('FALLO:', e); process.exit(1); });
