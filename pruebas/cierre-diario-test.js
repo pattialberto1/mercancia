@@ -59,8 +59,12 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('«TENDER+REF./ YUKY» encuentra el suyo', por['TENDER+REF./ YUKY'].codigo === '1602');
   check('«COMBO 1 POLLO» no se confunde con «COMBO 1 CHINO POL»',
     por['COMBO 1 POLLO'].codigo === '1519' && por['COMBO 1 CHINO POL'].codigo === null);
-  check('«TE LIPTON 500ML» se queda sin asignar: no dice el sabor',
-    por['TE LIPTON 500ML'].codigo === null);
+  // el nombre cortado no dice el sabor: se descuenta del grupo, no de uno
+  check('«TE LIPTON 500ML» se descuenta del Lipton general',
+    por['TE LIPTON 500ML'].codigo !== null, por['TE LIPTON 500ML']);
+  check('y lo que gasta es el grupo, no un sabor', await page.evaluate(
+    c => JSON.stringify(equivalencias()[c].consume) === '{"lipton":1}',
+    por['TE LIPTON 500ML'].codigo));
   check('«PICADILLO DE POLL» tampoco, que falta saber cuántas piezas son un kilo',
     por['PICADILLO DE POLL'].codigo === null);
 
@@ -88,6 +92,8 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('la malta: 5', malta.vendido === 5, malta.vendido);
   const agua = await f('agua_glacier');
   check('el «AGUA 600ML» es la Glacier: 3', agua.vendido === 3, agua.vendido);
+  const lipton = await f('lipton');
+  check('el té Lipton sin sabor sale del grupo: 1', lipton.vendido === 1, lipton.vendido);
 
   // ---------- 4) avisa de lo que falta ----------
   const msg = await page.textContent('#inv-msg');

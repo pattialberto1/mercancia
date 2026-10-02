@@ -2117,6 +2117,7 @@ const GRUPOS_CUADRE = {
   gatorade: 'Gatorade',
   jugo_barinas: 'Jugos Barinas',
   tenta_te: 'Tenta té',
+  lipton: 'Té Lipton',
   yuky: 'Yuky-packs'
 };
 
@@ -2158,9 +2159,9 @@ const PRODUCTOS_INV = [
     ['r2_frescolita', 'Refresco Frescolita 2L',      6, null, 'ref_2l'],
     ['r2_uva',        'Refresco Uva 2L',             6, null, 'ref_2l'],
     ['r2_cocacola',   'Refresco Coca-Cola 2L',       6, null, 'ref_2l'],
-    ['lipton_durazno','Té Lipton durazno',          12],
-    ['lipton_limon',  'Té Lipton limón',            12],
-    ['lipton_verde',  'Té verde Lipton',            12],
+    ['lipton_durazno','Té Lipton durazno',          12, null, 'lipton'],
+    ['lipton_limon',  'Té Lipton limón',            12, null, 'lipton'],
+    ['lipton_verde',  'Té verde Lipton',            12, null, 'lipton'],
     ['tenta_dur_1l',  'Tenta té durazno 1L',        12, null, 'tenta_te'],
     ['tenta_lim_1l',  'Tenta té limón 1L',          12, null, 'tenta_te'],
     ['tenta_dur_500', 'Tenta té durazno 500ml',     12, null, 'tenta_te'],
@@ -2238,9 +2239,10 @@ const EQUIVALENCIAS_BASE = {
   '1513': { nombre: 'AGUA 600ML',       consume: { agua_glacier: 1 } },   // es la Glacier
   '1620': { nombre: 'MINALBA 1.5L',     consume: { agua_15l: 1 } },
   '1617': { nombre: 'MALTA BOTELLA',    consume: { malta: 1 } },
-  '1548': { nombre: 'TE LIPTON 500ML DURAZNO', consume: { lipton_durazno: 1 } },
-  '1547': { nombre: 'TE LIPTON 500ML LIMON',   consume: { lipton_limon: 1 } },
   // bebidas que cobra sin decir el sabor: se descuentan del grupo
+  // (el cierre diario corta el nombre en «TE LIPTON 500ML», sin sabor)
+  '1548': { nombre: 'TE LIPTON 500ML DURAZNO', consume: { lipton: 1 } },
+  '1547': { nombre: 'TE LIPTON 500ML LIMON',   consume: { lipton: 1 } },
   '1574': { nombre: 'GATORADE 0,50 LTS', consume: { gatorade: 1 } },
   '1603': { nombre: 'JUGO BARINAS 400ML', consume: { jugo_barinas: 1 } },
   '1609': { nombre: 'TENTA TE 1 L',     consume: { tenta_te: 1 } },
@@ -3011,8 +3013,17 @@ async function leerReporteVentas(buffer) {
    trae lo vendido del día, pero SIN el código del producto y con el nombre
    cortado a 17 letras («REF. 1L FRESCOLIT»). Así que se reconoce por el
    principio del nombre, contra los nombres que ya están en Equivalencias.
-   Si un nombre cortado encaja con dos, no se elige ninguno: se deja sin
-   asignar y la app lo dice. */
+
+   Cuando el nombre cortado encaja con varios —«TE LIPTON 500ML», que puede
+   ser el de durazno o el de limón— no se le adivina el sabor: si todos los
+   que encajan gastan exactamente lo mismo, se descuenta de ahí, que es el
+   grupo general, y da igual cuál de ellos sea. Solo si gastan cosas
+   distintas se deja sin asignar y la app lo dice. */
+function mismoGasto(a, b) {
+  const ca = a.consume || {}, cb = b.consume || {};
+  const ka = Object.keys(ca).sort(), kb = Object.keys(cb).sort();
+  return ka.length === kb.length && ka.every((k, i) => k === kb[i] && ca[k] === cb[k]);
+}
 function codigoPorNombre(nombre) {
   const n = normaliza(nombre).trim();
   if (!n) return null;
@@ -3020,7 +3031,10 @@ function codigoPorNombre(nombre) {
   const candidatos = Object.entries(eq).filter(([, r]) => normaliza(r.nombre).startsWith(n));
   if (candidatos.length === 1) return candidatos[0][0];
   const exacto = candidatos.find(([, r]) => normaliza(r.nombre) === n);
-  return exacto ? exacto[0] : null;
+  if (exacto) return exacto[0];
+  if (candidatos.length > 1 && candidatos.every(([, r]) => mismoGasto(r, candidatos[0][1])))
+    return candidatos[0][0];
+  return null;
 }
 
 async function leerBalanceDeCaja(buffer) {
@@ -3313,7 +3327,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v52';
+const APP_VERSION = 'mercancia-v53';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
