@@ -32,7 +32,14 @@ const RECEPCIONES = [
     pesadas: Array.from({ length: 25 }, () => ({ peso: 69, cestas: 2, ts: 1 })) },
   { id: 'rpa', tipo: 'papas', fecha: lunes, creada: 1, mod: 1, cerrada: true,
     tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
-    pesadas: [{ peso: 476.2, cestas: 20, ts: 1 }] }
+    pesadas: [{ peso: 476.2, cestas: 20, ts: 1 }] },
+  // lo que llega contado: 25 bultos de refresco de 1L y 38 postres redondos
+  { id: 'rr1', tipo: 'refresco_1l', fecha: lunes, creada: 1, mod: 1, cerrada: true,
+    tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
+    pesadas: [{ peso: 150, cestas: 0, ts: 1 }] },
+  { id: 'rpo', tipo: 'postre_redondo', fecha: lunes, creada: 1, mod: 1, cerrada: true,
+    tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
+    pesadas: [{ peso: 38, cestas: 0, ts: 1 }] }
 ];
 
 (async () => {
@@ -94,6 +101,12 @@ const RECEPCIONES = [
   check('50 cestas recibidas son 7.200 piezas', pollo.recibido === 7200, pollo.recibido);
   const papas = await f('papas');
   check('las papas entran en neto, con la tara descontada', Math.abs(papas.recibido - 430.2) < 0.01, papas.recibido);
+  const r1rec = await f('ref_1l');
+  check('25 bultos de refresco de 1L son 150 unidades', r1rec.recibido === 150, r1rec.recibido);
+  const postrec = await f('postre_paolo');
+  check('los postres llegan contados, sin tara que descontar', postrec.recibido === 38, postrec.recibido);
+  check('y se miden en unidades, no en kilos', postrec.unidad === 'unidades', postrec.unidad);
+  check('lo que sí se pesa sigue en kilos', papas.unidad === 'kg', papas.unidad);
 
   // ---------- 6) lo vendido, por las recetas ----------
   await page.evaluate(() => {

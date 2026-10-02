@@ -2197,7 +2197,8 @@ const INV = (() => {
       out.push({
         id, nombre, seccion: sec.s,
         porBulto: porBulto || 0,
-        unidad: porBulto ? 'unidades' : 'kg',
+        // lo que llega contado se cuenta; lo que llega pesado se pesa
+        unidad: (porBulto || (de && esUnidadTipo(de))) ? 'unidades' : 'kg',
         bulto: bulto || 'bultos',
         bulto1: bulto === 'cestas' ? 'cesta' : 'bulto',
         de: de || null,
@@ -2692,7 +2693,8 @@ function bloqueCuadre(f, inv) {
       (solo ? '' : '<div class="inv-item-nom">' + esc(p.nombre) + '</div>') +
       '<div class="inv-campos">' +
         (p.porBulto ? '<label>' + campo('b', '—') + '<em>' + p.bulto + '</em></label>' : '') +
-        '<label>' + campo('u', '—') + '<em>' + (p.porBulto ? 'sueltas' : 'kg') + '</em></label>' +
+        '<label>' + campo('u', '—') + '<em>' +
+          (p.porBulto ? 'sueltas' : p.unidad === 'kg' ? 'kg' : 'unidades') + '</em></label>' +
       '</div>' +
       (p.porBulto && total !== null && parseNum(String(det.b || ''))
         ? '<div class="inv-cuenta">' + fmt(parseNum(String(det.b))) + ' ' + p.bulto + ' × ' + fmt(p.porBulto) +
@@ -3327,7 +3329,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v53';
+const APP_VERSION = 'mercancia-v54';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
