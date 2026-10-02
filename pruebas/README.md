@@ -18,6 +18,7 @@ error de JavaScript en la página.
 | `parser-test.js` | Lectura del PDF de ventas del POS |
 | `reporte-sin-nombre-test.js` | Un renglón del reporte sin nombre no se tira |
 | `inventario-test.js` | El inventario entero: lista, cuadre, grupos, cierre y WhatsApp |
+| `cierre-diario-test.js` | El «Balance de caja» del día: dos columnas, sin código y con el nombre cortado |
 | `version-test.js` | El aviso de versión nueva |
 
 ## Dos cosas que hay que saber

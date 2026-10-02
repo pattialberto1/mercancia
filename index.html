@@ -2387,6 +2387,50 @@ function recibidoEnSemana(inv) {
   return out;
 }
 
+/* Una semana puede llenarse con un reporte de rango o con los cierres de
+   cada día. Se guardan por separado y se suman: así cargar otra vez el
+   mismo día lo reemplaza en vez de contarlo dos veces. */
+function guardarReporte(inv, r) {
+  inv.reportes = (inv.reportes || []).filter(x => !(x.desde === r.desde && x.hasta === r.hasta));
+  inv.reportes.push({ desde: r.desde, hasta: r.hasta, renglones: r.renglones });
+  inv.reportes.sort((a, b) => (a.desde || '').localeCompare(b.desde || ''));
+  recalcularVentas(inv);
+}
+function recalcularVentas(inv) {
+  const suma = new Map();
+  for (const rep of inv.reportes || []) {
+    for (const x of rep.renglones) {
+      const k = x.codigo || ('?' + x.descripcion);
+      const y = suma.get(k);
+      if (y) y.cantidad += x.cantidad;
+      else suma.set(k, { codigo: x.codigo || null, descripcion: x.descripcion, cantidad: x.cantidad });
+    }
+  }
+  inv.ventas = [...suma.values()];
+  const reps = inv.reportes || [];
+  inv.rangoReporte = reps.length
+    ? { desde: reps[0].desde, hasta: reps[reps.length - 1].hasta }
+    : null;
+}
+// qué días de la semana ya se cargaron, para poder decir cuáles faltan
+function diasCargados(inv) {
+  const dias = new Set();
+  for (const rep of inv.reportes || []) {
+    if (!rep.desde) continue;
+    for (let d = rep.desde; d <= (rep.hasta || rep.desde); d = masDias(d, 1)) dias.add(d);
+  }
+  return dias;
+}
+function diasQueFaltan(inv) {
+  const hay = diasCargados(inv), faltan = [];
+  const hoy = todayISO();
+  for (let d = inv.semanaInicio; d <= inv.semanaFin; d = masDias(d, 1)) {
+    if (d >= hoy) break;              // un día que no ha terminado no falta
+    if (!hay.has(d)) faltan.push(d);
+  }
+  return faltan;
+}
+
 /* ---- lo vendido ---- */
 function vendidoEnSemana(inv) {
   const eq = equivalencias();
@@ -2406,7 +2450,7 @@ function vendidoEnSemana(inv) {
 // los renglones del reporte que no se sabe qué gastan
 function codigosSinAsignar(inv) {
   const eq = equivalencias();
-  return (inv.ventas || []).filter(v => !eq[v.codigo]);
+  return (inv.ventas || []).filter(v => !v.codigo || !eq[v.codigo]);
 }
 
 /* ---- el conteo ---- */
@@ -2537,10 +2581,21 @@ function renderInv() {
     avisos.push('<div class="msg error">Falta cerrar la semana del ' + fmtDate(corte.semanaInicio) +
       '. Hasta que se cierre no se sabe con qué empieza esta, así que el «tenías» queda vacío.</div>');
   }
-  if (inv.rangoReporte && (inv.rangoReporte.desde !== inv.semanaInicio || inv.rangoReporte.hasta !== inv.semanaFin)) {
-    avisos.push('<div class="msg error">El reporte va del ' + fmtDate(inv.rangoReporte.desde) + ' al ' +
-      fmtDate(inv.rangoReporte.hasta) + ', y esta semana del ' + fmtDate(inv.semanaInicio) + ' al ' +
-      fmtDate(inv.semanaFin) + '. Exporta el mismo rango o faltarán ventas.</div>');
+  /* Antes se exigía que el reporte cubriera la semana exacta. Con los
+     cierres diarios eso no vale: lo que importa es que lo cargado caiga
+     dentro de la semana, y qué días faltan todavía. */
+  const fuera = (inv.reportes || []).filter(r =>
+    r.desde && (r.desde < inv.semanaInicio || r.hasta > inv.semanaFin));
+  if (fuera.length) {
+    avisos.push('<div class="msg error">Hay ' + fuera.length +
+      (fuera.length === 1 ? ' reporte que no cae' : ' reportes que no caen') +
+      ' en esta semana (' + fuera.map(r => fmtDate(r.desde)).join(', ') +
+      '). Esas ventas no son de aquí.</div>');
+  }
+  const faltan = diasQueFaltan(inv);
+  if ((inv.reportes || []).length && faltan.length) {
+    avisos.push('<div class="msg warn">Faltan las ventas de ' +
+      faltan.map(d => fmtDate(d)).join(', ') + '. Hasta cargarlas, lo vendido se queda corto.</div>');
   }
   const sin = codigosSinAsignar(inv);
   if (sin.length) {
@@ -2680,15 +2735,14 @@ $('inv-file').addEventListener('change', async e => {
   $('inv-estado').textContent = '📄 Leyendo el reporte…';
   $('inv-estado').className = 'hint working';
   try {
-    const r = await leerReporteVentas(await file.arrayBuffer());
-    currentInv.ventas = r.renglones.map(x => ({
-      codigo: x.codigo, descripcion: x.descripcion, cantidad: x.cantidad
-    }));
-    if (r.desde && r.hasta) currentInv.rangoReporte = { desde: r.desde, hasta: r.hasta };
+    const r = await leerVentas(await file.arrayBuffer());
+    guardarReporte(currentInv, r);
     touch(currentInv); save();
     $('inv-estado').textContent = '';
     renderInv();
-    toast('Reporte leído: ' + r.renglones.length + ' productos');
+    const sinCodigo = r.renglones.filter(x => !x.codigo).length;
+    toast('Leído ' + (r.desde === r.hasta ? fmtDate(r.desde) : 'el reporte') + ': ' +
+      r.renglones.length + ' productos' + (sinCodigo ? ' · ' + sinCodigo + ' sin equivalencia' : ''));
   } catch (err) {
     const m = (err && err.message) || '';
     $('inv-estado').className = 'hint err';
@@ -2953,6 +3007,69 @@ async function leerReporteVentas(buffer) {
   return { desde, hasta, renglones };
 }
 
+/* El cierre diario («BALANCE DE CAJA») es otro reporte del mismo sistema:
+   trae lo vendido del día, pero SIN el código del producto y con el nombre
+   cortado a 17 letras («REF. 1L FRESCOLIT»). Así que se reconoce por el
+   principio del nombre, contra los nombres que ya están en Equivalencias.
+   Si un nombre cortado encaja con dos, no se elige ninguno: se deja sin
+   asignar y la app lo dice. */
+function codigoPorNombre(nombre) {
+  const n = normaliza(nombre).trim();
+  if (!n) return null;
+  const eq = equivalencias();
+  const candidatos = Object.entries(eq).filter(([, r]) => normaliza(r.nombre).startsWith(n));
+  if (candidatos.length === 1) return candidatos[0][0];
+  const exacto = candidatos.find(([, r]) => normaliza(r.nombre) === n);
+  return exacto ? exacto[0] : null;
+}
+
+async function leerBalanceDeCaja(buffer) {
+  const paginas = await textoDelPDF(buffer);
+  if (!paginas.length) throw new Error('vacio');
+
+  /* El balance se imprime a DOS COLUMNAS, y las dos comparten la misma
+     coordenada Y: leyéndolo como líneas sueltas, los renglones de una se
+     cuelan entre los de la otra. Por eso se trabaja con las celdas y su
+     posición: el bloque de productos es el que va debajo de su título, en
+     esa misma columna. */
+  const celdas = [];
+  for (const pag of paginas) celdas.push(...celdasDePagina(pag));
+
+  let fecha = '';
+  for (const c of celdas) {
+    const m = /Fecha\s*:\s*(\d{2})\/(\d{2})\/(\d{4})/i.exec(c.t);
+    if (m) { fecha = m[3] + '-' + m[2] + '-' + m[1]; break; }
+  }
+
+  const titulo = celdas.find(c => /PRODUCTOS\s+VENDIDOS/i.test(c.t));
+  if (!titulo) throw new Error('sin-renglones');
+  const MISMA_COLUMNA = 40;
+
+  const debajo = celdas
+    .filter(c => Math.abs(c.x - titulo.x) <= MISMA_COLUMNA && c.y < titulo.y)
+    .sort((a, b) => b.y - a.y);
+
+  const renglones = [];
+  for (const c of debajo) {
+    if (/^\s*Total\s*:/i.test(c.t)) break;            // cierra el bloque
+    const m = /^\s*(\d+)\s+(.+?)\s{2,}[\d.,]+\s*$/.exec(c.t);
+    if (!m) continue;
+    const descripcion = m[2].trim();
+    renglones.push({ codigo: codigoPorNombre(descripcion), descripcion, cantidad: Number(m[1]) });
+  }
+  if (!renglones.length) throw new Error('sin-renglones');
+  return { desde: fecha, hasta: fecha, renglones };
+}
+
+/* Se prueban los dos: el reporte por rango y el cierre de un día. */
+async function leerVentas(buffer) {
+  try { return await leerReporteVentas(buffer); }
+  catch (e) {
+    if (e.message === 'vacio') throw e;
+    return await leerBalanceDeCaja(buffer);
+  }
+}
+
 
 
 
@@ -3196,7 +3313,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v51';
+const APP_VERSION = 'mercancia-v52';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
