@@ -79,6 +79,11 @@ const RECEPCIONES = [
   check('y su botón', !(await page.$('#btn-fisico')));
   check('tampoco queda el modelo viejo de artículos',
     await page.evaluate(() => typeof ARTICULOS_TODOS === 'undefined'));
+  // agrupar un producto ya guardado no puede perder su inicial
+  const doblado = await page.evaluate(() =>
+    porClaveDeCuadre({ lipton_durazno: 22, lipton_limon: 15, lipton_verde: 27, malta: 111 }));
+  check('un inicial guardado por sabor se dobla sobre su grupo', doblado.lipton === 64, doblado);
+  check('y lo que no es de grupo se queda como está', doblado.malta === 111, doblado);
 
   // ---------- 3) abre la semana que sigue a la última ----------
   await page.click('#home-tabs button[data-t="inventario"]');

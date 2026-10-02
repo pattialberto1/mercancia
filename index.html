@@ -2338,12 +2338,24 @@ function anteriorSinCerrar(inv) {
 /* Es el conteo con el que se cerró la semana anterior. Lo que no se contó
    arrastra su «te queda»: la app ya sabe lo que debería haber. Lo que se
    cerró sin contar y sin número no arrastra nada, y la fila lo dice. */
+/* Si un producto pasa a cuadrarse en grupo DESPUÉS de haberse guardado su
+   inicial —pasó con los tés Lipton—, la clave guardada es la del sabor y
+   ya no casa con la del grupo. En vez de perderse, se dobla sobre él. */
+function porClaveDeCuadre(valores) {
+  const out = {};
+  for (const [k, v] of Object.entries(valores || {})) {
+    const p = producto(k);
+    const clave = p ? claveCuadre(p) : k;
+    out[clave] = round2((out[clave] || 0) + (Number(v) || 0));
+  }
+  return out;
+}
 function inicialDe(inv) {
   if (inv.inicialManual && Object.keys(inv.inicialManual).length && !previaCerrada(inv)) {
-    return { valores: inv.inicialManual, de: 'manual' };
+    return { valores: porClaveDeCuadre(inv.inicialManual), de: 'manual' };
   }
   const previa = previaCerrada(inv);
-  if (!previa) return { valores: inv.inicialManual || {}, de: 'manual' };
+  if (!previa) return { valores: porClaveDeCuadre(inv.inicialManual), de: 'manual' };
   const valores = {}, sinContar = [];
   const antes = calcular(previa, true);
   for (const f of antes) {
@@ -3329,7 +3341,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v54';
+const APP_VERSION = 'mercancia-v55';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
