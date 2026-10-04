@@ -196,6 +196,50 @@ const RECEPCIONES = [
   check('y dice cuántas faltan contra lo esperado',
     pm.diferencia === pm.conteo - pm.esperado && pm.diferencia < 0, pm);
 
+  // ---------- 8b) el día del conteo ----------
+  // Contaron el martes; lo que se vendió el miércoles seguía en el estante
+  // cuando contaron, así que no puede salir como sobrante.
+  await page.evaluate(d => {
+    currentInv.reportes = [
+      { desde: d.mar, hasta: d.mar, renglones: [{ codigo: '1617', descripcion: 'MALTA BOTELLA', cantidad: 4 }] },
+      { desde: d.mie, hasta: d.mie, renglones: [{ codigo: '1617', descripcion: 'MALTA BOTELLA', cantidad: 9 }] }
+    ];
+    recalcularVentas(currentInv); currentInv.fechaConteo = null;
+    touch(currentInv); save(false); renderInv();
+  }, { mar: mas(lunes, 1), mie: mas(lunes, 2) });
+  await page.waitForTimeout(250);
+  const m0 = await f('malta');
+  check('sin decir el día, cuadra contra toda la semana', m0.vendido === 13, m0.vendido);
+
+  await page.fill('#inv-fecha', mas(lunes, 1));
+  await page.dispatchEvent('#inv-fecha', 'change');
+  await page.waitForTimeout(250);
+  const m1 = await f('malta');
+  check('diciendo que se contó el martes, solo cuentan las ventas del martes', m1.vendido === 4, m1.vendido);
+  check('y el sobrante baja justo lo que se vendió el miércoles (9)',
+    m0.diferencia - m1.diferencia === 9, [m0.diferencia, m1.diferencia]);
+  check('la pantalla dice a qué día está hecho el cuadre',
+    /El cuadre está hecho al/.test(await page.textContent('#inv-msg')));
+  check('pero lo que queda al cerrar sigue descontando el resto de la semana',
+    m1.alCerrar === 111 - 9, m1.alCerrar);
+
+  await page.fill('#inv-fecha', mas(lunes, 6));
+  await page.dispatchEvent('#inv-fecha', 'change');
+  await page.waitForTimeout(250);
+  await page.evaluate(() => { currentInv.reportes = []; recalcularVentas(currentInv); touch(currentInv); save(false); renderInv(); });
+  await page.waitForTimeout(250);
+  await page.evaluate(() => {
+    currentInv.ventas = [
+      { codigo: '1523', descripcion: 'COMBO 3 POLLO', cantidad: 100 },
+      { codigo: '1521', descripcion: 'COMBO 2 POLLO', cantidad: 50 },
+      { codigo: '1535', descripcion: 'REF. 1L COCA COLA', cantidad: 30 },
+      { codigo: '1617', descripcion: 'MALTA BOTELLA', cantidad: 12 },
+      { codigo: '1562', descripcion: 'DELIVERY 1', cantidad: 40 }
+    ];
+    touch(currentInv); save(false); renderInv();
+  });
+  await page.waitForTimeout(250);
+
   // ---------- 9) el resumen de arriba ----------
   const res = await page.textContent('#inv-resumen');
   check('el resumen cuenta lo que no cuadra', /no cuadran|no cuadra/.test(res), res);

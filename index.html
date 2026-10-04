@@ -543,6 +543,12 @@
       <div class="hint" id="inv-estado"></div>
     </div>
 
+    <div class="card" id="inv-fecha-card">
+      <h2>📅 Día del conteo</h2>
+      <div class="sub" style="margin:2px 0 12px">Qué día fueron a contar. Lo que se venda después no se le puede pedir al conteo.</div>
+      <input type="date" id="inv-fecha" class="campo">
+    </div>
+
     <div class="card" id="inv-resumen"></div>
     <div id="inv-lista"></div>
 
@@ -2387,8 +2393,11 @@ function inicialDe(inv) {
   const valores = {}, sinContar = [];
   const antes = calcular(previa, true);
   for (const f of antes) {
-    if (f.conteo !== null) valores[f.clave] = f.conteo;
-    else if (f.esperado !== null) { valores[f.clave] = f.esperado; sinContar.push(f.clave); }
+    // lo que queda al CERRAR, no lo que había el día que contaron: entre
+    // una cosa y otra puede haber entrado y vendido más
+    if (f.alCerrar === null) continue;
+    valores[f.clave] = f.alCerrar;
+    if (f.conteo === null) sinContar.push(f.clave);
   }
   return { valores, de: 'cierre', semana: previa.semanaInicio, sinContar };
 }
@@ -2400,13 +2409,16 @@ function normaliza(s) {
   return String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/\s+/g, ' ').trim();
 }
-function recibidoEnSemana(inv) {
+/* `hasta` corta en el día que se contó: lo que llegó después no estaba
+   en el estante cuando contaron, así que no se le puede pedir al conteo. */
+function recibidoEnSemana(inv, hasta) {
+  const tope = hasta || inv.semanaFin;
   const out = {};
   for (const clave of clavesCuadre()) out[clave] = 0;
 
   // de las recepciones: por el tipo de producto que se recibió
   for (const r of db.recepciones) {
-    if (r.fecha < inv.semanaInicio || r.fecha > inv.semanaFin) continue;
+    if (r.fecha < inv.semanaInicio || r.fecha > tope) continue;
     const t = totals(r);
     for (const clave of clavesCuadre()) {
       const miembros = productosDe(clave);
@@ -2421,7 +2433,7 @@ function recibidoEnSemana(inv) {
 
   // de las facturas: el renglón se apunta a mano a un producto de la lista
   for (const f of db.facturas) {
-    if (f.fecha < inv.semanaInicio || f.fecha > inv.semanaFin) continue;
+    if (f.fecha < inv.semanaInicio || f.fecha > tope) continue;
     for (const l of f.lineas || []) {
       const p = producto(l.art);
       if (!p) continue;
@@ -2478,11 +2490,29 @@ function diasQueFaltan(inv) {
 }
 
 /* ---- lo vendido ---- */
-function vendidoEnSemana(inv) {
+/* `hasta` corta en el día del conteo. Se rehace desde los reportes porque
+   `inv.ventas` ya los trae sumados y ahí no se sabe de qué día es cada uno.
+   Un reporte de rango no se puede partir: si empieza antes del tope, entra
+   entero, que es lo que hacía la app antes de saber de días. */
+function ventasHasta(inv, hasta) {
+  if (!hasta || hasta >= inv.semanaFin) return inv.ventas || [];
+  const suma = new Map();
+  for (const rep of inv.reportes || []) {
+    if (rep.desde && rep.desde > hasta) continue;
+    for (const x of rep.renglones) {
+      const k = x.codigo || ('?' + x.descripcion);
+      const y = suma.get(k);
+      if (y) y.cantidad += x.cantidad;
+      else suma.set(k, { codigo: x.codigo || null, cantidad: x.cantidad });
+    }
+  }
+  return [...suma.values()];
+}
+function vendidoEnSemana(inv, hasta) {
   const eq = equivalencias();
   const out = {};
   for (const clave of clavesCuadre()) out[clave] = 0;
-  for (const v of inv.ventas || []) {
+  for (const v of ventasHasta(inv, hasta)) {
     const regla = eq[v.codigo];
     if (!regla || !regla.consume) continue;
     for (const [clave, cuanto] of Object.entries(regla.consume)) {
@@ -2541,11 +2571,26 @@ function conteoDeClave(inv, clave) {
   return hay ? round2(suma) : null;
 }
 
+/* El día que fueron a contar. Si no se dice, se da por hecho que contaron
+   al cerrar la semana, que es como debería ser. */
+function fechaConteoDe(inv) {
+  const f = inv.fechaConteo;
+  if (!f || f < inv.semanaInicio || f > inv.semanaFin) return inv.semanaFin;
+  return f;
+}
+
 /* ---- la cuenta ---- */
+/* El cuadre se hace AL DÍA DEL CONTEO, no al final de la semana: lo que se
+   vendió después de que contaran seguía en el estante cuando contaron, y si
+   se descuenta sale un sobrante que no existe. Lo que queda al final de la
+   semana se calcula aparte, que es lo que arranca la semana siguiente. */
 function calcular(inv, paraArrastre) {
   const ini = inicialDe(inv);
-  const rec = recibidoEnSemana(inv);
-  const ven = vendidoEnSemana(inv);
+  const dia = fechaConteoDe(inv);
+  const rec = recibidoEnSemana(inv, dia);
+  const ven = vendidoEnSemana(inv, dia);
+  const recFin = recibidoEnSemana(inv);
+  const venFin = vendidoEnSemana(inv);
   const corte = !paraArrastre && anteriorSinCerrar(inv);
   return clavesCuadre().map(clave => {
     const inicial = corte ? null : (Number(ini.valores[clave]) || 0);
@@ -2553,9 +2598,14 @@ function calcular(inv, paraArrastre) {
     const vendido = ven[clave] || 0;
     const esperado = inicial === null ? null : round2(inicial + recibido - vendido);
     const conteo = conteoDeClave(inv, clave);
+    // después del conteo la semana sigue: eso es lo que se arrastra
+    const despues = round2((recFin[clave] || 0) - recibido - ((venFin[clave] || 0) - vendido));
+    const alCerrar = conteo !== null ? round2(conteo + despues)
+      : (esperado === null ? null : round2(esperado + despues));
     return {
       clave, nombre: nombreCuadre(clave), unidad: unidadCuadre(clave),
-      inicial, recibido, vendido, esperado, conteo,
+      inicial, recibido, vendido, esperado, conteo, alCerrar,
+      recibidoFin: recFin[clave] || 0, vendidoFin: venFin[clave] || 0,
       diferencia: (conteo === null || esperado === null) ? null : round2(conteo - esperado),
       arrastrado: ini.de === 'cierre' && (ini.sinContar || []).includes(clave),
       sinCadena: !!corte
@@ -2632,6 +2682,12 @@ function renderInv() {
   $('inv-del').classList.toggle('hidden', inv.cerrado);
   $('inv-cerrar').classList.toggle('hidden', inv.cerrado);
 
+  const dia = fechaConteoDe(inv);
+  $('inv-fecha').value = dia;
+  $('inv-fecha').min = inv.semanaInicio;
+  $('inv-fecha').max = inv.semanaFin;
+  $('inv-fecha').disabled = !!inv.cerrado;
+
   const filas = calcular(inv);
   const avisos = [];
   const corte = anteriorSinCerrar(inv);
@@ -2649,6 +2705,10 @@ function renderInv() {
       (fuera.length === 1 ? ' reporte que no cae' : ' reportes que no caen') +
       ' en esta semana (' + fuera.map(r => fmtDate(r.desde)).join(', ') +
       '). Esas ventas no son de aquí.</div>');
+  }
+  if (dia < inv.semanaFin) {
+    avisos.push('<div class="msg">El cuadre está hecho al ' + fmtDate(dia) +
+      ', que es el día que contaron. Lo que se vendió después no se le pide al conteo.</div>');
   }
   const faltan = diasQueFaltan(inv);
   if ((inv.reportes || []).length && faltan.length) {
@@ -2837,6 +2897,15 @@ $('inv-file').addEventListener('change', async e => {
       : 'No se pudo leer el PDF. Comprueba que sea el reporte exportado del sistema.';
     console.error(err);
   }
+});
+
+$('inv-fecha').addEventListener('change', e => {
+  const v = e.target.value;
+  if (!v || v < currentInv.semanaInicio || v > currentInv.semanaFin) {
+    toast('El día del conteo tiene que caer dentro de la semana'); renderInv(); return;
+  }
+  currentInv.fechaConteo = v;
+  touch(currentInv); save(); renderInv();
 });
 
 $('inv-back').onclick = () => { currentInv = null; renderHome(); show('home'); };
@@ -3425,7 +3494,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v59';
+const APP_VERSION = 'mercancia-v60';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
