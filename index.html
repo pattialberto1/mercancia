@@ -2369,8 +2369,11 @@ function inicialDe(inv) {
 }
 
 /* ---- lo recibido ---- */
+// El punto de venta a veces deja dos espacios donde la equivalencia tiene
+// uno («TENTA TE  1 L»). Si no se aplastan, el renglón no encuentra el suyo.
 function normaliza(s) {
-  return String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ').trim();
 }
 function recibidoEnSemana(inv) {
   const out = {};
@@ -3091,6 +3094,21 @@ function codigoPorNombre(nombre) {
   return null;
 }
 
+/* El «Fecha» del balance es cuándo se imprimió, no de qué día es la venta.
+   El cierre se saca al cerrar la caja y muchas noches eso cae pasada la
+   medianoche: «04/10/2026 00:33 am» son las ventas del día 3. Antes de las
+   cinco de la mañana, el día de la venta es el anterior. */
+const HORA_CORTE = 5;
+function diaDelCierre(texto) {
+  const m = /(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([ap])\.?\s*m)?/i.exec(texto);
+  if (!m) return null;
+  const iso = m[3] + '-' + m[2] + '-' + m[1];
+  if (!m[4]) return iso;
+  let h = Number(m[4]) % 12;
+  if (/p/i.test(m[6])) h += 12;
+  return h < HORA_CORTE ? masDias(iso, -1) : iso;
+}
+
 async function leerBalanceDeCaja(buffer) {
   const paginas = await textoDelPDF(buffer);
   if (!paginas.length) throw new Error('vacio');
@@ -3105,8 +3123,9 @@ async function leerBalanceDeCaja(buffer) {
 
   let fecha = '';
   for (const c of celdas) {
-    const m = /Fecha\s*:\s*(\d{2})\/(\d{2})\/(\d{4})/i.exec(c.t);
-    if (m) { fecha = m[3] + '-' + m[2] + '-' + m[1]; break; }
+    if (!/Fecha\s*:/i.test(c.t)) continue;
+    const d = diaDelCierre(c.t);
+    if (d) { fecha = d; break; }
   }
 
   const titulo = celdas.find(c => /PRODUCTOS\s+VENDIDOS/i.test(c.t));
@@ -3381,7 +3400,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v57';
+const APP_VERSION = 'mercancia-v58';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

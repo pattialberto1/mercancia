@@ -49,6 +49,20 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('reconoce el cierre diario sin que haya que decírselo', r.renglones.length === 39, r.renglones.length);
   check('saca la fecha del día', r.desde === '2026-10-01' && r.hasta === '2026-10-01', r);
 
+  // el «Fecha» del balance es cuándo se imprimió: muchas noches, pasada la medianoche
+  const dias = await page.evaluate(() => [
+    diaDelCierre('Fecha    : 01/10/2026 10:44 pm'),
+    diaDelCierre('Fecha    : 04/10/2026 00:33 am'),
+    diaDelCierre('Fecha    : 03/10/2026 12:15 am'),
+    diaDelCierre('Fecha    : 04/10/2026 06:10 am'),
+    diaDelCierre('Fecha    : 04/10/2026')
+  ]);
+  check('un cierre impreso de noche es del mismo día', dias[0] === '2026-10-01', dias[0]);
+  check('impreso pasada la medianoche, es del día anterior', dias[1] === '2026-10-03', dias[1]);
+  check('las 12 y pico de la noche también', dias[2] === '2026-10-02', dias[2]);
+  check('ya de mañana, no: ese día es ese día', dias[3] === '2026-10-04', dias[3]);
+  check('y sin hora se queda con el día que trae', dias[4] === '2026-10-04', dias[4]);
+
   const por = Object.fromEntries(r.renglones.map(x => [x.descripcion, x]));
   check('lee las cantidades', por['COMBO 3 POLLO'].cantidad === 94, por['COMBO 3 POLLO']);
   check('y no se le cuela la otra columna del balance',
@@ -67,6 +81,9 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
     por['TE LIPTON 500ML'].codigo));
   check('«PICADILLO DE POLL» tampoco, que falta saber cuántas piezas son un kilo',
     por['PICADILLO DE POLL'].codigo === null);
+  // el reporte deja dos espacios donde la equivalencia tiene uno
+  check('dos espacios de más no esconden el producto',
+    await page.evaluate(() => codigoPorNombre('TENTA TE  1 L') === '1609'));
 
   // ---------- 3) cargado en la semana ----------
   await page.click('#home-tabs button[data-t="inventario"]');
