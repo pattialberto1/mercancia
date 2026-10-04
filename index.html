@@ -274,6 +274,9 @@
   }
   .inv-cuenta { margin-top: 4px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
   .inv-cuenta b { color: var(--text); font-weight: 800; }
+  /* lo de las neveras de abajo va aparte, separado de los sabores */
+  .inv-item.nevera { border-top: 1px dashed var(--line); padding-top: 9px; }
+  .inv-cuenta.total { margin-top: 8px; font-size: 13.5px; }
 
   /* el resumen de arriba: lo que hay que mirar primero */
   .cuadro-cifra { text-align: center; padding: 2px 0 14px; }
@@ -2484,8 +2487,18 @@ function totalConteo(p, det) {
   const u = parseNum(String(det.u || '')) || 0;
   return round2(b * p.porBulto + u);
 }
-// lo contado de un grupo es la suma de lo contado de sus productos; si
-// ninguno se contó, el grupo está sin contar
+/* El conteo se hace en dos sitios: arriba, en el depósito, donde está
+   separado por sabor, y abajo en las neveras, donde está revuelto («19
+   refrescos de 2L»). Por eso cada cosa que se cuadra tiene, además de las
+   casillas de cada sabor, una casilla para lo de la nevera. */
+function conteoNevera(inv, clave) {
+  const v = (inv.conteoNevera || {})[clave];
+  if (v === '' || v == null) return null;
+  const n = parseNum(String(v));
+  return isNaN(n) ? null : round2(n);
+}
+// lo contado de un grupo es lo de sus productos más lo de la nevera; si no
+// se tocó ninguna casilla, está sin contar
 function conteoDeClave(inv, clave) {
   const miembros = productosDe(clave);
   const lista = miembros.length ? miembros : [producto(clave)].filter(Boolean);
@@ -2495,6 +2508,8 @@ function conteoDeClave(inv, clave) {
     if (t === null) continue;
     hay = true; suma += t;
   }
+  const nev = conteoNevera(inv, clave);
+  if (nev !== null) { hay = true; suma += nev; }
   return hay ? round2(suma) : null;
 }
 
@@ -2675,6 +2690,16 @@ function renderListaInv(filas) {
       touch(currentInv); save(); renderInv();
     });
   }
+  for (const el of cont.querySelectorAll('.nev')) {
+    el.addEventListener('change', e => {
+      const clave = e.target.dataset.c, v = e.target.value.trim();
+      if (v !== '' && isNaN(parseNum(v))) { toast('Escribe un número'); renderInv(); return; }
+      currentInv.conteoNevera = currentInv.conteoNevera || {};
+      if (v === '') delete currentInv.conteoNevera[clave];
+      else currentInv.conteoNevera[clave] = v;
+      touch(currentInv); save(); renderInv();
+    });
+  }
 }
 
 /* Un bloque por cosa que se cuadra. Si el grupo tiene varios sabores, la
@@ -2716,10 +2741,23 @@ function bloqueCuadre(f, inv) {
     '</div>';
   }).join('');
 
+  // lo de las neveras de abajo, que no viene separado por sabor
+  const nev = (inv.conteoNevera || {})[f.clave];
+  // cuántas casillas aportan al total: solo entonces vale la pena sumarlo aparte
+  const partes = lista.filter(p => totalConteo(p, detalleConteo(inv, p.id)) !== null).length +
+    (conteoNevera(inv, f.clave) !== null ? 1 : 0);
+  const nevera = '<div class="inv-item nevera">' +
+    '<div class="inv-item-nom">En la nevera</div>' +
+    '<div class="inv-campos"><label><input class="nev" data-c="' + f.clave +
+      '" type="text" inputmode="decimal" value="' + esc(nev == null ? '' : nev) +
+      '" placeholder="—"' + dis + '><em>' + (f.unidad === 'kg' ? 'kg' : 'unidades') +
+    '</em></label></div></div>';
+
   return '<div class="inv-bloque' + (f.diferencia !== null && Math.abs(f.diferencia) >= 0.01 ? ' mal' : '') + '">' +
     '<div class="inv-nom">' + esc(f.nombre) + '</div>' +
     frase +
-    '<div class="inv-items">' + casillas + '</div>' +
+    '<div class="inv-items">' + casillas + nevera + '</div>' +
+    (partes > 1 ? '<div class="inv-cuenta total">Contado en total: <b>' + fmt(f.conteo) + '</b></div>' : '') +
     diferenciaLinea(f) +
   '</div>';
 }
@@ -3341,7 +3379,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v55';
+const APP_VERSION = 'mercancia-v56';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -148,6 +148,25 @@ const RECEPCIONES = [
   check('y la cuenta se muestra hecha',
     (await page.textContent('#inv-lista')).includes('35 bultos × 6 + 11 = 221'));
 
+  // ---------- 7b) lo de las neveras de abajo, que no viene por sabor ----------
+  const nevera = async (clave, v) => {
+    await page.fill(`.nev[data-c="${clave}"]`, String(v));
+    await page.dispatchEvent(`.nev[data-c="${clave}"]`, 'change');
+    await page.waitForTimeout(150);
+  };
+  await nevera('ref_1l', 68);
+  const gn = await f('ref_1l');
+  check('lo de la nevera se suma a lo contado arriba (694 + 68)', gn.conteo === 694 + 68, gn.conteo);
+  check('y el total sale sumado en pantalla',
+    (await page.textContent('#inv-lista')).includes('Contado en total: 762'));
+  // algo que solo está en la nevera cuenta igual
+  await nevera('jugo_barinas', 40);
+  const jn = await f('jugo_barinas');
+  check('contar solo en la nevera ya es haber contado', jn.conteo === 40, jn.conteo);
+  await nevera('jugo_barinas', '');
+  const jn2 = await f('jugo_barinas');
+  check('y borrarla lo deja otra vez sin contar', jn2.conteo === null, jn2.conteo);
+
   // ---------- 8) la diferencia ----------
   await poner('malta', 3, 3);
   const m = await f('malta');
