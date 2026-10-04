@@ -2594,19 +2594,23 @@ function calcular(inv, paraArrastre) {
   const corte = !paraArrastre && anteriorSinCerrar(inv);
   return clavesCuadre().map(clave => {
     const inicial = corte ? null : (Number(ini.valores[clave]) || 0);
-    const recibido = rec[clave] || 0;
-    const vendido = ven[clave] || 0;
+    // lo de la semana entera: es lo que se enseña, y lo que de verdad queda
+    const recibido = recFin[clave] || 0;
+    const vendido = venFin[clave] || 0;
     const esperado = inicial === null ? null : round2(inicial + recibido - vendido);
+    // y lo que debía haber EL DÍA QUE CONTARON, que es contra lo que se compara
+    const alContar = inicial === null ? null
+      : round2(inicial + (rec[clave] || 0) - (ven[clave] || 0));
     const conteo = conteoDeClave(inv, clave);
     // después del conteo la semana sigue: eso es lo que se arrastra
-    const despues = round2((recFin[clave] || 0) - recibido - ((venFin[clave] || 0) - vendido));
+    const despues = round2(recibido - (rec[clave] || 0) - (vendido - (ven[clave] || 0)));
     const alCerrar = conteo !== null ? round2(conteo + despues)
-      : (esperado === null ? null : round2(esperado + despues));
+      : (esperado === null ? null : esperado);
     return {
       clave, nombre: nombreCuadre(clave), unidad: unidadCuadre(clave),
-      inicial, recibido, vendido, esperado, conteo, alCerrar,
-      recibidoFin: recFin[clave] || 0, vendidoFin: venFin[clave] || 0,
-      diferencia: (conteo === null || esperado === null) ? null : round2(conteo - esperado),
+      inicial, recibido, vendido, esperado, conteo, alContar, alCerrar,
+      diaConteo: dia, mediaSemana: dia < inv.semanaFin,
+      diferencia: (conteo === null || alContar === null) ? null : round2(conteo - alContar),
       arrastrado: ini.de === 'cierre' && (ini.sinContar || []).includes(clave),
       sinCadena: !!corte
     };
@@ -2863,10 +2867,16 @@ function diferenciaLinea(f) {
       ' de menos: se vendió más de lo que la app tiene registrado. Falta cargar entradas.</div>';
   }
   if (f.conteo === null) return '<div class="inv-dif sub">Escribe el conteo para ver la diferencia.</div>';
-  if (Math.abs(f.diferencia) < 0.01) return '<div class="inv-dif ok">Cuadra exacto · contaste ' + fmt(f.conteo) + '</div>';
-  const pct = f.esperado > 0 ? ' (' + fmt(Math.abs(f.diferencia / f.esperado) * 100) + '%)' : '';
+  /* Si contaron a media semana, la comparación es contra lo que debía haber
+     ESE día: lo vendido después seguía en el estante cuando contaron. */
+  const cuando = f.mediaSemana
+    ? ' el ' + fmtDate(f.diaConteo) + ', cuando debía haber ' + fmt(f.alContar) + ','
+    : '';
+  if (Math.abs(f.diferencia) < 0.01)
+    return '<div class="inv-dif ok">Contaste ' + fmt(f.conteo) + cuando + ' · cuadra exacto</div>';
+  const pct = f.alContar > 0 ? ' (' + fmt(Math.abs(f.diferencia / f.alContar) * 100) + '%)' : '';
   return '<div class="inv-dif ' + (f.diferencia < 0 ? 'mal' : 'sobra') + '">' +
-    'Contaste ' + fmt(f.conteo) + ' · ' + (f.diferencia < 0 ? 'faltan ' : 'sobran ') +
+    'Contaste ' + fmt(f.conteo) + cuando + ' · ' + (f.diferencia < 0 ? 'faltan ' : 'sobran ') +
     fmt(Math.abs(f.diferencia)) + ' ' + f.unidad + pct + '</div>';
 }
 
@@ -3494,7 +3504,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v60';
+const APP_VERSION = 'mercancia-v61';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

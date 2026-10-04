@@ -209,15 +209,18 @@ const RECEPCIONES = [
   }, { mar: mas(lunes, 1), mie: mas(lunes, 2) });
   await page.waitForTimeout(250);
   const m0 = await f('malta');
-  check('sin decir el día, cuadra contra toda la semana', m0.vendido === 13, m0.vendido);
+  check('sin decir el día, cuadra contra toda la semana', m0.alContar === m0.esperado, m0);
 
   await page.fill('#inv-fecha', mas(lunes, 1));
   await page.dispatchEvent('#inv-fecha', 'change');
   await page.waitForTimeout(250);
   const m1 = await f('malta');
-  check('diciendo que se contó el martes, solo cuentan las ventas del martes', m1.vendido === 4, m1.vendido);
+  check('la semana sigue enseñando sus 13 vendidas, no 4', m1.vendido === 13, m1.vendido);
+  check('pero se compara con lo que debía haber el martes', m1.alContar === m1.esperado + 9, m1);
   check('y el sobrante baja justo lo que se vendió el miércoles (9)',
     m0.diferencia - m1.diferencia === 9, [m0.diferencia, m1.diferencia]);
+  check('la línea dice contra qué día compara',
+    (await page.textContent('#inv-lista')).includes('cuando debía haber'));
   check('la pantalla dice a qué día está hecho el cuadre',
     /El cuadre está hecho al/.test(await page.textContent('#inv-msg')));
   check('pero lo que queda al cerrar sigue descontando el resto de la semana',
