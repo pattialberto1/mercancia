@@ -39,7 +39,11 @@ const RECEPCIONES = [
     pesadas: [{ peso: 150, cestas: 0, ts: 1 }] },
   { id: 'rpo', tipo: 'postre_redondo', fecha: lunes, creada: 1, mod: 1, cerrada: true,
     tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
-    pesadas: [{ peso: 38, cestas: 0, ts: 1 }] }
+    pesadas: [{ peso: 38, cestas: 0, ts: 1 }] },
+  // 5 bultos de Tenta té durazno: 5 × 12 = 60
+  { id: 'rtt', tipo: 'tenta_te', fecha: lunes, creada: 1, mod: 1, cerrada: true,
+    tara: 2.3, min: 65, max: 75, min1: 32, max1: 37, cestasVacias: 0,
+    pesadas: [{ peso: 60, cestas: 0, ts: 1, emp: 'bulto', cant: 5 }] }
 ];
 
 (async () => {
@@ -112,6 +116,15 @@ const RECEPCIONES = [
   check('los postres llegan contados, sin tara que descontar', postrec.recibido === 38, postrec.recibido);
   check('y se miden en unidades, no en kilos', postrec.unidad === 'unidades', postrec.unidad);
   check('lo que sí se pesa sigue en kilos', papas.unidad === 'kg', papas.unidad);
+  // antes no había por dónde recibir estos cuatro y lo que llegaba salía como sobrante
+  const tt = await f('tenta_te');
+  check('5 bultos de Tenta té son 60 unidades en el cuadre', tt.recibido === 60, tt.recibido);
+  const recibibles = await page.evaluate(() =>
+    ['gatorade', 'jugo_barinas', 'lipton', 'tenta_te'].filter(t => TABS.unidades.tipos.includes(t)));
+  check('y los cuatro tienen su botón en Bebidas y otros', recibibles.length === 4, recibibles);
+  check('todos vienen en bultos de doce',
+    await page.evaluate(() => ['gatorade', 'jugo_barinas', 'lipton', 'tenta_te']
+      .every(t => empaqueDe(t, 'bulto').unidades === 12)));
 
   // ---------- 6) lo vendido, por las recetas ----------
   await page.evaluate(() => {

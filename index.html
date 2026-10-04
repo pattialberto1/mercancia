@@ -329,6 +329,8 @@
   .modal {
     background: var(--card); width: 100%; max-width: 480px;
     border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    /* con catorce productos la lista no cabe en el teléfono: que ruede */
+    max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
   .modal h2 { margin-bottom: 16px; }
   .modal .actions { display: flex; gap: 10px; margin-top: 8px; }
@@ -706,6 +708,14 @@ const HUEVOS_POR_CARTON = 24;
 const CARTONES_POR_CAJA = 12;
 const HUEVOS_POR_CAJA = HUEVOS_POR_CARTON * CARTONES_POR_CAJA;   // 288
 
+/* El Gatorade, los jugos, el Lipton y el Tenta té llegan en bultos de doce.
+   Se teclea el bulto y la app hace la cuenta; la suelta es para cuando no
+   llega bulto completo. */
+const BULTOS_DE_12 = [
+  { id: 'bulto',  uno: 'bulto',  varias: 'bultos',   cuantos: 'Cuántos bultos',   unidades: 12 },
+  { id: 'suelto', uno: 'unidad', varias: 'unidades', cuantos: 'Cuántas unidades', unidades: 1 }
+];
+
 /* Catálogo de productos.
    - neto: etiqueta del total · cestas: máximo de cestas por pesada (a granel)
    - todo lo que no es pollo se pesa a granel: peso con decimales, sin rango */
@@ -728,6 +738,17 @@ const PRODUCTOS = {
   agua_glacier:   { emoji: '💧', nombre: 'Agua Glacier 550ml', neto: 'AGUAS GLACIER', unidad: true },
   yuky:           { emoji: '🧃', nombre: 'Yuky-pack',     neto: 'YUKY-PACKS',     unidad: true },
   malta:          { emoji: '🍺', nombre: 'Malta',         neto: 'MALTAS',         unidad: true },
+  /* Estos cuatro se venden y se cuentan desde el principio, pero no había
+     por dónde recibirlos: lo que llegaba salía como sobrante en el cuadre.
+     Todos vienen en bultos de doce. */
+  gatorade:       { emoji: '⚡', nombre: 'Gatorade',      neto: 'GATORADES',      unidad: true,
+                    empaques: BULTOS_DE_12 },
+  jugo_barinas:   { emoji: '🍊', nombre: 'Jugos Barinas', neto: 'JUGOS BARINAS',  unidad: true,
+                    empaques: BULTOS_DE_12 },
+  lipton:         { emoji: '🍵', nombre: 'Té Lipton',     neto: 'TÉS LIPTON',     unidad: true,
+                    empaques: BULTOS_DE_12 },
+  tenta_te:       { emoji: '🧋', nombre: 'Tenta té',      neto: 'TENTA TÉ',       unidad: true,
+                    empaques: BULTOS_DE_12 },
   // los huevos llegan en cajas: 12 cartones de 24 huevos cada uno (288 por caja).
   // Se guardan siempre en huevos; la caja y el cartón son solo la forma de teclearlo.
   huevos:         { emoji: '🥚', nombre: 'Huevos',        neto: 'HUEVOS',         unidad: true,
@@ -783,7 +804,7 @@ const TABS = {
   verduras:    { emoji: '🥬', nombre: 'Verduras', tipos: ['repollo_blanco', 'repollo_morado', 'zanahoria', 'cebollin'] },
   alitas:      { emoji: '🍗', nombre: 'Alitas',   tipos: ['alitas'] },
   insumos:     { emoji: '🍚', nombre: 'Insumos',  tipos: ['pechuga', 'milanesa', 'camaron', 'arroz', 'magia', 'azucar', 'postre_redondo', 'postre_cuadrado'] },
-  unidades:    { emoji: '🥤', nombre: 'Bebidas y otros', tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'agua_glacier', 'yuky', 'malta', 'huevos', 'envases', 'lumpias'] },
+  unidades:    { emoji: '🥤', nombre: 'Bebidas y otros', tipos: ['refresco_1l', 'refresco_15l', 'refresco_2l', 'agua', 'agua_glacier', 'gatorade', 'jugo_barinas', 'lipton', 'tenta_te', 'yuky', 'malta', 'huevos', 'envases', 'lumpias'] },
   tierrasanta: { emoji: '🧾', nombre: 'Tierra Santa', facturas: true },
   inventario:  { emoji: '📊', nombre: 'Inventario', inventario: true }
 };
@@ -2307,6 +2328,10 @@ const RECEPCION_GRUPO = {
   ref_1l: 'refresco_1l',
   ref_2l: 'refresco_2l',
   yuky: 'yuky',
+  gatorade: 'gatorade',
+  jugo_barinas: 'jugo_barinas',
+  lipton: 'lipton',
+  tenta_te: 'tenta_te',
   pollo: 'pollo'
 };
 // cuántas piezas trae una cesta recibida de pollo entero
@@ -3400,7 +3425,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v58';
+const APP_VERSION = 'mercancia-v59';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

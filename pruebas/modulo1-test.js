@@ -33,6 +33,11 @@ function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) cons
   await page.click('#btn-new');
   await page.waitForTimeout(250);
   check('al agrupar varios productos pregunta cuál llega', await page.isVisible('#modal-producto.show'));
+  // con catorce productos la lista no cabe en la pantalla: tiene que rodar
+  check('se llega al último de la lista', await page.isVisible('#producto-btns button:last-child'));
+  const prods = await page.$$eval('#producto-btns button', bs => bs.map(b => b.textContent));
+  check('están los cuatro que antes no se podían recibir',
+    ['Gatorade', 'Jugos Barinas', 'Té Lipton', 'Tenta té'].every(n => prods.some(t => t.includes(n))), prods);
   await page.click('#producto-btns button:has-text("Refresco 1L")');
   await page.waitForTimeout(250);
 
