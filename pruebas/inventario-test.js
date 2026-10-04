@@ -163,6 +163,8 @@ const RECEPCIONES = [
   await nevera('jugo_barinas', 40);
   const jn = await f('jugo_barinas');
   check('contar solo en la nevera ya es haber contado', jn.conteo === 40, jn.conteo);
+  check('y avisa de que falta lo de arriba, para no leerlo como merma',
+    (await page.textContent('#inv-lista')).includes('Solo está contado lo de la nevera'));
   await nevera('jugo_barinas', '');
   const jn2 = await f('jugo_barinas');
   check('y borrarla lo deja otra vez sin contar', jn2.conteo === null, jn2.conteo);

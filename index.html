@@ -2758,6 +2758,8 @@ function bloqueCuadre(f, inv) {
     frase +
     '<div class="inv-items">' + casillas + nevera + '</div>' +
     (partes > 1 ? '<div class="inv-cuenta total">Contado en total: <b>' + fmt(f.conteo) + '</b></div>' : '') +
+    (partes === 1 && conteoNevera(inv, f.clave) !== null
+      ? '<div class="inv-cuenta">Solo está contado lo de la nevera.</div>' : '') +
     diferenciaLinea(f) +
   '</div>';
 }
@@ -3379,7 +3381,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v56';
+const APP_VERSION = 'mercancia-v57';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
