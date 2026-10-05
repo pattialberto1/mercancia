@@ -544,9 +544,12 @@
     </div>
 
     <div class="card" id="inv-fecha-card">
-      <h2>📅 Día del conteo</h2>
-      <div class="sub" style="margin:2px 0 12px">Qué día fueron a contar. Lo que se venda después no se le puede pedir al conteo.</div>
-      <input type="date" id="inv-fecha" class="campo">
+      <h2>📅 De qué día es cada conteo</h2>
+      <div class="sub" style="margin:2px 0 12px">La nevera se cuenta todos los días. Arriba solo cuando se va a pedir mercancía, para comprobar que cuadra.</div>
+      <div class="row2">
+        <div class="field"><label>La nevera, contada el</label><input type="date" id="inv-fecha-nevera"></div>
+        <div class="field"><label>Arriba, contado el</label><input type="date" id="inv-fecha"></div>
+      </div>
     </div>
 
     <div class="card" id="inv-resumen"></div>
@@ -2397,7 +2400,7 @@ function inicialDe(inv) {
     // una cosa y otra puede haber entrado y vendido más
     if (f.alCerrar === null) continue;
     valores[f.clave] = f.alCerrar;
-    if (f.conteo === null) sinContar.push(f.clave);
+    if (f.arriba === null) sinContar.push(f.clave);
   }
   return { valores, de: 'cierre', semana: previa.semanaInicio, sinContar };
 }
@@ -2555,9 +2558,8 @@ function conteoNevera(inv, clave) {
   const n = parseNum(String(v));
   return isNaN(n) ? null : round2(n);
 }
-// lo contado de un grupo es lo de sus productos más lo de la nevera; si no
-// se tocó ninguna casilla, está sin contar
-function conteoDeClave(inv, clave) {
+// lo contado ARRIBA, en el depósito: la suma de las casillas de cada sabor
+function conteoArriba(inv, clave) {
   const miembros = productosDe(clave);
   const lista = miembros.length ? miembros : [producto(clave)].filter(Boolean);
   let suma = 0, hay = false;
@@ -2566,18 +2568,25 @@ function conteoDeClave(inv, clave) {
     if (t === null) continue;
     hay = true; suma += t;
   }
-  const nev = conteoNevera(inv, clave);
-  if (nev !== null) { hay = true; suma += nev; }
   return hay ? round2(suma) : null;
 }
+// y el total contado, cuando están contadas las dos partes
+function conteoDeClave(inv, clave) {
+  const arriba = conteoArriba(inv, clave);
+  const nev = conteoNevera(inv, clave);
+  if (arriba === null && nev === null) return null;
+  return round2((arriba || 0) + (nev || 0));
+}
 
-/* El día que fueron a contar. Si no se dice, se da por hecho que contaron
-   al cerrar la semana, que es como debería ser. */
-function fechaConteoDe(inv) {
-  const f = inv.fechaConteo;
+/* De qué día es cada conteo. La nevera se cuenta todos los días; arriba,
+   solo cuando se va a pedir. Si no se dice, el día que cierra la semana. */
+function diaDe(inv, campo) {
+  const f = inv[campo];
   if (!f || f < inv.semanaInicio || f > inv.semanaFin) return inv.semanaFin;
   return f;
 }
+function fechaConteoDe(inv) { return diaDe(inv, 'fechaConteo'); }
+function fechaNeveraDe(inv) { return diaDe(inv, 'fechaNevera'); }
 
 /* ---- la cuenta ---- */
 /* El cuadre se hace AL DÍA DEL CONTEO, no al final de la semana: lo que se
@@ -2587,8 +2596,11 @@ function fechaConteoDe(inv) {
 function calcular(inv, paraArrastre) {
   const ini = inicialDe(inv);
   const dia = fechaConteoDe(inv);
+  const diaNev = fechaNeveraDe(inv);
   const rec = recibidoEnSemana(inv, dia);
   const ven = vendidoEnSemana(inv, dia);
+  const recNev = recibidoEnSemana(inv, diaNev);
+  const venNev = vendidoEnSemana(inv, diaNev);
   const recFin = recibidoEnSemana(inv);
   const venFin = vendidoEnSemana(inv);
   const corte = !paraArrastre && anteriorSinCerrar(inv);
@@ -2602,15 +2614,29 @@ function calcular(inv, paraArrastre) {
     const alContar = inicial === null ? null
       : round2(inicial + (rec[clave] || 0) - (ven[clave] || 0));
     const conteo = conteoDeClave(inv, clave);
-    // después del conteo la semana sigue: eso es lo que se arrastra
+    const arriba = conteoArriba(inv, clave);
+    const nevera = conteoNevera(inv, clave);
+    /* Lo que debería haber ARRIBA: lo que el sistema dice que hay en total
+       el día que se contó la nevera, menos lo que se contó en la nevera.
+       Es el número con el que se va a pedir mercancía. */
+    const totalAlContarNevera = inicial === null ? null
+      : round2(inicial + (recNev[clave] || 0) - (venNev[clave] || 0));
+    const arribaSistema = (nevera === null || totalAlContarNevera === null) ? null
+      : round2(totalAlContarNevera - nevera);
+    /* Solo hay inventario de verdad cuando se contó ARRIBA: la nevera sola
+       no dice cuánto hay. Lo que no se cuenta arriba se arrastra con lo que
+       dice el sistema. */
     const despues = round2(recibido - (rec[clave] || 0) - (vendido - (ven[clave] || 0)));
-    const alCerrar = conteo !== null ? round2(conteo + despues)
+    const alCerrar = arriba !== null ? round2(conteo + despues)
       : (esperado === null ? null : esperado);
     return {
       clave, nombre: nombreCuadre(clave), unidad: unidadCuadre(clave),
       inicial, recibido, vendido, esperado, conteo, alContar, alCerrar,
-      diaConteo: dia, mediaSemana: dia < inv.semanaFin,
-      diferencia: (conteo === null || alContar === null) ? null : round2(conteo - alContar),
+      arriba, nevera, arribaSistema,
+      diaConteo: dia, diaNevera: diaNev, mediaSemana: dia < inv.semanaFin,
+      mismosDias: dia === diaNev,
+      // la diferencia solo significa algo si se contó arriba
+      diferencia: (arriba === null || alContar === null) ? null : round2(conteo - alContar),
       arrastrado: ini.de === 'cierre' && (ini.sinContar || []).includes(clave),
       sinCadena: !!corte
     };
@@ -2662,7 +2688,7 @@ function renderHomeInventario() {
   list.innerHTML = '';
   for (const inv of semanas) {
     const filas = calcular(inv);
-    const contados = filas.filter(f => f.conteo !== null).length;
+    const contados = filas.filter(f => f.arriba !== null).length;
     const descuadrados = filas.filter(f => f.diferencia !== null && Math.abs(f.diferencia) >= 0.01).length;
     const btn = document.createElement('button');
     btn.className = 'rec-item';
@@ -2687,10 +2713,12 @@ function renderInv() {
   $('inv-cerrar').classList.toggle('hidden', inv.cerrado);
 
   const dia = fechaConteoDe(inv);
-  $('inv-fecha').value = dia;
-  $('inv-fecha').min = inv.semanaInicio;
-  $('inv-fecha').max = inv.semanaFin;
-  $('inv-fecha').disabled = !!inv.cerrado;
+  for (const [id, valor] of [['inv-fecha', dia], ['inv-fecha-nevera', fechaNeveraDe(inv)]]) {
+    $(id).value = valor;
+    $(id).min = inv.semanaInicio;
+    $(id).max = inv.semanaFin;
+    $(id).disabled = !!inv.cerrado;
+  }
 
   const filas = calcular(inv);
   const avisos = [];
@@ -2710,9 +2738,14 @@ function renderInv() {
       ' en esta semana (' + fuera.map(r => fmtDate(r.desde)).join(', ') +
       '). Esas ventas no son de aquí.</div>');
   }
-  if (dia < inv.semanaFin) {
-    avisos.push('<div class="msg">El cuadre está hecho al ' + fmtDate(dia) +
-      ', que es el día que contaron. Lo que se vendió después no se le pide al conteo.</div>');
+  const hayArriba = filas.some(f => f.arriba !== null);
+  if (hayArriba && dia < inv.semanaFin) {
+    avisos.push('<div class="msg">El cuadre de arriba está hecho al ' + fmtDate(dia) +
+      ', que es el día que contaron el depósito. Lo que se vendió después no se le pide a ese conteo.</div>');
+  }
+  if (!hayArriba && filas.some(f => f.nevera !== null)) {
+    avisos.push('<div class="msg ok">Con la nevera del ' + fmtDate(fechaNeveraDe(inv)) +
+      ', cada renglón dice cuánto debería haber arriba. Cuando vayas a pedir, cuenta el depósito y compara.</div>');
   }
   const faltan = diasQueFaltan(inv);
   if ((inv.reportes || []).length && faltan.length) {
@@ -2730,7 +2763,7 @@ function renderInv() {
   $('inv-msg').innerHTML = avisos.join('');
 
   // el resumen de arriba: lo primero que hay que mirar
-  const contados = filas.filter(f => f.conteo !== null);
+  const contados = filas.filter(f => f.arriba !== null);
   const mal = contados.filter(f => Math.abs(f.diferencia) >= 0.01);
   $('inv-resumen').innerHTML =
     '<div class="cuadro-cifra">' +
@@ -2850,8 +2883,6 @@ function bloqueCuadre(f, inv) {
     frase +
     '<div class="inv-items">' + casillas + nevera + '</div>' +
     (partes > 1 ? '<div class="inv-cuenta total">Contado en total: <b>' + fmt(f.conteo) + '</b></div>' : '') +
-    (partes === 1 && conteoNevera(inv, f.clave) !== null
-      ? '<div class="inv-cuenta">Solo está contado lo de la nevera.</div>' : '') +
     diferenciaLinea(f) +
   '</div>';
 }
@@ -2866,7 +2897,19 @@ function diferenciaLinea(f) {
     return '<div class="inv-dif mal">Salen ' + fmt(Math.abs(f.esperado)) + ' ' + f.unidad +
       ' de menos: se vendió más de lo que la app tiene registrado. Falta cargar entradas.</div>';
   }
-  if (f.conteo === null) return '<div class="inv-dif sub">Escribe el conteo para ver la diferencia.</div>';
+  /* Mientras no se cuente arriba, el número útil es el otro: cuánto debería
+     haber en el depósito según el sistema. Es con el que se va a pedir. */
+  if (f.arriba === null) {
+    if (f.arribaSistema === null) return '<div class="inv-dif sub">Escribe el conteo para ver la diferencia.</div>';
+    return '<div class="inv-dif sub">Según el sistema, arriba debería haber <b>' +
+      fmt(f.arribaSistema) + '</b> ' + f.unidad +
+      (f.arribaSistema < 0 ? '. Sale negativo: falta cargar entradas.' : '.') + '</div>';
+  }
+  if (!f.mismosDias && f.nevera !== null) {
+    return '<div class="inv-dif sub">Arriba se contó el ' + fmtDate(f.diaConteo) +
+      ' y la nevera el ' + fmtDate(f.diaNevera) +
+      '. Para que la diferencia valga, los dos conteos tienen que ser del mismo día.</div>';
+  }
   /* Si contaron a media semana, la comparación es contra lo que debía haber
      ESE día: lo vendido después seguía en el estante cuando contaron. */
   const cuando = f.mediaSemana
@@ -2909,14 +2952,16 @@ $('inv-file').addEventListener('change', async e => {
   }
 });
 
-$('inv-fecha').addEventListener('change', e => {
-  const v = e.target.value;
-  if (!v || v < currentInv.semanaInicio || v > currentInv.semanaFin) {
-    toast('El día del conteo tiene que caer dentro de la semana'); renderInv(); return;
-  }
-  currentInv.fechaConteo = v;
-  touch(currentInv); save(); renderInv();
-});
+for (const [id, campo] of [['inv-fecha', 'fechaConteo'], ['inv-fecha-nevera', 'fechaNevera']]) {
+  $(id).addEventListener('change', e => {
+    const v = e.target.value;
+    if (!v || v < currentInv.semanaInicio || v > currentInv.semanaFin) {
+      toast('El día del conteo tiene que caer dentro de la semana'); renderInv(); return;
+    }
+    currentInv[campo] = v;
+    touch(currentInv); save(); renderInv();
+  });
+}
 
 $('inv-back').onclick = () => { currentInv = null; renderHome(); show('home'); };
 $('inv-equivalencias').onclick = () => { renderEquivalencias(); show('eq'); };
@@ -2942,7 +2987,7 @@ $('inv-cerrar').onclick = () => {
   const filas = calcular(inv);
   const pendientes = [];
   if (!(inv.ventas || []).length) pendientes.push('no se ha cargado el reporte de ventas');
-  const sinContar = filas.filter(f => f.conteo === null);
+  const sinContar = filas.filter(f => f.arriba === null);
   if (sinContar.length) {
     pendientes.push(sinContar.length + (sinContar.length === 1 ? ' producto sin contar' : ' productos sin contar') +
       ', que arrastrarán lo que la app cree que queda');
@@ -2977,10 +3022,12 @@ $('inv-wa').onclick = () => {
       txt += '• ' + f.nombre + ': ';
       if (f.esperado === null) { txt += 'falta cerrar la semana anterior\n'; continue; }
       txt += 'debería quedar ' + fmt(f.esperado);
-      if (f.conteo !== null) {
+      if (f.diferencia !== null) {
         txt += ' · contado ' + fmt(f.conteo);
         txt += Math.abs(f.diferencia) < 0.01 ? ' ✅'
           : (f.diferencia < 0 ? ' ⚠️ faltan ' : ' ↑ sobran ') + fmt(Math.abs(f.diferencia));
+      } else if (f.arribaSistema !== null) {
+        txt += ' · en la nevera ' + fmt(f.nevera) + ', arriba debería haber ' + fmt(f.arribaSistema);
       } else txt += ' · sin contar';
       txt += '\n';
     }
@@ -3504,7 +3551,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v61';
+const APP_VERSION = 'mercancia-v62';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

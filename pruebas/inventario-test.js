@@ -175,9 +175,18 @@ const RECEPCIONES = [
   // algo que solo está en la nevera cuenta igual
   await nevera('jugo_barinas', 40);
   const jn = await f('jugo_barinas');
-  check('contar solo en la nevera ya es haber contado', jn.conteo === 40, jn.conteo);
-  check('y avisa de que falta lo de arriba, para no leerlo como merma',
-    (await page.textContent('#inv-lista')).includes('Solo está contado lo de la nevera'));
+  // contar solo la nevera no es cuadrar: sirve para deducir cuánto hay arriba
+  check('la nevera sola no da diferencia', jn.diferencia === null, jn.diferencia);
+  check('y si no se sabe lo que había, sale negativo y lo dice',
+    jn.arribaSistema === -40 && (await page.textContent('#inv-lista')).includes('falta cargar entradas'), jn);
+  // las papas sí tienen de dónde: 80 que había + 430,2 recibidas − 52,5 vendidas
+  await nevera('papas', 10);
+  const pn = await f('papas');
+  check('con la nevera contada, dice cuánto debería haber arriba (457,7 − 10)',
+    Math.abs(pn.arribaSistema - 447.7) < 0.01, pn.arribaSistema);
+  check('y lo pone en la pantalla, que es con lo que se pide',
+    (await page.textContent('#inv-lista')).includes('arriba debería haber'));
+  await nevera('papas', '');
   await nevera('jugo_barinas', '');
   const jn2 = await f('jugo_barinas');
   check('y borrarla lo deja otra vez sin contar', jn2.conteo === null, jn2.conteo);
@@ -222,7 +231,7 @@ const RECEPCIONES = [
   check('la línea dice contra qué día compara',
     (await page.textContent('#inv-lista')).includes('cuando debía haber'));
   check('la pantalla dice a qué día está hecho el cuadre',
-    /El cuadre está hecho al/.test(await page.textContent('#inv-msg')));
+    /El cuadre de arriba está hecho al/.test(await page.textContent('#inv-msg')));
   check('pero lo que queda al cerrar sigue descontando el resto de la semana',
     m1.alCerrar === 111 - 9, m1.alCerrar);
 
