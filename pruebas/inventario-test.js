@@ -70,7 +70,7 @@ const RECEPCIONES = [
   check('las cuatro secciones de la hoja',
     JSON.stringify(secciones) === JSON.stringify(['Bebidas', 'Pollo y carnes', 'Papas', 'Otros']), secciones);
   const n = await page.evaluate(() => INV.length);
-  check('están los 47 renglones del conteo', n === 47, n);
+  check('están los 48 renglones del conteo', n === 48, n);
   const nombres = await page.evaluate(() => INV.map(p => p.nombre));
   for (const x of ['Agua Minalba 1,5L', 'Refresco Chinoto 1L', 'Yukki pack durazno',
                    'Pollo en cestas marinado', 'Milanesa congelada', 'Papas', 'Lumpias', 'Postres tres leches'])

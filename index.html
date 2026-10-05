@@ -2185,6 +2185,7 @@ const PRODUCTOS_INV = [
     ['r1_frescolita', 'Refresco Frescolita 1L',      6, null, 'ref_1l'],
     ['r1_uva',        'Refresco Uva 1L',             6, null, 'ref_1l'],
     ['r2_toronja',    'Refresco Toronja 2L',         6, null, 'ref_2l'],
+    ['r2_colita',     'Refresco Colita 2L',          6, null, 'ref_2l'],
     ['r2_manzanita',  'Refresco Manzanita 2L',       6, null, 'ref_2l'],
     ['r2_7up',        'Refresco 7UP 2L',             6, null, 'ref_2l'],
     ['r2_pepsi',      'Refresco Pepsi 2L',           6, null, 'ref_2l'],
@@ -3551,7 +3552,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v62';
+const APP_VERSION = 'mercancia-v63';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
