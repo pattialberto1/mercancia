@@ -2475,7 +2475,16 @@ function inicialDe(inv) {
     valores[f.clave] = f.alCerrar;
     if (f.arriba === null) sinContar.push(f.clave);
   }
-  return { valores, de: 'cierre', semana: previa.semanaInicio, sinContar };
+  /* Una corrección a mano manda sobre lo arrastrado: sirve para rebasar un
+     renglón desde un conteo nuevo sin tocar los demás. */
+  const manual = porClaveDeCuadre(inv.inicialManual);
+  const corregidos = Object.keys(manual);
+  for (const k of corregidos) valores[k] = manual[k];
+  return {
+    valores, de: 'cierre', semana: previa.semanaInicio,
+    sinContar: sinContar.filter(k => !corregidos.includes(k)),
+    corregidos
+  };
 }
 
 /* ---- lo recibido ---- */
@@ -2745,6 +2754,7 @@ function calcular(inv, paraArrastre) {
       // la diferencia solo significa algo si se contó arriba
       diferencia: (arriba === null || alContar === null) ? null : round2(conteo - alContar),
       arrastrado: ini.de === 'cierre' && (ini.sinContar || []).includes(clave),
+      corregido: (ini.corregidos || []).includes(clave),
       sinCadena: !!corte
     };
   });
@@ -2953,7 +2963,8 @@ function bloqueCuadre(f, inv) {
   const frase = f.sinCadena
     ? '<div class="inv-frase falta">Falta cerrar la semana anterior para saber con qué empieza.</div>'
     : '<div class="inv-frase">' +
-        celdaNum('tenías', f.inicial, f.arrastrado ? 'arrastrado del cierre' : '') +
+        celdaNum('tenías', f.inicial,
+          f.corregido ? 'puesto a mano' : f.arrastrado ? 'arrastrado del cierre' : '') +
         celdaNum('recibiste', f.recibido) +
         celdaNum('vendiste', f.vendido) +
         (f.interno ? celdaNum('vales', f.interno, 'consumo interno') : '') +
@@ -3710,7 +3721,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v65';
+const APP_VERSION = 'mercancia-v66';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

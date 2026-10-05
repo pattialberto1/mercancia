@@ -105,6 +105,21 @@ const RECEPCIONES = [
   const papas0 = await f('papas');
   check('y en lo que va por kilos también (80 kg)', papas0.inicial === 80, papas0.inicial);
 
+  // una corrección a mano manda sobre lo que se arrastra del cierre
+  await page.evaluate(() => {
+    currentInv.inicialManual = { ref_1l: 416 };
+    touch(currentInv); save(false); renderInv();
+  });
+  await page.waitForTimeout(250);
+  const rebase = await f('ref_1l');
+  check('un inicial puesto a mano gana al arrastrado', rebase.inicial === 416, rebase.inicial);
+  check('y la fila dice que es a mano',
+    (await page.textContent('#inv-lista')).includes('puesto a mano'));
+  const papasSigue = await f('papas');
+  check('pero los demás renglones siguen con lo suyo', papasSigue.inicial === 80, papasSigue.inicial);
+  await page.evaluate(() => { currentInv.inicialManual = {}; touch(currentInv); save(false); renderInv(); });
+  await page.waitForTimeout(200);
+
   // ---------- 5) lo recibido entra solo ----------
   const pollo = await f('pollo');
   check('50 cestas recibidas son 7.200 piezas', pollo.recibido === 7200, pollo.recibido);
