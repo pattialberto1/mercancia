@@ -205,6 +205,33 @@ const RECEPCIONES = [
   check('y dice cuántas faltan contra lo esperado',
     pm.diferencia === pm.conteo - pm.esperado && pm.diferencia < 0, pm);
 
+  // ---------- 7c) el consumo interno de los vales ----------
+  // Lo que se llevan los empleados no pasa por la caja, pero sale igual.
+  const antesInt = await f('ref_1l');
+  await page.evaluate(d => {
+    currentInv.interno = [
+      { fecha: d, nombre: 'Refresco de 1 litro', cantidad: 3 },
+      { fecha: d, nombre: 'Combo 2 de pollo',    cantidad: 2 },   // lleva refresco
+      { fecha: d, nombre: 'Desperdicios',        cantidad: 5 },   // no es mercancía
+      { fecha: d, nombre: 'Pastelito de no sé qué', cantidad: 1 } // sin equivalencia
+    ];
+    touch(currentInv); save(false); renderInv();
+  }, lunes);
+  await page.waitForTimeout(250);
+  const conInt = await f('ref_1l');
+  check('los vales descuentan el refresco suelto y el del combo (5)',
+    conInt.interno === 5 && conInt.esperado === antesInt.esperado - 5, [conInt.interno, antesInt.esperado, conInt.esperado]);
+  const polloInt = await f('pollo');
+  check('y el pollo de ese combo (2 × 4 piezas)', polloInt.interno === 8, polloInt.interno);
+  check('«Desperdicios» no descuenta nada, que es un cobro',
+    !(await page.textContent('#inv-msg')).includes('Desperdicios'));
+  check('pero lo que no se reconoce sí se avisa',
+    (await page.textContent('#inv-msg')).includes('Pastelito'));
+  check('y la fila enseña el consumo interno aparte de lo vendido',
+    (await page.textContent('#inv-lista')).includes('vales'));
+  await page.evaluate(() => { currentInv.interno = []; touch(currentInv); save(false); renderInv(); });
+  await page.waitForTimeout(200);
+
   // ---------- 8b) el día del conteo ----------
   // Contaron el martes; lo que se vendió el miércoles seguía en el estante
   // cuando contaron, así que no puede salir como sobrante.

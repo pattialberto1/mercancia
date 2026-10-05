@@ -543,6 +543,13 @@
       <div class="hint" id="inv-estado"></div>
     </div>
 
+    <div class="card" id="inv-vales-card">
+      <h2>🧾 Consumo interno</h2>
+      <div class="sub" style="margin:2px 0 12px">Lo que se llevaron los empleados no pasa por la caja. Se trae de la app de vales y se descuenta igual.</div>
+      <button class="btn-secondary" id="inv-vales" style="margin-bottom:10px">🧾 Traer el consumo de los vales</button>
+      <div class="hint" id="inv-vales-estado"></div>
+    </div>
+
     <div class="card" id="inv-fecha-card">
       <h2>📅 De qué día es cada conteo</h2>
       <div class="sub" style="margin:2px 0 12px">La nevera se cuenta todos los días. Arriba solo cuando se va a pedir mercancía, para comprobar que cuadra.</div>
@@ -2316,6 +2323,64 @@ function equivalencias() {
   return Object.assign({}, EQUIVALENCIAS_BASE, db.settings.equivalencias || {});
 }
 
+/* ---- el consumo interno ----
+   Lo que se llevan los empleados no pasa por la caja: se apunta en la app
+   de vales. Sale de la mercancía igual que una venta, así que hay que
+   descontarlo. Cada cosa del catálogo de vales apunta al mismo código del
+   punto de venta, para no tener dos recetas que se puedan contradecir. */
+const VALES_EQUIV = {
+  'REFRESCO DE 1 LITRO': { consume: { ref_1l: 1 } },
+  'REFRESCO 2L': { consume: { ref_2l: 1 } },
+  'REFRESCO 1,5L': { como: '1630' },
+  'AGUA 600ML': { consume: { agua_600: 1 } },
+  'AGUA MINALBA 600CC': { consume: { agua_600: 1 } },
+  'MINALBA 600 CC': { consume: { agua_600: 1 } },
+  'MALTA': { consume: { malta: 1 } },
+  'GATORADE': { consume: { gatorade: 1 } },
+  'JUGO BARINAS': { consume: { jugo_barinas: 1 } },
+  'JUGO BARINAS 250ML': { consume: { jugo_barinas: 1 } },
+  'LIPTON': { consume: { lipton: 1 } },
+  'YUKY-PACK': { consume: { yuky: 1 } },
+  'COMBO 1 DE POLLO': { como: '1519' },
+  'COMBO 2 DE POLLO': { como: '1521' },
+  'COMBO 3 DE POLLO': { como: '1523' },
+  'COMBO 4 DE POLLO': { como: '1524' },
+  'COMBO DUO': { como: '1611' },
+  'DUO MAS BEBIDA': { como: '1610' },
+  'COMBO 1 CHINO POLLO': { como: 'CHINO1' },
+  'COMBO 2 CHINO POLLO Y CAMARON': { como: 'CHINO2' },
+  'TENDERS DE POLLO': { como: '1606' },
+  'TENDER CON BEBIDA': { como: '1602' },
+  'PAPAS FRITAS': { como: '1531' },
+  'POSTRE REDONDO': { consume: { postre_paolo: 1 } },
+  'POSTRE CUADRADO': { consume: { postre_3leches: 1 } },
+  'RACION DE LUMPIAS (2)': { como: '1598' },
+  '1 LUMPIA': { como: '1612' },
+  // por aquí no sale mercancía de la lista, y decirlo evita buscarle equivalencia
+  'POTE DE CHINO POLLO': { nada: true, porque: 'el arroz no se lleva en el inventario' },
+  'POTE DE CHINO POLLO Y CAMARON': { nada: true, porque: 'el arroz y el camarón no se llevan en el inventario' },
+  'EXTRA DE CAMARON': { nada: true, porque: 'el camarón no se lleva en el inventario' },
+  'ENSALADA': { nada: true, porque: 'las verduras no se cuadran por unidad' },
+  'ENSALADA RALLADA': { nada: true, porque: 'las verduras no se cuadran por unidad' },
+  'AREPITAS': { nada: true, porque: 'no está en la lista del inventario' },
+  'SALSA DE TOMATE PEQUEÑA': { nada: true, porque: 'no está en la lista del inventario' },
+  'ENVASE': { nada: true, porque: 'no está en la lista del inventario' },
+  'DESPERDICIOS': { nada: true, porque: 'es un cobro, no mercancía que salga del estante' },
+  'DELIVERY': { nada: true, porque: 'es el cobro del envío' },
+  'CAMISA DE DELIVERY': { nada: true, porque: 'no es mercancía' }
+};
+function valesEquiv() {
+  return Object.assign({}, VALES_EQUIV, db.settings.valesEquiv || {});
+}
+// qué gasta una línea de vale, resolviendo el «como» contra el punto de venta
+function reglaDeVale(nombre) {
+  const r = valesEquiv()[normaliza(nombre)];
+  if (!r) return null;
+  if (!r.como) return r;
+  const eq = equivalencias()[r.como];
+  return eq || null;
+}
+
 /* Una clave de consumo puede ser un producto («agua_600») o un grupo
    («ref_1l»). Al cuadrar, todo se reduce a grupos: un producto sin grupo
    es un grupo de uno. */
@@ -2534,6 +2599,34 @@ function vendidoEnSemana(inv, hasta) {
   for (const k of Object.keys(out)) out[k] = round2(out[k]);
   return out;
 }
+/* Lo que se llevaron los empleados, traído de la app de vales. Va aparte de
+   lo vendido: sale de la mercancía igual, pero no pasó por la caja. */
+function internoEnSemana(inv, hasta) {
+  const tope = hasta || inv.semanaFin;
+  const out = {};
+  for (const clave of clavesCuadre()) out[clave] = 0;
+  for (const v of inv.interno || []) {
+    if (v.fecha < inv.semanaInicio || v.fecha > tope) continue;
+    const regla = reglaDeVale(v.nombre);
+    if (!regla || !regla.consume) continue;
+    for (const [clave, cuanto] of Object.entries(regla.consume)) {
+      if (!(clave in out)) continue;
+      out[clave] += cuanto * (Number(v.cantidad) || 0);
+    }
+  }
+  for (const k of Object.keys(out)) out[k] = round2(out[k]);
+  return out;
+}
+// lo que los vales traen y la app no sabe en qué se gasta
+function valesSinAsignar(inv) {
+  const vistos = new Map();
+  for (const v of inv.interno || []) {
+    if (reglaDeVale(v.nombre)) continue;
+    vistos.set(v.nombre, (vistos.get(v.nombre) || 0) + v.cantidad);
+  }
+  return [...vistos.entries()].map(([nombre, cantidad]) => ({ nombre, cantidad }));
+}
+
 // los renglones del reporte que no se sabe qué gastan
 function codigosSinAsignar(inv) {
   const eq = equivalencias();
@@ -2611,16 +2704,21 @@ function calcular(inv, paraArrastre) {
   const venNev = vendidoEnSemana(inv, diaNev);
   const recFin = recibidoEnSemana(inv);
   const venFin = vendidoEnSemana(inv);
+  // lo que se llevaron los empleados sale igual que lo vendido
+  const int = internoEnSemana(inv, dia);
+  const intNev = internoEnSemana(inv, diaNev);
+  const intFin = internoEnSemana(inv);
   const corte = !paraArrastre && anteriorSinCerrar(inv);
   return clavesCuadre().map(clave => {
     const inicial = corte ? null : (Number(ini.valores[clave]) || 0);
     // lo de la semana entera: es lo que se enseña, y lo que de verdad queda
     const recibido = recFin[clave] || 0;
     const vendido = venFin[clave] || 0;
-    const esperado = inicial === null ? null : round2(inicial + recibido - vendido);
+    const interno = intFin[clave] || 0;
+    const esperado = inicial === null ? null : round2(inicial + recibido - vendido - interno);
     // y lo que debía haber EL DÍA QUE CONTARON, que es contra lo que se compara
     const alContar = inicial === null ? null
-      : round2(inicial + (rec[clave] || 0) - (ven[clave] || 0));
+      : round2(inicial + (rec[clave] || 0) - (ven[clave] || 0) - (int[clave] || 0));
     const conteo = conteoDeClave(inv, clave);
     const arriba = conteoArriba(inv, clave);
     const nevera = conteoNevera(inv, clave);
@@ -2628,18 +2726,19 @@ function calcular(inv, paraArrastre) {
        el día que se contó la nevera, menos lo que se contó en la nevera.
        Es el número con el que se va a pedir mercancía. */
     const totalAlContarNevera = inicial === null ? null
-      : round2(inicial + (recNev[clave] || 0) - (venNev[clave] || 0));
+      : round2(inicial + (recNev[clave] || 0) - (venNev[clave] || 0) - (intNev[clave] || 0));
     const arribaSistema = (nevera === null || totalAlContarNevera === null) ? null
       : round2(totalAlContarNevera - nevera);
     /* Solo hay inventario de verdad cuando se contó ARRIBA: la nevera sola
        no dice cuánto hay. Lo que no se cuenta arriba se arrastra con lo que
        dice el sistema. */
-    const despues = round2(recibido - (rec[clave] || 0) - (vendido - (ven[clave] || 0)));
+    const despues = round2(recibido - (rec[clave] || 0)
+      - (vendido - (ven[clave] || 0)) - (interno - (int[clave] || 0)));
     const alCerrar = arriba !== null ? round2(conteo + despues)
       : (esperado === null ? null : esperado);
     return {
       clave, nombre: nombreCuadre(clave), unidad: unidadCuadre(clave),
-      inicial, recibido, vendido, esperado, conteo, alContar, alCerrar,
+      inicial, recibido, vendido, interno, esperado, conteo, alContar, alCerrar,
       arriba, nevera, arribaSistema,
       diaConteo: dia, diaNevera: diaNev, mediaSemana: dia < inv.semanaFin,
       mismosDias: dia === diaNev,
@@ -2760,6 +2859,13 @@ function renderInv() {
     avisos.push('<div class="msg warn">Faltan las ventas de ' +
       faltan.map(d => fmtDate(d)).join(', ') + '. Hasta cargarlas, lo vendido se queda corto.</div>');
   }
+  const sinVales = valesSinAsignar(inv);
+  if (sinVales.length) {
+    avisos.push('<div class="msg warn">' + sinVales.length +
+      (sinVales.length === 1 ? ' cosa de los vales no tiene equivalencia' : ' cosas de los vales no tienen equivalencia') +
+      ': ' + sinVales.slice(0, 3).map(v => esc(v.nombre)).join(', ') +
+      (sinVales.length > 3 ? ' y ' + (sinVales.length - 3) + ' más' : '') + '.</div>');
+  }
   const sin = codigosSinAsignar(inv);
   if (sin.length) {
     avisos.push('<div class="msg warn">' + sin.length +
@@ -2850,6 +2956,7 @@ function bloqueCuadre(f, inv) {
         celdaNum('tenías', f.inicial, f.arrastrado ? 'arrastrado del cierre' : '') +
         celdaNum('recibiste', f.recibido) +
         celdaNum('vendiste', f.vendido) +
+        (f.interno ? celdaNum('vales', f.interno, 'consumo interno') : '') +
         celdaNum('te queda', f.esperado, '', 'esperado') +
       '</div>';
 
@@ -2970,6 +3077,50 @@ for (const [id, campo] of [['inv-fecha', 'fechaConteo'], ['inv-fecha-nevera', 'f
     touch(currentInv); save(); renderInv();
   });
 }
+
+/* Trae el consumo interno de la app de vales. Son dos repositorios del
+   mismo dueño, así que vale el mismo código de sincronización —siempre que
+   tenga permiso sobre los dos—. De los vales solo se guarda qué salió y
+   cuándo: ni nombres de empleados ni importes. */
+const VALES_REPO = 'https://api.github.com/repos/pattialberto1/vales-empleados';
+$('inv-vales').onclick = async () => {
+  const est = $('inv-vales-estado');
+  if (!syncToken()) {
+    est.className = 'hint err';
+    est.textContent = 'Hace falta el código de sincronización, en ⚙️ Ajustes.';
+    return;
+  }
+  est.className = 'hint working';
+  est.textContent = '🧾 Buscando en la app de vales…';
+  try {
+    const res = await fetch(VALES_REPO + '/contents/datos.json?ref=datos', {
+      cache: 'no-store',
+      headers: { 'Authorization': 'Bearer ' + syncToken(), 'Accept': 'application/vnd.github+json' }
+    });
+    if (res.status === 404) throw new Error('sin-permiso');
+    if (!res.ok) throw new Error('http-' + res.status);
+    const datos = JSON.parse(b64dec((await res.json()).content));
+    const inv = currentInv;
+    const dentro = (datos.consumos || []).filter(c =>
+      c.fecha >= inv.semanaInicio && c.fecha <= inv.semanaFin);
+    inv.interno = dentro.map(c => ({
+      fecha: c.fecha, nombre: c.nombreProducto, cantidad: Number(c.cantidad) || 0
+    }));
+    touch(inv); save(); renderInv();
+    const ultima = (datos.consumos || []).reduce((a, c) => c.fecha > a ? c.fecha : a, '');
+    est.className = 'hint ok';
+    est.textContent = dentro.length
+      ? dentro.length + ' vales de esta semana, descontados.'
+      : 'No hay vales de esta semana. El último que tienen los vales es del ' +
+        (ultima ? fmtDate(ultima) : '—') + ': falta sincronizar esa app.';
+  } catch (e) {
+    est.className = 'hint err';
+    est.textContent = e.message === 'sin-permiso'
+      ? 'El código de sincronización no tiene permiso sobre el repositorio de los vales. Hay que darle acceso a los dos.'
+      : 'No se pudo traer el consumo de los vales (' + e.message + ').';
+    console.error(e);
+  }
+};
 
 $('inv-back').onclick = () => { currentInv = null; renderHome(); show('home'); };
 $('inv-equivalencias').onclick = () => { renderEquivalencias(); show('eq'); };
@@ -3559,7 +3710,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v64';
+const APP_VERSION = 'mercancia-v65';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
