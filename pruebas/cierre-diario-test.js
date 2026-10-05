@@ -72,7 +72,10 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('«REF. 1L FRESCOLIT» es la frescolita de 1L', por['REF. 1L FRESCOLIT'].codigo === '1537');
   check('«TENDER+REF./ YUKY» encuentra el suyo', por['TENDER+REF./ YUKY'].codigo === '1602');
   check('«COMBO 1 POLLO» no se confunde con «COMBO 1 CHINO POL»',
-    por['COMBO 1 POLLO'].codigo === '1519' && por['COMBO 1 CHINO POL'].codigo === null);
+    por['COMBO 1 POLLO'].codigo === '1519' && por['COMBO 1 CHINO POL'].codigo === 'CHINO1');
+  check('los combos de chino descuentan su refresco de 1L',
+    await page.evaluate(() => equivalencias()['CHINO1'].consume.ref_1l === 1
+      && equivalencias()['CHINO2'].consume.ref_1l === 1));
   // el nombre cortado no dice el sabor: se descuenta del grupo, no de uno
   check('«TE LIPTON 500ML» se descuenta del Lipton general',
     por['TE LIPTON 500ML'].codigo !== null, por['TE LIPTON 500ML']);
@@ -99,7 +102,8 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('los combos descuentan 1.356 piezas de pollo', pollo.vendido === 1356, pollo.vendido);
   // 38 + 41 del combo + 1+17+2+11+8 sueltos
   const r1 = await f('ref_1l');
-  check('los refrescos de 1L: 79 del combo y 39 sueltos = 118', r1.vendido === 118, r1.vendido);
+  // 38+41 de los combos de pollo, 14+24 de los de chino, 39 sueltos
+  check('los refrescos de 1L: 117 de combos y 39 sueltos = 156', r1.vendido === 156, r1.vendido);
   const papas = await f('papas');
   // (20+38+94+41+18+4) ración de combo + 8 raciones sueltas = 223 × 0,35
   check('las papas: 223 raciones = 78,05 kg', Math.abs(papas.vendido - 78.05) < 0.01, papas.vendido);

@@ -2261,6 +2261,13 @@ const EQUIVALENCIAS_BASE = {
   '1611': { nombre: 'COMBO DUO',        consume: { pollo: 2, papas: RACION_PAPAS } },
   '1610': { nombre: 'COMBO DUO+REF',    consume: { pollo: 2, papas: RACION_PAPAS } },
   '1531': { nombre: 'PAPAS FRITAS',     consume: { papas: RACION_PAPAS } },
+  /* Los combos de chino también traen un refresco de 1L. El arroz, el
+     camarón y la pechuga que llevan no están en el inventario, así que de
+     momento solo se descuenta la bebida.
+     El código es provisional: el cierre diario no los trae y el reporte de
+     rango todavía no ha pasado por aquí. Al cargar uno, se cambia. */
+  'CHINO1': { nombre: 'COMBO 1 CHINO POLLO', consume: { ref_1l: 1 }, provisional: true },
+  'CHINO2': { nombre: 'COMBO 2 CHINO P&C',   consume: { ref_1l: 1 }, provisional: true },
   // tenders y milanesa
   '1606': { nombre: 'TENDER DE POLLO',  consume: { tenders: PECHUGA_TENDER } },
   '1602': { nombre: 'TENDER+REF./ YUKY PACK', consume: { tenders: PECHUGA_TENDER, yuky: 1 } },
@@ -3552,7 +3559,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v63';
+const APP_VERSION = 'mercancia-v64';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
