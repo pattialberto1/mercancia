@@ -102,8 +102,8 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('los combos descuentan 1.356 piezas de pollo', pollo.vendido === 1356, pollo.vendido);
   // 38 + 41 del combo + 1+17+2+11+8 sueltos
   const r1 = await f('ref_1l');
-  // 38+41 de los combos de pollo, 14+24 de los de chino, 39 sueltos
-  check('los refrescos de 1L: 117 de combos y 39 sueltos = 156', r1.vendido === 156, r1.vendido);
+  // 38+41 de los combos de pollo, 4 del duo+ref, 14+24 de los de chino, 39 sueltos
+  check('los refrescos de 1L: 121 de combos y 39 sueltos = 160', r1.vendido === 160, r1.vendido);
   const papas = await f('papas');
   // (20+38+94+41+18+4) ración de combo + 8 raciones sueltas = 223 × 0,35
   check('las papas: 223 raciones = 78,05 kg', Math.abs(papas.vendido - 78.05) < 0.01, papas.vendido);

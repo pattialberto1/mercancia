@@ -2266,7 +2266,7 @@ const EQUIVALENCIAS_BASE = {
   '1523': { nombre: 'COMBO 3 POLLO',    consume: { pollo: 8, papas: RACION_PAPAS } },
   '1524': { nombre: 'COMBO 4 POLLO',    consume: { pollo: 8, papas: RACION_PAPAS, ref_1l: 1 } },
   '1611': { nombre: 'COMBO DUO',        consume: { pollo: 2, papas: RACION_PAPAS } },
-  '1610': { nombre: 'COMBO DUO+REF',    consume: { pollo: 2, papas: RACION_PAPAS } },
+  '1610': { nombre: 'COMBO DUO+REF',    consume: { pollo: 2, papas: RACION_PAPAS, ref_1l: 1 } },
   '1531': { nombre: 'PAPAS FRITAS',     consume: { papas: RACION_PAPAS } },
   /* Los combos de chino también traen un refresco de 1L. El arroz, el
      camarón y la pechuga que llevan no están en el inventario, así que de
@@ -3721,7 +3721,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v66';
+const APP_VERSION = 'mercancia-v67';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
