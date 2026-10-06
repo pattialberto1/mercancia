@@ -319,6 +319,18 @@ const RECEPCIONES = [
   check('con lo que debería quedar y lo contado', /Refrescos de 1L: debería quedar .* · contado/.test(wa), wa.slice(0, 200));
   check('no lista lo que no se tocó', !wa.includes('Tenta té limón 500ml'));
 
+  // ---------- 12) el mensaje corto de lo que falta ----------
+  await page.evaluate(() => { window.__wa = []; });
+  await page.click('#inv-wa-faltan');
+  await page.waitForTimeout(250);
+  const falta = decodeURIComponent((await page.evaluate(() => window.__wa[0] || '')).replace('https://wa.me/?text=', ''));
+  check('manda un mensaje aparte solo con lo que falta', /REVISAR EN EL NEGOCIO/.test(falta), falta.slice(0, 120));
+  check('dice de qué día es el conteo', falta.includes('Conteo del'), falta.slice(0, 120));
+  check('nombra el pollo, que es lo que falta', /Pollo \(piezas\).*faltan/.test(falta), falta);
+  check('con lo que debía haber y lo contado', /debía haber .* · contado/.test(falta), falta);
+  check('y no mete lo que cuadra ni lo que sobra',
+    !falta.includes('Refrescos de 1L') && !falta.includes('Malta'), falta);
+
   console.log('\n=== RESULTADOS ===');
   for (const r of results) console.log((r.ok ? '✅' : '❌'), r.desc);
   console.log('\nerrores JS:', errores.length ? errores : 'ninguno');

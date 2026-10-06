@@ -564,6 +564,7 @@
 
     <button class="btn-primary" id="inv-cerrar" style="margin-bottom:10px">Cerrar la semana</button>
     <button class="btn-wa" id="inv-wa" style="margin-bottom:10px">📲 Enviar por WhatsApp</button>
+    <button class="btn-wa" id="inv-wa-faltan" style="margin-bottom:10px">🔎 Pasar lo que falta, para que lo revisen</button>
     <button class="btn-secondary" id="inv-equivalencias">⚙️ Equivalencias</button>
   </section>
 
@@ -3173,6 +3174,28 @@ $('inv-cerrar').onclick = () => {
     () => { inv.cerrado = true; touch(inv); save(); renderInv(); toast('Semana cerrada'); });
 };
 
+/* Solo lo que falta, para mandarlo al local y que lo vuelvan a contar. Va
+   aparte del mensaje completo: ahí lo que falta se pierde entre renglones
+   que cuadran, y lo que hace falta es una lista corta de qué buscar. */
+$('inv-wa-faltan').onclick = () => {
+  const inv = currentInv;
+  const faltan = calcular(inv).filter(f => f.diferencia !== null && f.diferencia < -0.01);
+  if (!faltan.length) {
+    toast(calcular(inv).some(f => f.diferencia !== null)
+      ? 'No falta nada: todo lo contado cuadra'
+      : 'Todavía no hay nada contado');
+    return;
+  }
+  const dia = fechaConteoDe(inv);
+  let txt = '🔎 *REVISAR EN EL NEGOCIO*\n📅 Conteo del ' + fmtDate(dia) + '\n\n' +
+    'Estas cantidades no aparecen. Hay que volver a contarlas y mirar también en la nevera:\n\n';
+  for (const f of faltan) {
+    txt += '• *' + f.nombre + '*: faltan ' + fmt(Math.abs(f.diferencia)) + ' ' + f.unidad + '\n' +
+      '   debía haber ' + fmt(f.alContar) + ' · contado ' + fmt(f.conteo) + '\n';
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+};
+
 $('inv-wa').onclick = () => {
   const inv = currentInv;
   const filas = calcular(inv);
@@ -3721,7 +3744,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v68';
+const APP_VERSION = 'mercancia-v69';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
