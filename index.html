@@ -2467,7 +2467,7 @@ function inicialDe(inv) {
   }
   const previa = previaCerrada(inv);
   if (!previa) return { valores: porClaveDeCuadre(inv.inicialManual), de: 'manual' };
-  const valores = {}, sinContar = [];
+  const valores = {}, sinContar = [], contadoAntes = {};
   const antes = calcular(previa, true);
   for (const f of antes) {
     // lo que queda al CERRAR, no lo que había el día que contaron: entre
@@ -2475,6 +2475,9 @@ function inicialDe(inv) {
     if (f.alCerrar === null) continue;
     valores[f.clave] = f.alCerrar;
     if (f.arriba === null) sinContar.push(f.clave);
+    // lo que se contó de verdad la última vez, para no perder de vista lo
+    // que faltaba si se decidió seguir con el número del sistema
+    else contadoAntes[f.clave] = f.conteo;
   }
   /* Una corrección a mano manda sobre lo arrastrado: sirve para rebasar un
      renglón desde un conteo nuevo sin tocar los demás. */
@@ -2484,7 +2487,7 @@ function inicialDe(inv) {
   return {
     valores, de: 'cierre', semana: previa.semanaInicio,
     sinContar: sinContar.filter(k => !corregidos.includes(k)),
-    corregidos
+    corregidos, contadoAntes, diaContado: fechaConteoDe(previa)
   };
 }
 
@@ -2756,6 +2759,11 @@ function calcular(inv, paraArrastre) {
       diferencia: (arriba === null || alContar === null) ? null : round2(conteo - alContar),
       arrastrado: ini.de === 'cierre' && (ini.sinContar || []).includes(clave),
       corregido: (ini.corregidos || []).includes(clave),
+      /* Lo que faltaba en el último conteo y se decidió no descontar: sigue
+         a la vista hasta que un conteo nuevo diga si apareció. */
+      pendiente: (inicial === null || (ini.contadoAntes || {})[clave] == null) ? 0
+        : round2(inicial - ini.contadoAntes[clave]),
+      diaPendiente: ini.diaContado || null,
       sinCadena: !!corte
     };
   });
@@ -3026,9 +3034,15 @@ function diferenciaLinea(f) {
   }
   /* Mientras no se cuente arriba, el número útil es el otro: cuánto debería
      haber en el depósito según el sistema. Es con el que se va a pedir. */
+  // lo que faltó en el último conteo sigue avisando hasta que se recuente
+  const pend = f.pendiente > 0.01
+    ? '<div class="inv-dif mal">Del conteo del ' + fmtDate(f.diaPendiente) + ' faltan <b>' +
+      fmt(f.pendiente) + '</b> ' + f.unidad + ' que todavía no aparecen.</div>'
+    : '';
   if (f.arriba === null) {
-    if (f.arribaSistema === null) return '<div class="inv-dif sub">Escribe el conteo para ver la diferencia.</div>';
-    return '<div class="inv-dif sub">Según el sistema, arriba debería haber <b>' +
+    if (f.arribaSistema === null)
+      return pend || '<div class="inv-dif sub">Escribe el conteo para ver la diferencia.</div>';
+    return pend + '<div class="inv-dif sub">Según el sistema, arriba debería haber <b>' +
       fmt(f.arribaSistema) + '</b> ' + f.unidad +
       (f.arribaSistema < 0 ? '. Sale negativo: falta cargar entradas.' : '.') + '</div>';
   }
@@ -3179,19 +3193,29 @@ $('inv-cerrar').onclick = () => {
    que cuadran, y lo que hace falta es una lista corta de qué buscar. */
 $('inv-wa-faltan').onclick = () => {
   const inv = currentInv;
-  const faltan = calcular(inv).filter(f => f.diferencia !== null && f.diferencia < -0.01);
-  if (!faltan.length) {
-    toast(calcular(inv).some(f => f.diferencia !== null)
+  const filas = calcular(inv);
+  // lo que falta del conteo de esta semana, y lo que venía faltando del anterior
+  const faltan = filas.filter(f => f.diferencia !== null && f.diferencia < -0.01);
+  const arrastran = filas.filter(f => f.diferencia === null && f.pendiente > 0.01);
+  if (!faltan.length && !arrastran.length) {
+    toast(filas.some(f => f.diferencia !== null)
       ? 'No falta nada: todo lo contado cuadra'
       : 'Todavía no hay nada contado');
     return;
   }
-  const dia = fechaConteoDe(inv);
-  let txt = '🔎 *REVISAR EN EL NEGOCIO*\n📅 Conteo del ' + fmtDate(dia) + '\n\n' +
-    'Estas cantidades no aparecen. Hay que volver a contarlas y mirar también en la nevera:\n\n';
-  for (const f of faltan) {
-    txt += '• *' + f.nombre + '*: faltan ' + fmt(Math.abs(f.diferencia)) + ' ' + f.unidad + '\n' +
-      '   debía haber ' + fmt(f.alContar) + ' · contado ' + fmt(f.conteo) + '\n';
+  let txt = '🔎 *REVISAR EN EL NEGOCIO*\n\n' +
+    'Estas cantidades no aparecen. Hay que volver a contarlas y mirar también en la nevera:\n';
+  if (faltan.length) {
+    txt += '\n📅 Conteo del ' + fmtDate(fechaConteoDe(inv)) + '\n';
+    for (const f of faltan) {
+      txt += '• *' + f.nombre + '*: faltan ' + fmt(Math.abs(f.diferencia)) + ' ' + f.unidad + '\n' +
+        '   debía haber ' + fmt(f.alContar) + ' · contado ' + fmt(f.conteo) + '\n';
+    }
+  }
+  if (arrastran.length) {
+    txt += '\n📅 Venían faltando del conteo del ' + fmtDate(arrastran[0].diaPendiente) + '\n';
+    for (const f of arrastran)
+      txt += '• *' + f.nombre + '*: faltan ' + fmt(f.pendiente) + ' ' + f.unidad + '\n';
   }
   window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
 };
@@ -3744,7 +3768,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v69';
+const APP_VERSION = 'mercancia-v70';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

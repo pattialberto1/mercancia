@@ -105,6 +105,31 @@ const RECEPCIONES = [
   const papas0 = await f('papas');
   check('y en lo que va por kilos también (80 kg)', papas0.inicial === 80, papas0.inicial);
 
+  // lo que faltó en el último conteo no se pierde al cambiar de semana
+  const pend = await page.evaluate(() => calcular(currentInv).find(f => f.clave === 'ref_1l'));
+  check('la semana anterior contó 60 y cuadraba, así que no arrastra nada', pend.pendiente === 0, pend.pendiente);
+  await page.evaluate(() => {
+    /* En la semana cerrada contaron 54 cuando el sistema decía 60, y se
+       decidió seguir con los 60 porque los 6 podían estar en la nevera.
+       Esos 6 tienen que seguir avisando. */
+    const previa = db.inventarios.find(i => i.cerrado);
+    previa.conteoDet.r1_cocacola = { b: '9', u: '' };
+    currentInv.inicialManual = { ref_1l: 60 };
+    touch(previa); touch(currentInv); save(false); renderInv();
+  });
+  await page.waitForTimeout(300);
+  const pend2 = await page.evaluate(() => calcular(currentInv).find(f => f.clave === 'ref_1l'));
+  check('si faltaban 6 la semana pasada, siguen a la vista', pend2.pendiente === 6, pend2);
+  check('y la fila lo dice, con la fecha del conteo',
+    /Del conteo del .* faltan/.test(await page.textContent('#inv-lista')));
+  await page.evaluate(() => {
+    const previa = db.inventarios.find(i => i.cerrado);
+    previa.conteoDet.r1_cocacola = { b: '10', u: '' };
+    currentInv.inicialManual = {};
+    touch(previa); touch(currentInv); save(false); renderInv();
+  });
+  await page.waitForTimeout(300);
+
   // una corrección a mano manda sobre lo que se arrastra del cierre
   await page.evaluate(() => {
     currentInv.inicialManual = { ref_1l: 416 };
