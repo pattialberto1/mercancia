@@ -557,6 +557,11 @@
         <div class="field"><label>La nevera, contada el</label><input type="date" id="inv-fecha-nevera"></div>
         <div class="field"><label>Arriba, contado el</label><input type="date" id="inv-fecha"></div>
       </div>
+      <div class="seg-label">¿A qué hora contaron?</div>
+      <div class="seg" id="inv-momento">
+        <button data-m="cerrar">Al cerrar</button>
+        <button data-m="abrir">Al abrir</button>
+      </div>
     </div>
 
     <div class="card" id="inv-resumen"></div>
@@ -2701,6 +2706,10 @@ function diaDe(inv, campo) {
 }
 function fechaConteoDe(inv) { return diaDe(inv, 'fechaConteo'); }
 function fechaNeveraDe(inv) { return diaDe(inv, 'fechaNevera'); }
+/* Contar al abrir y contar al cerrar no es lo mismo: a un conteo de la
+   mañana no se le pueden restar las ventas de ese día, que aún no habían
+   pasado. El corte es el día anterior. */
+function corteDe(inv, dia) { return inv.conteoAlAbrir ? masDias(dia, -1) : dia; }
 
 /* ---- la cuenta ---- */
 /* El cuadre se hace AL DÍA DEL CONTEO, no al final de la semana: lo que se
@@ -2711,15 +2720,16 @@ function calcular(inv, paraArrastre) {
   const ini = inicialDe(inv);
   const dia = fechaConteoDe(inv);
   const diaNev = fechaNeveraDe(inv);
-  const rec = recibidoEnSemana(inv, dia);
-  const ven = vendidoEnSemana(inv, dia);
-  const recNev = recibidoEnSemana(inv, diaNev);
-  const venNev = vendidoEnSemana(inv, diaNev);
+  const hastaConteo = corteDe(inv, dia), hastaNevera = corteDe(inv, diaNev);
+  const rec = recibidoEnSemana(inv, hastaConteo);
+  const ven = vendidoEnSemana(inv, hastaConteo);
+  const recNev = recibidoEnSemana(inv, hastaNevera);
+  const venNev = vendidoEnSemana(inv, hastaNevera);
   const recFin = recibidoEnSemana(inv);
   const venFin = vendidoEnSemana(inv);
   // lo que se llevaron los empleados sale igual que lo vendido
-  const int = internoEnSemana(inv, dia);
-  const intNev = internoEnSemana(inv, diaNev);
+  const int = internoEnSemana(inv, hastaConteo);
+  const intNev = internoEnSemana(inv, hastaNevera);
   const intFin = internoEnSemana(inv);
   const corte = !paraArrastre && anteriorSinCerrar(inv);
   return clavesCuadre().map(clave => {
@@ -2754,6 +2764,7 @@ function calcular(inv, paraArrastre) {
       inicial, recibido, vendido, interno, esperado, conteo, alContar, alCerrar,
       arriba, nevera, arribaSistema,
       diaConteo: dia, diaNevera: diaNev, mediaSemana: dia < inv.semanaFin,
+      alAbrir: !!inv.conteoAlAbrir,
       mismosDias: dia === diaNev,
       // la diferencia solo significa algo si se contó arriba
       diferencia: (arriba === null || alContar === null) ? null : round2(conteo - alContar),
@@ -2844,6 +2855,10 @@ function renderInv() {
     $(id).min = inv.semanaInicio;
     $(id).max = inv.semanaFin;
     $(id).disabled = !!inv.cerrado;
+  }
+  for (const bt of $('inv-momento').querySelectorAll('button')) {
+    bt.classList.toggle('on', (bt.dataset.m === 'abrir') === !!inv.conteoAlAbrir);
+    bt.disabled = !!inv.cerrado;
   }
 
   const filas = calcular(inv);
@@ -3053,8 +3068,9 @@ function diferenciaLinea(f) {
   }
   /* Si contaron a media semana, la comparación es contra lo que debía haber
      ESE día: lo vendido después seguía en el estante cuando contaron. */
-  const cuando = f.mediaSemana
-    ? ' el ' + fmtDate(f.diaConteo) + ', cuando debía haber ' + fmt(f.alContar)
+  const cuando = f.mediaSemana || f.alAbrir
+    ? ' el ' + fmtDate(f.diaConteo) + (f.alAbrir ? ' al abrir' : '') +
+      ', cuando debía haber ' + fmt(f.alContar)
     : '';
   if (Math.abs(f.diferencia) < 0.01)
     return '<div class="inv-dif ok">Contaste ' + fmt(f.conteo) + cuando + ' · cuadra exacto</div>';
@@ -3091,6 +3107,13 @@ $('inv-file').addEventListener('change', async e => {
       : 'No se pudo leer el PDF. Comprueba que sea el reporte exportado del sistema.';
     console.error(err);
   }
+});
+
+$('inv-momento').addEventListener('click', e => {
+  const bt = e.target.closest('button');
+  if (!bt || currentInv.cerrado) return;
+  currentInv.conteoAlAbrir = bt.dataset.m === 'abrir';
+  touch(currentInv); save(); renderInv();
 });
 
 for (const [id, campo] of [['inv-fecha', 'fechaConteo'], ['inv-fecha-nevera', 'fechaNevera']]) {
@@ -3768,7 +3791,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v70';
+const APP_VERSION = 'mercancia-v71';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

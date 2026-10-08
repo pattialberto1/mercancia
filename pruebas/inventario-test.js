@@ -302,6 +302,21 @@ const RECEPCIONES = [
   check('pero lo que queda al cerrar sigue descontando el resto de la semana',
     m1.alCerrar === 111 - 9, m1.alCerrar);
 
+  /* Contar el miércoles al abrir no es lo mismo que contarlo al cerrar: a
+     un conteo de la mañana no se le pueden restar las ventas de ese día. */
+  await page.fill('#inv-fecha', mas(lunes, 2));
+  await page.dispatchEvent('#inv-fecha', 'change');
+  await page.waitForTimeout(200);
+  await page.click('#inv-momento button[data-m="abrir"]');
+  await page.waitForTimeout(250);
+  const mAbrir = await f('malta');
+  check('contando al abrir, el miércoles no descuenta', mAbrir.alContar === m1.alContar, [mAbrir.alContar, m1.alContar]);
+  check('y la línea lo dice', (await page.textContent('#inv-lista')).includes('al abrir'));
+  await page.click('#inv-momento button[data-m="cerrar"]');
+  await page.waitForTimeout(250);
+  const mCerrar = await f('malta');
+  check('al cerrar sí descuenta el día entero', mCerrar.alContar === mAbrir.alContar - 9, [mCerrar.alContar, mAbrir.alContar]);
+
   await page.fill('#inv-fecha', mas(lunes, 6));
   await page.dispatchEvent('#inv-fecha', 'change');
   await page.waitForTimeout(250);
