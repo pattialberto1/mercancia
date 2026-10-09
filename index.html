@@ -2826,7 +2826,8 @@ function renderHomeInventario() {
   for (const inv of semanas) {
     const filas = calcular(inv);
     const contados = filas.filter(f => f.arriba !== null).length;
-    const descuadrados = filas.filter(f => f.diferencia !== null && Math.abs(f.diferencia) >= 0.01).length;
+    const descuadrados = filas.filter(f => f.diferencia !== null
+      ? Math.abs(f.diferencia) >= 0.01 : f.pendiente > 0.01).length;
     const btn = document.createElement('button');
     btn.className = 'rec-item';
     btn.innerHTML =
@@ -2910,21 +2911,27 @@ function renderInv() {
   if (inv.cerrado) avisos.unshift('<div class="msg ok">Esta semana está cerrada. Su conteo es el punto de partida de la siguiente.</div>');
   $('inv-msg').innerHTML = avisos.join('');
 
-  // el resumen de arriba: lo primero que hay que mirar
+  /* El resumen de arriba: lo primero que hay que mirar. Lo que venía
+     faltando de un conteo anterior cuenta como faltante igual que lo de
+     este: sigue sin aparecer, y si no suma aquí se olvida. */
   const contados = filas.filter(f => f.arriba !== null);
-  const mal = contados.filter(f => Math.abs(f.diferencia) >= 0.01);
+  const pendientes = filas.filter(f => f.diferencia === null && f.pendiente > 0.01);
+  const nFaltan = contados.filter(f => f.diferencia < -0.01).length + pendientes.length;
+  const nSobran = contados.filter(f => f.diferencia > 0.01).length;
+  const nCuadran = contados.filter(f => Math.abs(f.diferencia) < 0.01).length;
+  const hayAlgo = contados.length || pendientes.length;
   $('inv-resumen').innerHTML =
     '<div class="cuadro-cifra">' +
-      '<b>' + (contados.length ? mal.length : filas.length) + '</b>' +
-      '<span>' + (contados.length
-        ? (mal.length === 1 ? 'producto no cuadra' : 'productos no cuadran')
+      '<b>' + (hayAlgo ? nFaltan + nSobran : filas.length) + '</b>' +
+      '<span>' + (hayAlgo
+        ? (nFaltan + nSobran === 1 ? 'producto no cuadra' : 'productos no cuadran')
         : 'productos por contar') + '</span>' +
     '</div>' +
     '<div class="cuadro-tiles">' +
-      tile(contados.length - mal.length, 'cuadran', 'ok') +
-      tile(contados.filter(f => f.diferencia < -0.01).length, 'faltan', 'mal') +
-      tile(contados.filter(f => f.diferencia > 0.01).length, 'sobran', 'sobra') +
-      tile(filas.length - contados.length, 'por contar', '') +
+      tile(nCuadran, 'cuadran', 'ok') +
+      tile(nFaltan, 'faltan', 'mal') +
+      tile(nSobran, 'sobran', 'sobra') +
+      tile(filas.length - contados.length - pendientes.length, 'por contar', '') +
     '</div>';
 
   renderListaInv(filas);
@@ -3791,7 +3798,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v71';
+const APP_VERSION = 'mercancia-v72';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -122,6 +122,9 @@ const RECEPCIONES = [
   check('si faltaban 6 la semana pasada, siguen a la vista', pend2.pendiente === 6, pend2);
   check('y la fila lo dice, con la fecha del conteo',
     /Del conteo del .* faltan/.test(await page.textContent('#inv-lista')));
+  check('y cuenta como faltante en el resumen de arriba, aunque no se haya contado hoy',
+    /1\s*faltan/.test((await page.textContent('#inv-resumen')).replace(/\s+/g, ' ')),
+    (await page.textContent('#inv-resumen')).replace(/\s+/g, ' '));
   await page.evaluate(() => {
     const previa = db.inventarios.find(i => i.cerrado);
     previa.conteoDet.r1_cocacola = { b: '10', u: '' };
