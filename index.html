@@ -2361,6 +2361,7 @@ const VALES_EQUIV = {
   'PAPAS FRITAS': { como: '1531' },
   'POSTRE REDONDO': { consume: { postre_paolo: 1 } },
   'POSTRE CUADRADO': { consume: { postre_3leches: 1 } },
+  'TRES LECHE': { consume: { postre_3leches: 1 } },
   'RACION DE LUMPIAS (2)': { como: '1598' },
   '1 LUMPIA': { como: '1612' },
   // por aquí no sale mercancía de la lista, y decirlo evita buscarle equivalencia
@@ -3799,7 +3800,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v73';
+const APP_VERSION = 'mercancia-v74';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
