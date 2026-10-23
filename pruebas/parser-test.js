@@ -8,7 +8,7 @@ const results = [];
 function check(desc, cond) { results.push({ desc, ok: !!cond }); if (!cond) console.log('   (falló)', desc); }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome' });
   const page = await browser.newPage();
   await page.goto('about:blank');
   await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, 'parser.js'), 'utf8') });

@@ -48,7 +48,7 @@ const RECEPCIONES = [
 
 (async () => {
   await new Promise(r => server.listen(8942, r));
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome' });
   const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   const errores = [];
   page.on('pageerror', e => errores.push(e.message));

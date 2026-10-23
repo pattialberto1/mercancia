@@ -33,7 +33,7 @@ function check(desc, cond, extra) { results.push({ desc, ok: !!cond }); if (!con
   check('y son la misma: si no, el aviso de versión nueva mentiría', vSw === vIdx, [vSw, vIdx]);
 
   await new Promise(r => server.listen(8989, r));
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome' });
   const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
