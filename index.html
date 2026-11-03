@@ -313,11 +313,11 @@
   /* ---- formularios / ajustes ---- */
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
-  .field input {
+  .field input, .field select {
     width: 100%; font: inherit; font-size: 17px; padding: 12px; border-radius: 12px;
     border: 1px solid var(--line); background: var(--bg); color: var(--text); outline: none;
   }
-  .field input:focus { border-color: var(--accent); }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
   /* ---- modal ---- */
@@ -562,6 +562,13 @@
         <button data-m="cerrar">Al cerrar</button>
         <button data-m="abrir">Al abrir</button>
       </div>
+    </div>
+
+    <div class="card" id="inv-extra-card">
+      <h2>📦 Extra en cestas sueltas</h2>
+      <div class="sub" style="margin:2px 0 12px">Lo que está en cestas aparte y no entró en el conteo de arriba ni en el de la nevera. Se suma a lo que había al empezar, pero se anota aquí para no mezclarlo.</div>
+      <div id="inv-extra-lista"></div>
+      <div class="hint" id="inv-extra-total"></div>
     </div>
 
     <div class="card" id="inv-resumen"></div>
@@ -2468,12 +2475,28 @@ function porClaveDeCuadre(valores) {
   }
   return out;
 }
+/* Lo que está en cestas sueltas, aparte del conteo de arriba y del de la
+   nevera. Existe igual, así que suma a lo que había al empezar; se guarda
+   en su propio sitio para poder verlo y corregirlo sin tocar el conteo. */
+function extraDe(inv, clave) {
+  const v = (inv.extra || {})[clave];
+  if (v === '' || v == null) return 0;
+  const n = parseNum(String(v));
+  return isNaN(n) ? 0 : n;
+}
+function sumarExtras(inv, valores) {
+  for (const clave of clavesCuadre()) {
+    const e = extraDe(inv, clave);
+    if (e) valores[clave] = round2((Number(valores[clave]) || 0) + e);
+  }
+  return valores;
+}
 function inicialDe(inv) {
   if (inv.inicialManual && Object.keys(inv.inicialManual).length && !previaCerrada(inv)) {
-    return { valores: porClaveDeCuadre(inv.inicialManual), de: 'manual' };
+    return { valores: sumarExtras(inv, porClaveDeCuadre(inv.inicialManual)), de: 'manual' };
   }
   const previa = previaCerrada(inv);
-  if (!previa) return { valores: porClaveDeCuadre(inv.inicialManual), de: 'manual' };
+  if (!previa) return { valores: sumarExtras(inv, porClaveDeCuadre(inv.inicialManual)), de: 'manual' };
   const valores = {}, sinContar = [], contadoAntes = {};
   const antes = calcular(previa, true);
   for (const f of antes) {
@@ -2491,6 +2514,7 @@ function inicialDe(inv) {
   const manual = porClaveDeCuadre(inv.inicialManual);
   const corregidos = Object.keys(manual);
   for (const k of corregidos) valores[k] = manual[k];
+  sumarExtras(inv, valores);
   return {
     valores, de: 'cierre', semana: previa.semanaInicio,
     sinContar: sinContar.filter(k => !corregidos.includes(k)),
@@ -2736,6 +2760,8 @@ function calcular(inv, paraArrastre) {
   const corte = !paraArrastre && anteriorSinCerrar(inv);
   return clavesCuadre().map(clave => {
     const inicial = corte ? null : (Number(ini.valores[clave]) || 0);
+    // ya va sumado dentro del inicial; se guarda aparte para poder enseñarlo
+    const extra = extraDe(inv, clave);
     // lo de la semana entera: es lo que se enseña, y lo que de verdad queda
     const recibido = recFin[clave] || 0;
     const vendido = venFin[clave] || 0;
@@ -2763,7 +2789,7 @@ function calcular(inv, paraArrastre) {
       : (esperado === null ? null : esperado);
     return {
       clave, nombre: nombreCuadre(clave), unidad: unidadCuadre(clave),
-      inicial, recibido, vendido, interno, esperado, conteo, alContar, alCerrar,
+      inicial, extra, recibido, vendido, interno, esperado, conteo, alContar, alCerrar,
       arriba, nevera, arribaSistema,
       diaConteo: dia, diaNevera: diaNev, mediaSemana: dia < inv.semanaFin,
       alAbrir: !!inv.conteoAlAbrir,
@@ -2774,8 +2800,10 @@ function calcular(inv, paraArrastre) {
       corregido: (ini.corregidos || []).includes(clave),
       /* Lo que faltaba en el último conteo y se decidió no descontar: sigue
          a la vista hasta que un conteo nuevo diga si apareció. */
+      /* Sin lo de las cestas sueltas: eso no estaba en aquel conteo, y si se
+         contara aquí aparecería como un faltante que nunca existió. */
       pendiente: (inicial === null || (ini.contadoAntes || {})[clave] == null) ? 0
-        : round2(inicial - ini.contadoAntes[clave]),
+        : round2(inicial - extra - ini.contadoAntes[clave]),
       diaPendiente: ini.diaContado || null,
       sinCadena: !!corte
     };
@@ -2936,8 +2964,63 @@ function renderInv() {
       tile(filas.length - contados.length - pendientes.length, 'por contar', '') +
     '</div>';
 
+  renderExtra(filas);
   renderListaInv(filas);
 }
+
+/* El apartado de las cestas sueltas. Se enseñan las que ya tienen algo y,
+   para poner una nueva, un desplegable con el resto: así no son cuarenta
+   casillas vacías ocupando la pantalla. */
+function renderExtra(filas) {
+  const inv = currentInv;
+  const dis = inv.cerrado ? ' disabled' : '';
+  // lo que ya tiene casilla, aunque esté en cero: si no, al agregar una
+  // nueva desaparecería antes de poder escribir dentro
+  const puestos = new Set(Object.keys(inv.extra || {}));
+  const conAlgo = filas.filter(f => puestos.has(f.clave));
+  const resto = filas.filter(f => !puestos.has(f.clave));
+  const cont = $('inv-extra-lista');
+  cont.innerHTML =
+    (conAlgo.length
+      ? conAlgo.map(f => '<div class="inv-item"><div class="inv-item-nom">' + esc(f.nombre) + '</div>' +
+          '<div class="inv-campos"><label><input class="ext" data-c="' + f.clave +
+            '" type="text" inputmode="decimal" value="' + esc(String((inv.extra || {})[f.clave])) +
+            '" placeholder="—"' + dis + '><em>' + (f.unidad === 'kg' ? 'kg' : 'unidades') +
+          '</em></label></div></div>').join('')
+      : '<div class="hint" style="text-align:left;margin:0 0 10px">No hay nada anotado en cestas sueltas.</div>') +
+    (inv.cerrado ? '' :
+      '<div class="field" style="margin-top:10px"><label for="inv-extra-add">Agregar otra cosa</label>' +
+      '<select id="inv-extra-add"><option value="">Elige el producto…</option>' +
+      resto.map(f => '<option value="' + esc(f.clave) + '">' + esc(f.nombre) + '</option>').join('') +
+      '</select></div>');
+
+  const total = filas.filter(f => f.extra).length;
+  $('inv-extra-total').textContent = total
+    ? total + (total === 1 ? ' producto tiene' : ' productos tienen') + ' existencia en cestas sueltas.'
+    : '';
+
+  for (const el of cont.querySelectorAll('.ext')) {
+    el.addEventListener('change', e => {
+      const clave = e.target.dataset.c, v = e.target.value.trim();
+      if (v !== '' && isNaN(parseNum(v))) { toast('Escribe un número'); renderInv(); return; }
+      currentInv.extra = currentInv.extra || {};
+      if (v === '') delete currentInv.extra[clave];
+      else currentInv.extra[clave] = v;
+      touch(currentInv); save(); renderInv();
+    });
+  }
+  const sel = $('inv-extra-add');
+  if (sel) sel.addEventListener('change', e => {
+    const clave = e.target.value;
+    if (!clave) return;
+    currentInv.extra = currentInv.extra || {};
+    currentInv.extra[clave] = '0';
+    touch(currentInv); save(); renderInv();
+    const campo = $('inv-extra-lista').querySelector('.ext[data-c="' + clave + '"]');
+    if (campo) { campo.focus(); campo.select(); }
+  });
+}
+
 function tile(n, etiqueta, clase) {
   return '<div class="tile ' + clase + '"><b>' + n + '</b><span>' + etiqueta + '</span></div>';
 }
@@ -2997,7 +3080,8 @@ function bloqueCuadre(f, inv) {
     ? '<div class="inv-frase falta">Falta cerrar la semana anterior para saber con qué empieza.</div>'
     : '<div class="inv-frase">' +
         celdaNum('tenías', f.inicial,
-          f.corregido ? 'puesto a mano' : f.arrastrado ? 'arrastrado del cierre' : '') +
+          f.extra ? 'con ' + fmt(f.extra) + ' en cestas sueltas'
+            : f.corregido ? 'puesto a mano' : f.arrastrado ? 'arrastrado del cierre' : '') +
         celdaNum('recibiste', f.recibido) +
         celdaNum('vendiste', f.vendido) +
         (f.interno ? celdaNum('vales', f.interno, 'consumo interno') : '') +
@@ -3800,7 +3884,7 @@ initLock();
 syncNow();
 /* La versión que trae ESTE index.html. Tiene que ser la misma que la del
    sw.js; la prueba de versión lo comprueba para que no se despareje. */
-const APP_VERSION = 'mercancia-v74';
+const APP_VERSION = 'mercancia-v75';
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
